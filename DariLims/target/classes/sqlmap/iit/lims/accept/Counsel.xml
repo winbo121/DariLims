@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="counsel">
+
+	<!-- 통합상담목록 조회 -->
+	<select id="selectCounselTotalList" parameterType="CounselVO"  resultType="CounselVO">
+		SELECT
+            TOTAL_NO,
+            TO_CHAR(COUNSEL_DATE,'YYYY-MM-DD') AS COUNSEL_DATE,
+            (SELECT ORG_NM FROM REQ_ORG WHERE REQ_ORG_NO = CT.REQ_ORG_NO) AS ORG_NM,
+            (SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = ORG_TYPE_CD) AS ORG_TYPE,
+            (SELECT PRE_TEL_NUM FROM REQ_ORG WHERE REQ_ORG_NO = CT.REQ_ORG_NO) AS PRE_TEL_NUM,
+            (SELECT CHARGER FROM REQ_ORG WHERE REQ_ORG_NO = CT.REQ_ORG_NO) AS REQ_NM,
+            (SELECT CHARGER_TEL FROM REQ_ORG WHERE REQ_ORG_NO = CT.REQ_ORG_NO) AS REQ_TEL,                        
+            COUNSEL_CLIENT_NM
+        FROM  COUNSEL_TOTAL CT
+        INNER JOIN USER_INFO UI ON UI.USER_ID = CT.CREATER_ID
+<!-- 		INNER JOIN DEPART D ON D.DEPT_CD = UI.DEPT_CD AND SUBSTR(CT.TOTAL_NO, 4, 1) = D.DEPT_LABEL_CD -->
+        WHERE USER_FLAG = 'N'
+		<if test="total_no != null and total_no != '' ">
+			AND TOTAL_NO LIKE '%' || #{total_no} || '%' 
+		</if>
+		<if test="org_nm != null and org_nm != '' ">
+			AND REQ_ORG_NO IN (SELECT REQ_ORG_NO FROM REQ_ORG WHERE ORG_NM LIKE '%' || #{org_nm} || '%')
+		</if>
+		<if test="counsel_client_nm != null and counsel_client_nm != '' ">
+			AND COUNSEL_CLIENT_NM LIKE '%' || #{counsel_client_nm} || '%' 
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND CT.DEPT_CD = #{dept_cd}
+		</if>
+		
+		ORDER BY TOTAL_NO DESC		
+	</select>
+	
+	<!-- 개별상담목록 조회 -->
+	<select id="selectCounselPersonalList" parameterType="CounselVO"  resultType="CounselVO">
+		SELECT
+		    CP.PERSONAL_NO,
+		    TO_CHAR(CP.COUNSEL_DATE,'YYYY-MM-DD') COUNSEL_DATE,
+		    (SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = COUNSEL_DIV) AS COUNSEL_DIV,
+		    (SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = COUNSEL_PROGRESS_STS) AS COUNSEL_PROGRESS_STS,
+		    (SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = CP.COUNSEL_RESULT) AS COUNSEL_RESULT,
+		    UI.USER_NM AS CREATER_ID,
+		    CP.COUNSEL_RESULT_CONTENT
+		FROM  COUNSEL_PERSONAL CP
+		INNER JOIN USER_INFO UI ON UI.USER_ID = CP.CREATER_ID
+		WHERE TOTAL_NO = #{total_no}
+		<if test="counsel_div != null and counsel_div != '' ">
+			AND COUNSEL_DIV = #{counsel_div}
+		</if>
+		<if test="startDate != null and startDate != '' ">
+			AND COUNSEL_DATE <![CDATA[  >=  ]]> #{startDate} 
+		</if>
+		<if test="endDate != null and endDate != '' ">
+			AND COUNSEL_DATE <![CDATA[  <=  ]]> #{endDate}
+		</if>
+		<if test="counsel_progress_sts != null and counsel_progress_sts != '' ">
+			AND COUNSEL_PROGRESS_STS = #{counsel_progress_sts}
+		</if>		
+		<if test="user_nm != null and user_nm != '' ">
+			AND UI.USER_NM LIKE '%' || #{user_nm} || '%'
+		</if>
+		ORDER BY PERSONAL_NO DESC
+	</select>
+		
+	<!-- 통합상담 등록 -->
+	<insert id="insertCounselTotal" parameterType="CounselVO">
+		INSERT INTO COUNSEL_TOTAL
+			(
+			TOTAL_NO,			
+			COUNSEL_CLIENT_NM,
+			COUNSEL_CLIENT_EMAIL,
+			COUNSEL_DATE,
+			REQ_ORG_NO,
+			ORG_TYPE_CD,
+			COUNSELOR_NM,			
+			CREATER_ID,
+			CREATE_DATE,
+			UPDATER_ID,
+			UPDATE_DATE,
+			USER_FLAG,	
+			DEPT_CD	
+		) VALUES (
+			(SELECT 
+			    TO_CHAR(SYSDATE,'YY')||'-'||
+			    ( SELECT LPAD(NVL(MAX(SUBSTR(TOTAL_NO,4,8))+1,1),5,0)
+			    FROM COUNSEL_TOTAL
+			    WHERE SUBSTR(TOTAL_NO,1,2) = TO_CHAR(SYSDATE,'YY')
+			    ) AS NO
+			FROM DUAL),		
+			<!-- 	
+			(SELECT 
+			    TO_CHAR(SYSDATE,'YY')||'-'|| (SELECT DEPT_LABEL_CD FROM DEPART WHERE DEPT_CD = 'D000002' ) ||
+			    ( SELECT DISTINCT LPAD(NVL(MAX(SUBSTR(TOTAL_NO,6,3))+1,1),4,0)
+			    FROM COUNSEL_TOTAL
+			    WHERE SUBSTR(TOTAL_NO,4,1) = (SELECT DEPT_LABEL_CD FROM DEPART WHERE DEPT_CD = 'D000002')
+			    AND SUBSTR(TOTAL_NO,1,2) = TO_CHAR(SYSDATE,'YY')
+			    ) AS NO
+			FROM DUAL ),
+			-->
+			#{counsel_client_nm},
+			#{counsel_client_email},
+			#{counsel_date},
+			#{req_org_no},
+			#{org_type_cd},
+			#{user_id},
+			#{user_id},
+			SYSDATE,
+			'',
+			'',
+			'N',
+			#{dept_cd}
+			)
+	</insert>
+	
+	<!-- 개별상담 등록 -->
+	<insert id="insertCounselPersonal" parameterType="CounselVO">
+		INSERT INTO COUNSEL_PERSONAL
+			(
+			TOTAL_NO,
+			PERSONAL_NO,
+			COUNSEL_DIV,
+			COUNSEL_DATE,
+			COUNSEL_PATH,
+			COUNSEL_CONTENT,
+			COUNSEL_PROGRESS_STS,
+			CREATER_ID
+			) 
+		VALUES
+			(
+			#{total_no},
+			(SELECT #{total_no}||LPAD(NVL((SELECT MAX(SUBSTR(PERSONAL_NO,9,3))+1 FROM COUNSEL_PERSONAL WHERE TOTAL_NO = #{total_no}),1),3,0) FROM DUAL),	
+			#{counsel_div},
+			#{counsel_date},
+			#{counsel_path},
+			#{counsel_content},
+			#{counsel_progress_sts},
+			#{user_id}
+			)	
+	</insert>
+	
+	<!-- 통합 상담 상세 데이터 조회 -->
+	<select id="selectCounselTotalDetail" parameterType="CounselVO" resultType="CounselVO">
+		SELECT
+            TOTAL_NO,
+            REQ_ORG_NO,
+            (SELECT ORG_NM FROM REQ_ORG WHERE REQ_ORG_NO = A.REQ_ORG_NO) AS ORG_NM,
+            ORG_TYPE_CD,
+            (SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = ORG_TYPE_CD) AS ORG_TYPE,
+            (SELECT ZIP_CODE FROM REQ_ORG WHERE REQ_ORG_NO = A.REQ_ORG_NO) AS ZIP_CODE,
+            (SELECT ADDR1 FROM REQ_ORG WHERE REQ_ORG_NO = A.REQ_ORG_NO) || ' ' ||
+            (SELECT ADDR2 FROM REQ_ORG WHERE REQ_ORG_NO = A.REQ_ORG_NO) AS ADDR1,
+            '' BIZ_NO1,
+            (SELECT PRE_TEL_NUM FROM REQ_ORG WHERE REQ_ORG_NO = A.REQ_ORG_NO) AS PRE_TEL_NUM,
+            (SELECT CHARGER FROM REQ_ORG WHERE REQ_ORG_NO = A.REQ_ORG_NO) AS REQ_NM,
+            (SELECT CHARGER_TEL FROM REQ_ORG WHERE REQ_ORG_NO = A.REQ_ORG_NO) AS REQ_TEL,
+            COUNSEL_CLIENT_NM,
+            COUNSEL_CLIENT_EMAIL,
+            (SELECT USER_NM FROM USER_INFO WHERE USER_ID = A.COUNSELOR_NM) AS COUNSELOR_NM,
+            TO_CHAR(COUNSEL_DATE, 'YYYY-MM-DD') AS COUNSEL_DATE
+        FROM COUNSEL_TOTAL A
+		WHERE TOTAL_NO = #{total_no}
+	</select>
+	
+	<!-- 개별 상담 상세 데이터 조회 -->
+	<select id="selectCounselPersonalDetail" parameterType="CounselVO" resultType="CounselVO">
+		SELECT 
+			TOTAL_NO,
+			PERSONAL_NO,
+			COUNSEL_DIV,
+			TO_CHAR(COUNSEL_DATE,'YYYY-MM-DD') COUNSEL_DATE,
+			COUNSEL_PATH,
+			COUNSEL_CONTENT,
+			COUNSEL_PROGRESS_STS,
+			COUNSEL_RESULT,
+			COUNSEL_RESULT_CONTENT
+			FROM COUNSEL_PERSONAL
+		WHERE TOTAL_NO = #{total_no} AND PERSONAL_NO = #{personal_no}
+	</select>
+	
+	<!-- 통합상담 수정 처리 -->
+	<update id="updateCounselTotal" parameterType="CounselVO">
+		UPDATE COUNSEL_TOTAL SET
+			REQ_ORG_NO = #{req_org_no},
+			ORG_TYPE_CD = #{org_type_cd},
+			COUNSEL_CLIENT_NM = #{counsel_client_nm},
+			COUNSEL_CLIENT_EMAIL = #{counsel_client_email},
+			COUNSEL_DATE = #{counsel_date},
+			UPDATER_ID = #{user_id},
+			UPDATE_DATE = SYSDATE
+		WHERE TOTAL_NO = #{total_no}
+	</update>
+	
+	<!-- 개별상담 수정 처리 -->
+	<update id="updateCounselPersonal" parameterType="CounselVO">
+		UPDATE COUNSEL_PERSONAL SET
+			COUNSEL_DIV = #{counsel_div},
+			COUNSEL_DATE = #{counsel_date},
+			COUNSEL_PATH = #{counsel_path},
+			COUNSEL_CONTENT = #{counsel_content},
+			COUNSEL_PROGRESS_STS = #{counsel_progress_sts},
+			COUNSEL_RESULT = #{counsel_result},
+			COUNSEL_RESULT_CONTENT = #{counsel_result_content}
+		WHERE TOTAL_NO = #{total_no} AND PERSONAL_NO = #{personal_no}
+	</update>
+	
+	<!-- 통합상담 삭제 처리 -->
+	<delete id="deleteCounselTotal" parameterType="CounselVO">
+		UPDATE COUNSEL_TOTAL SET
+			USER_FLAG = 'Y',
+			UPDATER_ID = #{user_id},
+			UPDATE_DATE = SYSDATE
+		WHERE TOTAL_NO = #{total_no}		
+	</delete>
+	
+	<!-- 개별상담 삭제 처리 -->
+	<delete id="deleteCounselPersonal" parameterType="CounselVO">
+		DELETE FROM COUNSEL_PERSONAL
+		WHERE TOTAL_NO = #{total_no} AND PERSONAL_NO = #{personal_no}		
+	</delete>
+	
+</mapper>

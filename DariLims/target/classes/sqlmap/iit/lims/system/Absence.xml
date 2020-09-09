@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="system">
+
+	<select id="selectAbsenceList" parameterType="UserVO" resultType="UserVO">
+		SELECT
+		A.USER_ID
+		, U.USER_NM USER_NM
+		, U2.USER_NM SUBSTITUTE_NM
+		, TO_CHAR(TO_DATE(A.START_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') || ' ~ ' || TO_CHAR(TO_DATE(A.END_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') AS STARTDATE
+		, D.DEPT_NM
+		, D2.DEPT_NM SUBSTITUTE_DEPT_NM
+		, A.ETC
+		FROM ABSENCE A
+		LEFT OUTER JOIN USER_INFO U ON A.USER_ID = U.USER_ID
+		LEFT OUTER JOIN DEPART D ON D.DEPT_CD = U.DEPT_CD
+		LEFT OUTER JOIN USER_INFO U2 ON A.SUBSTITUTE_ID = U2.USER_ID
+		LEFT OUTER JOIN DEPART D2 ON D2.DEPT_CD = U2.DEPT_CD
+		<where>
+			<if test="dept_cd != null and dept_cd != '' ">
+				AND U.DEPT_CD = #{dept_cd}
+			</if>
+			<if test="user_nm != null and user_nm != '' ">
+				AND U.USER_NM LIKE '%' || #{user_nm} || '%'
+			</if>
+			<if test="substitute_nm != null and substitute_nm != '' ">
+				AND U2.USER_NM LIKE '%' || #{substitute_nm} || '%'
+			</if>
+		</where>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY D.DEPT_NM, U.USER_NM
+		</if>
+	</select>
+
+	<select id="selectAbsenceDetail" parameterType="UserVO" resultType="UserVO">
+		SELECT
+		A.USER_ID
+		, U.USER_NM USER_NM
+		, U2.USER_NM SUBSTITUTE_NM
+		, TO_CHAR(TO_DATE(A.START_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') AS STARTDATE
+		, TO_CHAR(TO_DATE(A.END_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') AS ENDDATE
+		, D.DEPT_NM
+		, D2.DEPT_NM SUBSTITUTE_DEPT_NM
+		, A.SUBSTITUTE_ID
+		, A.ETC
+		FROM ABSENCE A
+		LEFT OUTER JOIN USER_INFO U ON A.USER_ID = U.USER_ID
+		LEFT OUTER JOIN DEPART D ON D.DEPT_CD = U.DEPT_CD
+		LEFT OUTER JOIN USER_INFO U2 ON A.SUBSTITUTE_ID = U2.USER_ID
+		LEFT OUTER JOIN DEPART D2 ON D2.DEPT_CD = U2.DEPT_CD
+		<where>
+			<if test="user_id != null and user_id != '' ">
+				AND A.USER_ID = #{user_id}
+			</if>
+		</where>
+	</select>
+
+	<insert id="saveAbsence" parameterType="UserVO">
+		MERGE INTO ABSENCE
+		USING DUAL
+		ON (
+		USER_ID = #{ user_id }
+		) WHEN MATCHED THEN
+		UPDATE SET
+		START_DATE = REPLACE(#{startDate}, '-', '')
+		, END_DATE = REPLACE(#{endDate}, '-', '')
+		, SUBSTITUTE_ID = #{ substitute_id }
+		, ETC = #{ etc }
+		WHEN NOT MATCHED THEN
+		INSERT (USER_ID, START_DATE, END_DATE, SUBSTITUTE_ID, ETC )
+		VALUES (
+		#{ user_id }
+		, REPLACE(#{startDate}, '-', '')
+		, REPLACE(#{endDate}, '-', '')
+		, #{ substitute_id }
+		, #{etc }
+		)
+	</insert>
+	<delete id="deleteAbsence" parameterType="UserVO">
+		DELETE FROM ABSENCE
+		WHERE USER_ID = #{ user_id }
+	</delete>
+	<select id="selectAbsenceUserList" parameterType="UserVO" resultType="UserVO">
+		SELECT UI.USER_NM
+		,UI.USER_ID
+		,UI.RANK_NM
+		,UI.DEPT_CD
+		,DP.DEPT_NM
+		,DP.PRE_DEPT_CD
+		FROM USER_INFO UI
+		JOIN DEPART DP ON DP.DEPT_CD = UI.DEPT_CD
+		<where>
+			UI.USE_FLAG = 'Y'
+			AND UI.USER_ID NOT IN (SELECT USER_ID FROM ABSENCE WHERE START_DATE <![CDATA[ <= ]]>
+			SYSDATE AND END_DATE <![CDATA[ >= ]]>
+			SYSDATE)
+			AND UI.USER_ID <![CDATA[ <> ]]> #{user_id}
+			<!-- <if test="dept_cd != null and dept_cd != '' ">
+				AND ( UI.DEPT_CD = #{dept_cd} OR DP.PRE_DEPT_CD = #{dept_cd} )
+			</if> -->
+			<if test="user_nm != null and user_nm != '' ">
+				AND UI.USER_NM like '%'|| #{user_nm} ||'%'
+			</if>
+		</where>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY DEPT_NM, USER_NM
+		</if>
+	</select>
+
+</mapper>

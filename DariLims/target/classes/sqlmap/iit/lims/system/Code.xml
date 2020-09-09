@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="system">
+
+	<!-- 코드그룹 목록 조회 -->
+	<select id="system.selectCodeGroupList" parameterType="CodeVO" resultType="CodeVO">
+		SELECT CODE
+			   ,CODE_NAME
+			   ,CASE WHEN USE_FLAG = 'Y' THEN '사용'
+               	 ELSE '미사용' 
+             	END AS USE_FLAG
+		  FROM COMMON_CODE
+		 WHERE 1=1 
+  		 <if test="code_name != null and code_name != '' ">
+         	AND UPPER( CODE_NAME ) like '%'|| UPPER( #{code_name} ) ||'%'
+         </if>
+         <if test="use_flag != null and use_flag != '' ">
+         	AND USE_FLAG = #{use_flag}
+         </if>
+         <if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY CODE 
+		</if> 
+	</select>
+	
+	<!-- 코드그룹 저장 처리 -->
+	<insert id="system.insertCodeGroup" parameterType="CodeVO">
+		INSERT INTO COMMON_CODE(CODE
+								,CODE_NAME
+								,USE_FLAG	
+						)VALUES(#{code}
+								,#{code_name}
+								,#{use_flag}
+							    )
+	</insert>
+	
+	<!-- 코드그룹 수정 처리 -->
+	<update id="system.updateCodeGroup" parameterType="CodeVO">
+		UPDATE COMMON_CODE
+		   SET CODE_NAME = #{code_name}
+		   	   ,USE_FLAG = #{use_flag}
+		 WHERE CODE = #{code} 	   
+	</update>
+	
+	<!-- 코드상세 목록 조회 -->
+	<select id="system.selectCodeDetailList" parameterType="CodeVO" resultType="CodeVO">
+		SELECT CODE
+			   ,CODE_NAME
+			   ,CASE WHEN USE_FLAG = 'Y' THEN '사용'
+               	 ELSE '미사용' 
+             	END AS USE_FLAG
+               ,DISP_ORDER
+               ,EX_CODE1
+               ,EX_CODE2
+		  FROM COMMON_CODE_DETAIL
+		 WHERE PRE_CODE = #{pre_code}
+		 <if test="code_name != null and code_name != '' ">
+         	AND UPPER( CODE_NAME ) like '%'|| UPPER( #{code_name} ) ||'%'
+         </if>
+         <if test="use_flag != null and use_flag != '' ">
+         	AND USE_FLAG = #{use_flag}
+         </if>
+         <if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY CODE 
+		</if>
+	</select>
+	
+	<!-- 코드상세 저장 처리 -->
+	<insert id="system.insertCodeDetail" parameterType="CodeVO">
+		INSERT INTO COMMON_CODE_DETAIL (CODE
+										,PRE_CODE
+										,CODE_NAME
+										,USE_FLAG
+										,DISP_ORDER	
+										,EX_CODE1
+               							,EX_CODE2							
+								)VALUES(#{code}
+										,#{pre_code}
+										,#{code_name}
+										,#{use_flag}
+										,#{disp_order}
+										,#{ex_code1}
+               							,#{ex_code2}
+									    )
+	</insert>
+	
+	<!-- 코드상세 수정 처리 -->
+	<update id="system.updateCodeDetail" parameterType="CodeVO">
+		UPDATE COMMON_CODE_DETAIL
+		   SET CODE_NAME = #{code_name}
+		   	   ,USE_FLAG = #{use_flag}
+		   	   ,DISP_ORDER = #{disp_order}
+		   	   ,EX_CODE1 = #{ex_code1}
+               ,EX_CODE2 = #{ex_code2}
+		 WHERE CODE = #{code}
+	</update>
+	
+</mapper>

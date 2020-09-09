@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:util="http://www.springframework.org/schema/util"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.2.xsd
+			http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-3.2.xsd
+			http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd">
+
+    <context:component-scan base-package="iit.*">
+       <context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller" />
+    </context:component-scan>
+
+	<bean id="messageSource" class="org.springframework.context.support.ReloadableResourceBundleMessageSource">
+		<property name="basenames">
+			<list>
+				<value>classpath:/message/message-common</value>
+				<value>classpath:/egovframework/rte/fdl/idgnr/messages/idgnr</value>
+				<value>classpath:/egovframework/rte/fdl/property/messages/properties</value>
+			</list>
+		</property>
+		<property name="cacheSeconds">
+			<value>60</value>
+		</property>
+	</bean>
+	
+	<bean id="leaveaTrace" class="egovframework.rte.fdl.cmmn.trace.LeaveaTrace">
+		<property name="traceHandlerServices">
+			<list>
+				<ref bean="traceHandlerService" />
+			</list>
+		</property>
+	</bean>
+
+	<bean id="traceHandlerService" class="egovframework.rte.fdl.cmmn.trace.manager.DefaultTraceHandleManager">
+		<property name="reqExpMatcher">
+			<ref bean="antPathMater" />
+		</property>
+		<property name="patterns">
+			<list>
+				<value>*</value>
+			</list>
+		</property>
+		<property name="handlers">
+			<list>
+				<ref bean="defaultTraceHandler" />
+			</list>
+		</property>
+	</bean>
+	
+	<bean id="antPathMater" class="org.springframework.util.AntPathMatcher" />
+	<bean id="defaultTraceHandler" class="egovframework.rte.fdl.cmmn.trace.handler.DefaultTraceHandler" />
+	
+	<context:component-scan base-package="iit.lims.util.tax.service"/>
+
+	<util:properties id="EXAMPLE_CONFIG">
+	
+	    <!-- 링크아이디 -->
+	    <prop key="LinkID">DARI</prop>
+	
+	    <!-- 비밀키 -->
+	    <prop key="SecretKey">Ifj+04Qv4kjKOnXWjQelxgQuzGGr8RFFARRet+md278=</prop>
+	
+	    <!-- 연동환경 설정값 true(개발용), false(상업용) -->
+	    <prop key="IsTest">true</prop>
+	    <!-- <prop key="IsTest">false</prop> -->
+	
+	    <!-- 인증토큰 아이피 제한 기능 사용여부 권장(true) -->
+	    <prop key="IsIPRestrictOnOff">true</prop>
+	</util:properties>
+
+	  <!-- 세금계산서 Service Implementation Bean registration.  -->
+	  <bean id="taxinvoiceService" class="com.popbill.api.taxinvoice.TaxinvoiceServiceImp">
+	
+      <property name="linkID" value="#{EXAMPLE_CONFIG.LinkID}"/>
+      <property name="secretKey" value="#{EXAMPLE_CONFIG.SecretKey}"/>
+      <property name="test" value="#{EXAMPLE_CONFIG.IsTest}"/>
+      <property name="IPRestrictOnOff" value="#{EXAMPLE_CONFIG.IsIPRestrictOnOff}"/>
+    </bean>
+</beans>

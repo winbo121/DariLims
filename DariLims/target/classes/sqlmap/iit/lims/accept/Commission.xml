@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="commission">
+	<!-- 기준별 항목 기본 수수료관리 리스트  -->
+	<select id="stdItemCommissionList" parameterType="TestPrdStdVO" resultType="TestPrdStdVO">
+		SELECT
+			TSDF.TEST_STD_NO,
+		    TSDF.TESTITM_CD AS TEST_ITEM_CD,
+		    ANAL.TESTITM_NM AS TEST_ITEM_NM,
+		    ANAL.ENG_NM AS TEST_ITEM_ENG_NM,		    
+		    TSDF.DEPT_CD,
+		    TSDF.FEE,
+		    NVL(GET_COMMON_CODE(TESTITM_LCLAS_CD, ''),'') AS TESTITM_LCLAS_CD,
+			NVL(GET_COMMON_CODE(TESTITM_MLSFC_CD, ''),'') AS TESTITM_MLSFC_CD
+		FROM TEST_STD_DEPT_FEE TSDF
+		INNER JOIN ANALYSIS ANAL ON TSDF.TESTITM_CD = ANAL.TESTITM_CD
+		WHERE 1=1
+		<if test="test_item_nm != null and test_item_nm != '' ">
+			AND (UPPER(TRIM(ANAL.TESTITM_NM)) LIKE '%' || UPPER(#{test_item_nm}) || '%' OR UPPER(TRIM(ANAL.ENG_NM)) LIKE '%' || UPPER(#{test_item_nm}) || '%')
+		</if>
+		<if test="testitm_lclas_cd != null and testitm_lclas_cd != '' ">
+			AND ANAL.TESTITM_LCLAS_CD = #{testitm_lclas_cd}
+		</if>
+		<if test="testitm_mlsfc_cd != null and testitm_mlsfc_cd != '' ">
+			AND ANAL.TESTITM_MLSFC_CD = #{testitm_mlsfc_cd}
+		</if>		
+		<if test="test_std_no != null and test_std_no != '' ">
+			AND TSDF.TEST_STD_NO = #{test_std_no}
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND TSDF.DEPT_CD = #{dept_cd}
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY TEST_ITEM_CD
+		</if>	
+	</select>
+		
+	<!-- 20160314_삭제필요(이민아) : 기준별 항목 수수료관리 리스트 저장 -->
+	<insert id="insertStdItemCommission" parameterType="java.util.HashMap">
+		INSERT INTO STD_TEST_ITEM
+			(TEST_STD_NO,
+			REV_NO,
+			TEST_ITEM_CD,
+			FEE,
+			CREATER_ID,
+			CREATE_DATE
+		) VALUES (
+			#{test_std_no},
+			#{rev_no},
+			#{test_item_cd},
+			#{fee},
+			#{user_id},
+			SYSDATE
+		)
+	</insert>
+	
+	<!-- 기준별 항목 수수료관리 리스트 수정 -->
+ 	<update id="updateStdItemCommission" parameterType="java.util.HashMap"> 	
+		UPDATE TEST_STD_DEPT_FEE SET
+			FEE = #{fee},
+			UPDATER_ID = #{user_id},
+			UPDATE_DATE = SYSDATE
+		WHERE 1=1
+			AND TEST_STD_NO = #{test_std_no}			
+			AND TESTITM_CD = #{test_item_cd}
+			AND DEPT_CD = #{dept_cd}
+	</update> 
+	
+	<!-- 기준별 항목 수수료관리 리스트 삭제 -->
+	<delete id="deleteStdItemCommission" parameterType="TestPrdStdVO">
+		DELETE TEST_STD_DEPT_FEE
+		WHERE TESTITM_CD = #{testitm_cd} AND DEPT_CD = #{dept_cd}		
+	</delete>	
+	
+	<!-- 수수료 프로세스 사용 여부 조회 -->
+	<select id="commissionFlag" resultType="String">
+		SELECT USE_FLAG AS COMMISSION_FLAG 
+		FROM COMMON_CODE
+		WHERE CODE = 'ACT'
+	</select>
+	
+	<!-- 수수료 프로세스 사용 여부 수정 -->
+ 	<update id="updateCommissionFlag"  parameterType="TestPrdStdVO">
+		UPDATE COMMON_CODE SET
+			USE_FLAG = #{commission_flag}
+		WHERE CODE = 'ACT'
+	</update> 
+</mapper>

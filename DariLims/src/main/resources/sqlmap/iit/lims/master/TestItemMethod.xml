@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="testItemMethod">
+
+	<select id="selectTestItemMethodList" parameterType="TestMethodVO" resultType="TestMethodVO">
+		SELECT 
+			A.TEST_METHOD_NO
+			, B.TEST_METHOD_NM
+			, B.QUOT_STD
+			, B.CONDITION
+			, B.GUIDE_NM
+			, A.DEFAULT_FLAG
+			, A.TEST_STD_NO
+		FROM TEST_ITEM_METHOD A
+		INNER JOIN TEST_METHOD B ON A.TEST_METHOD_NO = B.TEST_METHOD_NO
+		WHERE TEST_ITEM_CD = #{test_item_cd}
+		<if test="test_std_no != null and test_std_no != '' ">
+			AND A.TEST_STD_NO = #{test_std_no}
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY DEFAULT_FLAG DESC, TEST_METHOD_NM 
+		</if>
+	</select>
+	
+	<select id="selectAllMethodList" parameterType="TestMethodVO" resultType="TestMethodVO">
+		SELECT 
+			TEST_METHOD_NO,
+			TEST_METHOD_NM,
+			QUOT_STD,
+			CONDITION,
+			GUIDE_NM
+		FROM TEST_METHOD
+		WHERE 1=1
+		<if test="test_method_nm != null and test_method_nm != '' ">
+			AND UPPER(TEST_METHOD_NM) like '%' || UPPER( #{test_method_nm} ) || '%'
+		</if>
+		<if test="quot_std != null and quot_std != '' ">
+			AND UPPER(QUOT_STD) like '%' || UPPER( #{quot_std} ) || '%'
+		</if>
+		<if test="condition != null and condition != '' ">
+			AND UPPER(CONDITION) like '%' || UPPER( #{condition} ) || '%'
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY TEST_METHOD_NM
+		</if>
+	</select>
+	
+	<insert id="insertTestItemMethod" parameterType="TestMethodVO">
+		INSERT INTO TEST_ITEM_METHOD(
+			TEST_ITEM_CD
+			,TEST_METHOD_NO
+			,CREATE_DATE
+			,CREATER_ID
+			,DEFAULT_FLAG
+			,TEST_STD_NO
+		)VALUES(
+			#{test_item_cd}
+			,#{test_method_no}
+			,SYSDATE
+			,#{user_id}
+			,#{default_flag}
+			,#{test_std_no}
+		)
+	</insert>
+	<delete id="deleteTestItemMethod" parameterType="TestMethodVO">
+		DELETE FROM TEST_ITEM_METHOD
+		WHERE TEST_ITEM_CD = #{test_item_cd}
+		AND TEST_STD_NO = #{test_std_no}
+	</delete>
+</mapper>

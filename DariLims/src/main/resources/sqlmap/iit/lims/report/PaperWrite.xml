@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="paperWrite">
+	<select id="selectPaperList" parameterType="PaperVO" resultType="PaperVO">
+		SELECT QM.REPORT_DOC_SEQ QREPORT_NO
+		, QM.REPORT_TYPE QREPORT_ID
+		, QM.QREPORT_TYPE
+		, CASE
+		WHEN QM.QREPORT_TYPE = 'C54001' THEN QM.YEAR || '년'
+		WHEN QM.QREPORT_TYPE = 'C54002' THEN QM.YEAR || '년 ' || C1.CODE_NAME
+		WHEN QM.QREPORT_TYPE = 'C54003' THEN QM.YEAR || '년 ' || TO_NUMBER(QM.MON) ||'월'
+		ELSE TO_CHAR(TO_DATE(QM.WEEK_START, 'YYYYmmdd'), 'YYYY-mm-dd') ||' ~ '|| TO_CHAR(TO_DATE(QM.WEEK_END, 'YYYYmmdd'), 'YYYY-mm-dd')
+		END AS YEAR
+		,TO_CHAR(TO_DATE(QM.WRITE_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') WRITE_DATE
+		, Q.REPORT_NM AS QREPORT_NM
+		, UW.UNIT_WORK_NM
+		, U.USER_NM
+		, D.DEPT_NM
+		, QM.ONNARA_APPV_STATE
+		, TO_CHAR(TO_DATE(QM.WEEK_START, 'YYYYmmdd'), 'YYYY-mm-dd') WEEK_START
+		, TO_CHAR(TO_DATE(QM.WEEK_END, 'YYYYmmdd'), 'YYYY-mm-dd') WEEK_END
+		FROM REPORT_DOC QM
+		LEFT OUTER JOIN REPORT_NAME Q ON QM.REPORT_TYPE = Q.REPORT_SEQ
+		LEFT OUTER JOIN UNIT_WORK UW ON Q.UNIT_WORK_CD = UW.UNIT_WORK_CD
+		LEFT OUTER JOIN USER_INFO U ON QM.CREATER_ID = U.USER_ID
+		LEFT OUTER JOIN DEPART D ON U.DEPT_CD = D.DEPT_CD
+		LEFT OUTER JOIN COMMON_CODE_DETAIL C1 ON C1.CODE = QM.QUART
+		WHERE STATE != 'Z'
+		AND SUBSTR( QM.REPORT_TYPE , 1, 1) ='Q'
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				AND TO_CHAR(TO_DATE(QM.WRITE_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') BETWEEN #{startDate} AND #{endDate}
+			</if>
+		</if>
+		<if test="qreport_id != null and qreport_id != '' ">
+			AND QM.REPORT_TYPE = #{qreport_id}
+		</if>
+		<if test="unit_work_cd != null and unit_work_cd != '' ">
+			AND Q.UNIT_WORK_CD = #{unit_work_cd}
+		</if>
+		<if test="year != null and year != '' ">
+			AND QM.YEAR = #{year}
+		</if>
+		<if test="quart != null and quart != '' ">
+			AND QM.QUART = #{quart}
+		</if>
+		<if test="mon != null and mon != '' ">
+			AND TO_NUMBER(QM.MON) = #{mon}
+		</if>
+		<if test="week_start != null and week_start != ''">
+			<if test="week_end != null and week_end != ''">
+				<!-- 시작데이터가 week_start~week_end 안에 있거나 종료데이터가 week_start~week_end 안에 있는거 -->
+				AND (TO_CHAR(TO_DATE(WEEK_START, 'YYYYmmdd'), 'YYYY-mm-dd') BETWEEN #{week_start} AND #{week_end} OR TO_CHAR(TO_DATE(WEEK_END, 'YYYYmmdd'), 'YYYY-mm-dd') BETWEEN #{week_start} AND #{week_end})
+			</if>
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY QM.WRITE_DATE
+		</if>
+	</select>
+
+	<select id="selectPaperDetail" parameterType="PaperVO" resultType="PaperVO">
+		SELECT QM.REPORT_DOC_SEQ QREPORT_NO
+		, QM.REPORT_TYPE || '$%' || Q.REPORT_FILE_NM || '$%' || UW.UNIT_WORK_NM AS QREPORT_ID
+		, QM.QREPORT_TYPE
+		, QM.YEAR
+		, TO_CHAR(TO_DATE(QM.WEEK_START, 'YYYYmmdd'), 'YYYY-mm-dd') WEEK_START
+		, TO_CHAR(TO_DATE(QM.WEEK_END, 'YYYYmmdd'), 'YYYY-mm-dd') WEEK_END
+		, QM.QUART
+		, QM.MON
+		, QM.DAY
+		, TO_CHAR(TO_DATE(QM.WRITE_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') WRITE_DATE
+		, Q.REPORT_NM
+		, UW.UNIT_WORK_NM
+		, QM.CREATER_ID USER_ID
+		FROM REPORT_DOC QM
+		LEFT OUTER JOIN REPORT_NAME Q ON QM.REPORT_TYPE = Q.REPORT_SEQ
+		LEFT OUTER JOIN UNIT_WORK UW ON Q.UNIT_WORK_CD = UW.UNIT_WORK_CD
+		WHERE QM.REPORT_DOC_SEQ = #{qreport_no}
+	</select>
+
+	<insert id="insertPaperDetail" parameterType="PaperVO">
+		INSERT INTO REPORT_DOC(
+		REPORT_DOC_SEQ
+		, REPORT_TYPE
+		<if test="qreport_type != null and qreport_type != '' ">
+			, QREPORT_TYPE
+		</if>
+		<if test="year != null and year != '' ">
+			, YEAR
+		</if>
+		<if test="quart != null and quart != '' ">
+			, QUART
+			<if test="qreport_type == 'C54002' ">
+				, QUART_START
+				, QUART_END
+			</if>
+		</if>
+		<if test="mon != null and mon != '' ">
+			, MON
+		</if>
+		<if test="week_start != null and week_start != '' ">
+			, WEEK_START
+		</if>
+		<if test="week_end != null and week_end != '' ">
+			, WEEK_END
+		</if>
+		<if test="write_date != null and write_date != '' ">
+			, WRITE_DATE
+		</if>
+		, CREATE_DATE
+		, CREATER_ID
+		, ONNARA_LINK_YN
+		<if test="onnara_link_yn == 'Y'.toString() ">
+			<if test="onnara_appv_state != null and onnara_appv_state != '' ">
+				, ONNARA_APPV_STATE
+			</if>
+			, ONNARA_FILE_FLAG
+		</if>
+		<if test="onnara_title != null and onnara_title != '' ">
+			, ONNARA_TITLE
+		</if>
+		<if test="onnara_con != null and onnara_con != '' ">
+			, ONNARA_CON
+		</if>
+		<if test="state != null and state != '' ">
+			, STATE
+		</if>
+		)VALUES(
+		#{qreport_no}
+		, SUBSTR(#{qreport_id}, 0, INSTR(#{qreport_id},'$%', 1)-1)
+		<if test="qreport_type != null and qreport_type != '' ">
+			, #{qreport_type}
+		</if>
+		<if test="year != null and year != '' ">
+			, #{year}
+		</if>
+		<if test="quart != null and quart != '' ">
+			, #{quart}
+			<if test="qreport_type == 'C54002' ">
+				<if test="quart == 'C14001' ">
+					, '1'
+					, '3'
+				</if>
+				<if test="quart == 'C14002' ">
+					, '4'
+					, '6'
+				</if>
+				<if test="quart == 'C14003' ">
+					, '7'
+					, '9'
+				</if>
+				<if test="quart == 'C14004' ">
+					, '10'
+					, '12'
+				</if>
+			</if>
+		</if>
+		<if test="mon != null and mon != '' ">
+			, LPAD(#{mon}, 2, 0)
+		</if>
+		<if test="week_start != null and week_start != '' ">
+			, TO_CHAR(TO_DATE(#{week_start}, 'YYYY-mm-dd'), 'YYYYmmdd')
+		</if>
+		<if test="week_end != null and week_end != '' ">
+			, TO_CHAR(TO_DATE(#{week_end}, 'YYYY-mm-dd'), 'YYYYmmdd')
+		</if>
+		<if test="write_date != null and write_date != '' ">
+			, TO_CHAR(TO_DATE(#{write_date}, 'YYYY-mm-dd'), 'YYYYmmdd')
+		</if>
+		, SYSDATE
+		, #{user_id}
+		, #{onnara_link_yn}
+		<if test="onnara_link_yn == 'Y'.toString() ">
+			<if test="onnara_appv_state != null and onnara_appv_state != '' ">
+				, #{onnara_appv_state}
+			</if>
+			, 'N'
+		</if>
+		<if test="onnara_title != null and onnara_title != '' ">
+			, #{onnara_title}
+		</if>
+		<if test="onnara_con != null and onnara_con != '' ">
+			, #{onnara_con}
+		</if>
+		<if test="state != null and state != '' ">
+			, #{state}
+		</if>
+		)
+	</insert>
+	<update id="updatePaperDetail" parameterType="PaperVO">
+		UPDATE REPORT_DOC SET
+		REPORT_TYPE = SUBSTR(#{qreport_id}, 0, INSTR(#{qreport_id},'$%', 1)-1)
+		<if test="qreport_type != null and qreport_type != '' ">
+			, QREPORT_TYPE = #{qreport_type}
+		</if>
+		<if test="year != null ">
+			, YEAR = #{year}
+		</if>
+		<if test="quart != null ">
+			, QUART = #{quart}
+			<if test="qreport_type == 'C54002' ">
+				<if test="quart == 'C14001' ">
+					, QUART_START = '1'
+					, QUART_END = '3'
+				</if>
+				<if test="quart == 'C14002' ">
+					, QUART_START = '4'
+					, QUART_END = '6'
+				</if>
+				<if test="quart == 'C14003' ">
+					, QUART_START = '7'
+					, QUART_END = '9'
+				</if>
+				<if test="quart == 'C14004' ">
+					, QUART_START = '10'
+					, QUART_END = '12'
+				</if>
+			</if>
+		</if>
+		<if test="mon != null ">
+			, MON = LPAD(#{mon}, 2, 0)
+		</if>
+		<if test="week_start != null and week_start != '' ">
+			, WEEK_START = TO_CHAR(TO_DATE(#{week_start}, 'YYYY-mm-dd'), 'YYYYmmdd')
+		</if>
+		<if test="week_end != null and week_end != '' ">
+			, WEEK_END = TO_CHAR(TO_DATE(#{week_end}, 'YYYY-mm-dd'), 'YYYYmmdd')
+		</if>
+		<if test="write_date != null ">
+			, WRITE_DATE = TO_CHAR(TO_DATE(#{write_date}, 'YYYY-mm-dd'), 'YYYYmmdd')
+		</if>
+		, UPDATE_DATE = SYSDATE
+		, UPDATER_ID = #{user_id}
+		, ONNARA_LINK_YN = #{onnara_link_yn}
+		<if test="onnara_link_yn == 'Y'.toString() ">
+			<if test="onnara_appv_state != null and onnara_appv_state != '' ">
+				, ONNARA_APPV_STATE = #{onnara_appv_state}
+			</if>
+			, ONNARA_FILE_FLAG = 'N'
+		</if>
+		<if test="onnara_title != null and onnara_title != '' ">
+			, ONNARA_TITLE = #{onnara_title}
+		</if>
+		<if test="onnara_con != null and onnara_con != '' ">
+			, ONNARA_CON = #{onnara_con}
+		</if>
+		<if test="state != null and state != '' ">
+			, STATE = #{state}
+		</if>
+		WHERE REPORT_DOC_SEQ = #{qreport_no}
+	</update>
+	<delete id="deletePaperDetail" parameterType="PaperVO">
+		DELETE FROM REPORT_DOC
+		WHERE REPORT_DOC_SEQ = #{qreport_no}
+	</delete>
+	<select id="selectPaperNo" resultType="String">
+		SELECT LPAD(NVL(MAX(REPORT_DOC_SEQ), 0)+1 , 7, 0) FROM REPORT_DOC
+	</select>
+</mapper>

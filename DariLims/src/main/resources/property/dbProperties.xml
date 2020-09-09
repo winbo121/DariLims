@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+	<comment>DB</comment>
+	<entry key="base.driver">core.log.jdbc.driver.OracleDriver</entry>
+	
+	<!-- 개발 --> 	
+ 	<entry key="base.url">jdbc:oracle:thin:@203.229.218.187:22221/iit</entry> 
+	<!-- 운영 --> 	
+	<!-- <entry key="base.url">jdbc:oracle:thin:@localhost:1521/lims</entry>  -->
+
+	<entry key="base.username">DARI_USER</entry>
+	<entry key="base.password">DARI_USER</entry>
+
+</properties>

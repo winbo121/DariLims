@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="testItemInst">
+
+	<select id="selectAllInstList" parameterType="machineVO" resultType="machineVO">
+		SELECT 
+			INST_NO,
+			INST_MNG_NO,
+			INST_KOR_NM
+		FROM INSTRUMENT
+		WHERE USE_FLAG = 'Y'
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND DEPT_CD = #{dept_cd} 
+		</if>
+		<if test="inst_mng_no != null and inst_mng_no != '' ">
+			AND UPPER(INST_MNG_NO) like '%' || UPPER( #{inst_mng_no} ) || '%' 
+		</if>
+		<if test="inst_kor_nm != null and inst_kor_nm != '' ">
+			AND UPPER(INST_KOR_NM) like '%' || UPPER( #{inst_kor_nm} ) || '%' 
+		</if>
+		 <if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		 </if>
+		 <if test="sortName == null or sortName == '' ">
+			ORDER BY INST_NO
+		 </if>
+	</select>
+	
+	<select id="selectTestItemInstList" parameterType="machineVO" resultType="machineVO">	
+		SELECT 
+		    T.TEST_ITEM_CD, 
+			T.INST_NO,
+			T.DEFAULT_FLAG,
+			I.INST_MNG_NO, 
+			I.INST_KOR_NM,
+		    T.TEST_STD_NO
+		FROM TEST_ITEM_INST T
+		LEFT JOIN INSTRUMENT I ON T.INST_NO = I.INST_NO
+		WHERE T.TEST_ITEM_CD = #{test_item_cd}
+		<if test="test_std_no != null and test_std_no != '' ">
+			AND T.TEST_STD_NO = #{test_std_no}
+		</if>		
+		<if test="inst_no != null and inst_no != '' ">
+			AND UPPER(T.INST_NO) like '%' || UPPER( #{inst_no} ) || '%' 
+		</if>
+		<if test="inst_kor_nm != null and inst_kor_nm != '' ">
+			AND UPPER(I.INST_KOR_NM) like '%' || UPPER( #{inst_kor_nm} ) || '%' 
+		</if>
+		 <if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		 </if>
+		 <if test="sortName == null or sortName == '' ">
+			ORDER BY DEFAULT_FLAG DESC, INST_NO
+		 </if>		
+	</select>
+	
+	<insert id="insertTestItemInst" parameterType="machineVO">
+		INSERT INTO TEST_ITEM_INST (
+			TEST_ITEM_CD,
+			INST_NO,
+			DEFAULT_FLAG,
+			CREATER_ID,
+			TEST_STD_NO,
+			CREATE_DATE
+		) VALUES (
+			#{test_item_cd},
+			#{inst_no},
+			#{default_flag},
+			#{creater_id},
+			#{test_std_no},
+			SYSDATE
+		) 		
+	</insert>
+	
+	<delete id="deleteTestItemInst" parameterType="machineVO">
+		DELETE TEST_ITEM_INST
+		WHERE TEST_ITEM_CD = #{test_item_cd}
+	</delete>
+
+</mapper>

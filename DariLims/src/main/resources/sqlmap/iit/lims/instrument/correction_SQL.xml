@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="correction">
+
+	<select id="correction" parameterType="correctionVO" resultType="correctionVO">
+		SELECT ICH.CRT_NO
+			, TO_CHAR(TO_DATE( ICH.CRT_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') CRT_DATE
+			, ICH.CRT_ORG
+			, ICH.CRT_RESULT
+			, TO_CHAR(TO_DATE( ICH.NXT_CRT_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') NXT_CRT_DATE
+            , ICH.CRT_YN
+            , UI.USER_NM AS MNG_NM
+			, UI2.USER_NM AS MNG_SUB_NM 
+		FROM INST_CRT_HIS ICH
+		LEFT JOIN USER_INFO UI ON ICH.CRT_USER_ID = UI.USER_ID
+   		LEFT JOIN USER_INFO UI2 ON ICH.CRTSUB_USER_ID = UI2.USER_ID
+		WHERE ICH.INST_NO = #{inst_no} 
+		ORDER BY CRT_NO ASC
+	</select>
+
+	<select id="correctionDetail" parameterType="correctionVO" resultType="correctionVO">
+		SELECT ICH.INST_NO
+			, TO_CHAR(TO_DATE( CRT_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') CRT_DATE
+			, CRT_ORG
+			, CRT_RESULT
+			, TO_CHAR(TO_DATE( NXT_CRT_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') NXT_CRT_DATE
+            , ICH.CRT_YN
+            , ICH.CRT_USER_ID AS MNG_ID
+            , ICH.CRTSUB_USER_ID AS MNG_SUB_ID
+            , UI.USER_NM AS MNG_NM
+			, UI2.USER_NM AS MNG_SUB_NM 
+		FROM INST_CRT_HIS ICH
+		LEFT JOIN USER_INFO UI ON ICH.CRT_USER_ID = UI.USER_ID
+   		LEFT JOIN USER_INFO UI2 ON ICH.CRTSUB_USER_ID = UI2.USER_ID    
+		WHERE ICH.CRT_NO = #{crt_no}
+	</select>
+
+	<insert id="insertCorrection" parameterType="correctionVO">
+		BEGIN
+			INSERT INTO INST_CRT_HIS(
+		            CRT_NO
+		            ,INST_NO
+		            ,CRT_DATE
+		            ,CRT_ORG
+		            ,CRT_RESULT
+		            ,NXT_CRT_DATE
+		            ,CRT_YN
+		            ,CRT_USER_ID
+		            ,CRTSUB_USER_ID
+			  )VALUES(
+		    		(SELECT LPAD(NVL(MAX(CRT_NO),0)+1,6,0) FROM INST_CRT_HIS)				    
+				    , #{inst_no}
+				    , REPLACE(#{crt_date}, '-', '')
+				    , #{crt_org}
+				    , #{crt_result}
+				    , REPLACE(#{nxt_crt_date}, '-', '')
+				    , #{crt_yn}
+				    , #{mng_id}
+		            , #{mng_sub_id}
+			    );
+		    UPDATE INSTRUMENT SET CRT_DATE = REPLACE(#{nxt_crt_date}, '-', '') 
+		    WHERE INST_NO=#{inst_no} ;
+		END;
+	</insert>
+	
+	<update id="updateCorrection" parameterType="correctionVO">					
+		BEGIN
+			UPDATE INST_CRT_HIS SET
+				INST_NO = #{inst_no}
+			    , CRT_DATE = REPLACE(#{crt_date},'-','')
+				, CRT_ORG = #{crt_org}
+				, CRT_RESULT = #{crt_result}
+			    , NXT_CRT_DATE = REPLACE(#{nxt_crt_date},'-','')
+			    , CRT_YN = #{crt_yn}
+			WHERE CRT_NO = #{crt_no};
+				
+			UPDATE INSTRUMENT SET CRT_DATE = (SELECT NXT_CRT_DATE FROM INST_CRT_HIS WHERE CRT_NO=(SELECT MAX(CRT_NO) FROM INST_CRT_HIS WHERE INST_NO = #{inst_no}))
+			WHERE INST_NO = #{inst_no};
+		END;	
+	</update>
+	
+	<delete id="deleteCorrection" parameterType="correctionVO">
+		DELETE INST_CRT_HIS 
+		WHERE CRT_NO = #{crt_no}
+	</delete>
+	
+	<select id="correction2" parameterType="correctionVO" resultType="correctionVO">
+		SELECT ICH.INTCHK_NO
+			, TO_CHAR(TO_DATE( INTCHK_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') INTCHK_DATE
+			, INTCHK_ORG
+			, INTCHK_RESULT
+			, TO_CHAR(TO_DATE( NXT_INTCHK_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') NXT_INTCHK_DATE			
+            , ICH.INTCHK_YN
+            , UI.USER_NM AS MNG_NM
+            , UI2.USER_NM AS MNG_SUB_NM
+		FROM INST_INTCHK_HIS ICH        
+   		LEFT JOIN USER_INFO UI ON ICH.INTCHK_USER_ID = UI.USER_ID
+   		LEFT JOIN USER_INFO UI2 ON ICH.INTCHKSUB_USER_ID = UI2.USER_ID
+		WHERE ICH.INST_NO = #{inst_no} 
+		ORDER BY INTCHK_NO ASC
+	</select>
+
+	<select id="correctionDetail2" parameterType="correctionVO" resultType="correctionVO">
+		SELECT ICH.INST_NO
+			, TO_CHAR(TO_DATE( INTCHK_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') INTCHK_DATE
+			, INTCHK_ORG
+			, INTCHK_RESULT
+			, TO_CHAR(TO_DATE( NXT_INTCHK_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') NXT_INTCHK_DATE			
+            , ICH.INTCHK_YN
+            , ICH.INTCHK_USER_ID AS MNG_ID
+            , ICH.INTCHKSUB_USER_ID AS MNG_SUB_ID
+            , UI.USER_NM AS MNG_NM
+            , UI2.USER_NM AS MNG_SUB_NM
+		FROM INST_INTCHK_HIS ICH
+   		LEFT JOIN USER_INFO UI ON ICH.INTCHK_USER_ID = UI.USER_ID
+   		LEFT JOIN USER_INFO UI2 ON ICH.INTCHKSUB_USER_ID = UI2.USER_ID
+		WHERE ICH.INTCHK_NO = #{intchk_no}
+	</select>
+
+	<insert id="insertCorrection2" parameterType="correctionVO">
+		BEGIN
+		    INSERT INTO INST_INTCHK_HIS(
+	            INTCHK_NO
+	            ,INST_NO
+	            ,INTCHK_DATE
+	            ,INTCHK_ORG
+	            ,INTCHK_RESULT
+	            ,NXT_INTCHK_DATE
+	            ,INTCHK_YN
+	            ,INTCHK_USER_ID
+	            ,INTCHKSUB_USER_ID
+		    )VALUES(
+	    		(SELECT LPAD(NVL(MAX(INTCHK_NO),0)+1,6,0) FROM INST_INTCHK_HIS)				    
+			    , #{inst_no}
+			    , REPLACE(#{intchk_date}, '-', '')
+			    , #{intchk_org}
+			    , #{intchk_result}
+			    , REPLACE(#{nxt_intchk_date}, '-', '')
+			    , #{intchk_yn}
+			    , #{mng_id}
+	            , #{mng_sub_id}
+		    );
+		    
+		    UPDATE INSTRUMENT SET INTCHK_DATE = REPLACE(#{nxt_intchk_date}, '-', '') 
+		    WHERE INST_NO=#{inst_no} ;
+		END;
+	</insert>
+	
+	<update id="updateCorrection2" parameterType="correctionVO">				
+		BEGIN	
+			UPDATE INST_INTCHK_HIS SET
+				  INST_NO = #{inst_no}
+			    , INTCHK_DATE = REPLACE(#{intchk_date},'-','')
+				, INTCHK_ORG = #{intchk_org}
+				, INTCHK_RESULT = #{intchk_result}
+			    , NXT_INTCHK_DATE = REPLACE(#{nxt_intchk_date},'-','')
+			    , INTCHK_YN = #{intchk_yn}
+			WHERE INTCHK_NO = #{intchk_no};
+			
+			UPDATE INSTRUMENT SET INTCHK_DATE = (SELECT NXT_INTCHK_DATE FROM INST_INTCHK_HIS WHERE INTCHK_NO=(SELECT MAX(INTCHK_NO) FROM INST_INTCHK_HIS WHERE INST_NO = #{inst_no}))
+			WHERE INST_NO = #{inst_no};			
+		END;	
+	</update>
+	
+	<delete id="deleteCorrection2" parameterType="correctionVO">
+		DELETE INST_INTCHK_HIS 
+		WHERE INTCHK_NO = #{intchk_no}
+	</delete>
+	
+	<select id="correctionMng" parameterType="correctionVO" resultType="correctionVO">
+		SELECT 
+			 A.MNG_ID
+			,A.MNG_SUB_ID
+			,UI.USER_NM AS MNG_NM
+			,UI2.USER_NM AS MNG_SUB_NM 
+		FROM INST_MNG_HIS A
+		LEFT JOIN USER_INFO UI ON A.MNG_ID = UI.USER_ID
+   		LEFT JOIN USER_INFO UI2 ON A.MNG_SUB_ID = UI2.USER_ID
+		WHERE A.INST_NO = #{inst_no}
+		AND A.MNG_GBN = #{mng_gbn}
+		AND SYSDATE > TO_DATE(A.MNG_START,'YYYYMMDD') AND TO_DATE(A.MNG_END,'YYYYMMDD') > SYSDATE		
+	</select>
+</mapper>

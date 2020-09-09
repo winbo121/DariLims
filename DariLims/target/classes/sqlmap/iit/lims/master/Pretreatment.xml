@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="pretreatment">
+
+	<!-- 품목별 전처리비용 리스트 조회 -->
+	<select id="selectPretMList" parameterType="PretreatmentVO" resultType="PretreatmentVO">
+		SELECT PC.PRDLST_CD, PC.KOR_NM, PT.PRETREATMENT_CD, PT.PRETREATMENT_NM, PT.PRE_METHOD, PT.PRE_COST, PT.PRE_DEL
+        FROM PRETREATMENT PT
+        LEFT OUTER JOIN PRDLST_CL PC ON PC.PRDLST_CD = PT.PRDLST_CD
+        WHERE PC.PRDLST_CD = #{prdlst_cd}
+        AND PT.PRE_DEL = 'N'
+        <if test="pretreatment_nm != null and pretreatment_nm != '' ">
+			AND PRETREATMENT_NM LIKE '%'||#{pretreatment_nm}||'%'
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY 1
+		</if>
+	</select>
+	
+	<!-- 항목 등급 등록 -->
+	<insert id="insertPretreatment" parameterType="PretreatmentVO">
+		INSERT INTO PRETREATMENT(
+			PRETREATMENT_CD
+			, PRDLST_CD
+			, PRETREATMENT_NM
+			, PRE_METHOD
+			, PRE_COST
+			, PRE_DEL
+			) 
+		VALUES (
+			(SELECT LPAD(NVL(MAX(PRETREATMENT_CD),0)+1, 5, 0) FROM PRETREATMENT)
+			, #{prdlst_cd}
+			, #{pretreatment_nm}
+			, #{pre_method}
+			, #{pre_cost}
+			, 'N'
+		)
+	</insert>
+	
+	<!-- 전처리비용 수정 -->
+	<update id="updatePretreatment" parameterType="PretreatmentVO">
+		UPDATE PRETREATMENT 
+		SET 
+			PRETREATMENT_NM = #{pretreatment_nm}
+			, PRE_METHOD = #{pre_method}
+			, PRE_COST = #{pre_cost}
+		WHERE 1=1
+		AND PRE_DEL = 'N'
+		AND PRETREATMENT_CD = ${pretreatment_cd}
+	</update>
+	
+	<!-- 항목 등급 삭제 -->
+	<update id="deletePretreatment" parameterType="PretreatmentVO">
+		UPDATE PRETREATMENT 
+		SET PRE_DEL = 'Y'
+		WHERE PRETREATMENT_CD = ${pretreatment_cd}
+		AND PRE_DEL = 'N'
+	</update>
+	
+</mapper>

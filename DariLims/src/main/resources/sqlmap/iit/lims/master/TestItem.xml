@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="testItem">
+	<!-- 항목 조회 -->
+	<select id="selectTestItemAllList" parameterType="TestItemVO" resultType="TestItemVO">
+		SELECT * FROM 
+		(
+			SELECT 
+				VW_LIST.*, 
+				ROWNUM AS ROW_NUM, 
+				FLOOR((ROWNUM -1) / #{pageSize} /**P*/ + 1) AS PAGENUM,
+				COUNT(*) OVER() AS TOTALCOUNT, 
+				COUNT(*) OVER() AS TOTAL, 
+				CEIL(COUNT(*) OVER() /   #{pageSize} /**P*/) AS TOTALPAGE
+			FROM 
+			(
+				SELECT
+					ANL.TESTITM_CD AS TEST_ITEM_CD,
+					ANL.TESTITM_NM AS TEST_ITEM_NM,
+					ANL.ENG_NM AS TEST_ITEM_ENG_NM,
+					NVL(GET_COMMON_CODE(TESTITM_LCLAS_CD, ''),'') AS TESTITM_LCLAS_NM,
+					NVL(GET_COMMON_CODE(TESTITM_MLSFC_CD, ''),'') AS TESTITM_MLSFC_NM,
+					NCKNM,
+					ABRV,
+					REMN_MTTR_DFN,
+					ANL.KFDA_YN,
+					<if test="popUp == 'Yes'">					
+          			TF.DEPT_CD,
+          			TF.FEE,
+          			</if>
+					DECODE(USE_YN, 'Y', '예', '아니오') USE_FLAG,
+					TO_CHAR(LAST_UPDT_DTM, 'YYYY-mm-dd') LAST_UPDT_DTM
+				FROM ANALYSIS ANL
+				<if test="popUp == 'Yes'">
+				    LEFT OUTER JOIN TEST_STD_DEPT_FEE TF ON TF.TESTITM_CD= ANL.TESTITM_CD
+				</if>
+				WHERE 1=1  
+				<if test="test_item_nm != null and test_item_nm != '' ">
+					AND (UPPER(ANL.TESTITM_NM) LIKE '%' || UPPER(#{test_item_nm}) || '%' OR UPPER(ANL.ENG_NM) LIKE '%' || UPPER(#{test_item_nm}) || '%')
+				</if>
+				<if test="testitm_lclas_cd != null and testitm_lclas_cd != '' ">
+					AND ANL.TESTITM_LCLAS_CD = #{testitm_lclas_cd}
+				</if>
+				<if test="testitm_mlsfc_cd != null and testitm_mlsfc_cd != '' ">
+					AND ANL.TESTITM_MLSFC_CD = #{testitm_mlsfc_cd}
+				</if>
+				<if test="use_flag != null and use_flag != '' ">
+					AND ANL.USE_YN = #{use_flag} 
+				</if>
+				<if test="popUp == 'Yes'">
+					<if test="dept_cd != null and dept_cd != '' ">
+						AND TF.DEPT_CD = #{dept_cd}
+					</if>
+				</if>
+				<if test="kfda_yn != null and kfda_yn != '' ">
+					AND ANL.KFDA_YN = #{kfda_yn} 
+				</if>
+				<if test="sortName != null and sortName != '' ">
+					ORDER BY ${sortName} ${sortType}
+				</if>
+				<if test="sortName == null or sortName == '' ">
+					ORDER BY ANL.TESTITM_LCLAS_CD, ANL.TESTITM_MLSFC_CD
+				</if>
+				
+			) VW_LIST
+	    )  
+		<!-- WHERE PAGENUM = #{pageNum} -->
+	</select>
+
+	<!-- 항목별 시험방법 리스트 조회 -->
+	<select id="selectTestItemList" parameterType="TestItemVO" resultType="TestItemVO">
+		SELECT 
+			ANL.TESTITM_CD AS TEST_ITEM_CD,
+			ANL.TESTITM_NM AS TEST_ITEM_NM,
+			ANL.ENG_NM AS ENG_NM,
+			NVL(GET_COMMON_CODE(TESTITM_LCLAS_CD, ''),'') AS TESTITM_LCLAS_NM,
+			NVL(GET_COMMON_CODE(TESTITM_MLSFC_CD, ''),'') AS TESTITM_MLSFC_NM
+		FROM ANALYSIS ANL
+		WHERE 1=1	
+		<if test="test_item_nm != null and test_item_nm != '' ">
+			AND ( UPPER(TESTITM_NM) like '%' || UPPER( #{test_item_nm} ) || '%' )
+		</if>
+		<if test="testitm_lclas_cd != null and testitm_lclas_cd != '' ">
+			AND TESTITM_LCLAS_CD = #{testitm_lclas_cd}
+		</if>		
+		<if test="fee_group_no != null and fee_group_no != '' ">
+			AND FEE_GROUP_NO = #{fee_group_no}
+		</if>
+		<if test="testitm_lclas_cd != null and testitm_lclas_cd != '' ">
+			AND ANL.TESTITM_LCLAS_CD = #{testitm_lclas_cd}
+		</if>
+		<if test="testitm_mlsfc_cd != null and testitm_mlsfc_cd != '' ">
+			AND ANL.TESTITM_MLSFC_CD = #{testitm_mlsfc_cd}
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY TESTITM_NM
+		</if>
+	</select>
+	
+	<!-- 항목 상세 조회 -->
+	<select id="selectTestItemDetail" parameterType="TestItemVO" resultType="TestItemVO">
+		SELECT
+			ANL.TESTITM_LCLAS_CD,
+			ANL.TESTITM_MLSFC_CD,
+			ANL.TESTITM_CD AS TEST_ITEM_CD,
+			ANL.TESTITM_NM AS TEST_ITEM_NM,
+			ANL.ENG_NM AS TEST_ITEM_ENG_NM,
+			USE_YN AS USE_FLAG,
+			NCKNM,
+			ABRV,
+			REMN_MTTR_DFN,
+			KFDA_YN,
+			TO_CHAR(LAST_UPDT_DTM, 'YYYY-mm-dd') LAST_UPDT_DTM,
+			TESTITM_WAVE
+		FROM ANALYSIS ANL
+		WHERE ANL.TESTITM_CD = #{test_item_cd}
+	</select>
+	
+	<!-- 항목 등록 -->
+	<insert id="insertTestItem" parameterType="TestItemVO">
+		INSERT INTO ANALYSIS (
+			TESTITM_CD
+			, TESTITM_LCLAS_CD
+			, TESTITM_MLSFC_CD
+			, TESTITM_NM
+			, ENG_NM
+			, LAST_UPDT_DTM
+			, KFDA_YN
+			, NCKNM
+			, ABRV
+			, USE_YN
+			, TESTITM_WAVE
+		) VALUES (
+			( SELECT LPAD(NVL(MAX(TESTITM_CD),0)+1, 6, 0) FROM ANALYSIS WHERE KFDA_YN = 'N' )
+			, #{testitm_lclas_cd}
+			, #{testitm_mlsfc_cd}
+			, #{test_item_nm}
+			, #{test_item_eng_nm}
+			, SYSDATE
+			, 'N'
+			, #{ncknm}
+			, #{abrv}
+			, #{use_flag}
+			, #{testitm_wave}
+		) 
+	</insert>
+	
+	<!-- 항목 수정 -->
+	<update id="updateTestItem" parameterType="TestItemVO">
+		UPDATE ANALYSIS SET
+			TESTITM_NM = #{test_item_nm}
+			, TESTITM_LCLAS_CD = #{testitm_lclas_cd}
+			, TESTITM_MLSFC_CD = #{testitm_mlsfc_cd}
+			, ENG_NM = #{test_item_eng_nm}
+			, NCKNM = #{ncknm}
+			, ABRV = #{abrv}
+			, USE_YN = #{use_flag}
+			, LAST_UPDT_DTM = SYSDATE
+			, TESTITM_WAVE =  #{testitm_wave}
+		WHERE TESTITM_CD = #{test_item_cd} AND KFDA_YN = 'N'
+	</update>
+	
+	<!-- 항목 삭제 -->
+	<delete id="deleteTestItem" parameterType="TestItemVO">
+		DELETE FROM ANALYSIS
+		WHERE TESTITM_CD = #{test_item_cd} AND KFDA_YN = 'N'
+	</delete>
+	
+	<!-- 수수료 그룹 조회 -->
+	<select id="selectFeeGroupList" parameterType="TestItemVO" resultType="TestItemVO">
+		SELECT
+			FEE_GROUP_NO
+			,FEE_GROUP_NM
+			,FEE
+		FROM FEE_GROUP
+		WHERE 1=1
+		<if test="fee_group_nm != null and fee_group_nm != '' ">
+			AND UPPER(FEE_GROUP_NM) like '%' || UPPER( #{fee_group_nm} ) || '%'
+		</if>
+		<if test="fee != null and fee != '' ">
+			AND UPPER(FEE) like '%' || UPPER( #{fee} ) || '%'
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY FEE_GROUP_NM
+		</if>
+	</select>
+	
+	<!-- 수수료 그룹 등록 -->
+	<insert id="insertFeeGroup" parameterType="TestItemVO">
+		INSERT INTO FEE_GROUP (
+			FEE_GROUP_NO
+			,FEE_GROUP_NM
+			,FEE
+			,CREATE_DATE
+			,CREATER_ID
+		) VALUES (
+			(SELECT LPAD(NVL(MAX(FEE_GROUP_NO),0)+1, 3, 0) FROM FEE_GROUP)
+			,#{fee_group_nm}
+			,#{fee}
+			, SYSDATE
+			, #{user_id}
+		)
+	</insert>
+	
+	<!-- 수수료 그룹 수정 -->
+	<update id="updateFeeGroup" parameterType="TestItemVO">
+		UPDATE FEE_GROUP SET
+			FEE_GROUP_NM = #{fee_group_nm}
+			,FEE = #{fee}
+			, UPDATE_DATE = SYSDATE
+			, UPDATER_ID = #{user_id}
+		WHERE FEE_GROUP_NO = #{fee_group_no}
+	</update>	
+</mapper>

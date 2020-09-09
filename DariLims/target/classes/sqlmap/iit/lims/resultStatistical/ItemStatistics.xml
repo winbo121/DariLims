@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="resultStatistical">
+	<select id="selectItemStatisticsColumn" parameterType="MakeGridVO" resultType="String">
+		SELECT
+		<if test="type == 'Y'.toString() ">
+			TO_CHAR(TO_DATE(TR.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YYYY') SAMPLE_ARRIVAL_DATE
+		</if>
+		<if test="type == 'N'.toString() ">
+			TO_CHAR(TO_DATE(TR.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YYYY-MM') SAMPLE_ARRIVAL_DATE
+		</if>
+		FROM TEST_SAMPLE_ITEM TSI
+		INNER JOIN TEST_SAMPLE TS ON TS.TEST_SAMPLE_SEQ = TSI.TEST_SAMPLE_SEQ
+		INNER JOIN TEST_REQ TR ON TR.TEST_REQ_SEQ = TS.TEST_REQ_SEQ
+		INNER JOIN ANALYSIS ANAL ON ANAL.TESTITM_CD = TSI.TEST_ITEM_CD
+		INNER JOIN PRDLST_CL PC ON PC.PRDLST_CD = TS.PRDLST_CD 
+		WHERE TR.STATE IN ('F','G','H')
+		<if test="htrk_prdlst_cd != null and htrk_prdlst_cd != '' ">
+			AND PC.HTRK_PRDLST_CD = #{htrk_prdlst_cd}
+		</if>
+		<if test="test_item_nm != null and test_item_nm != ''">
+			AND ANAL.TESTITM_NM LIKE '%' || #{test_item_nm} || '%'
+		</if>
+		<if test="dept_cd != null and dept_cd != ''">
+			AND TSI.TEST_DEPT_CD = #{dept_cd}
+		</if>
+		<if test="unit_work_cd != null and unit_work_cd != ''">
+			AND TR.UNIT_WORK_CD = #{unit_work_cd}
+		</if>
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				AND TO_CHAR(TO_DATE(TR.SAMPLE_ARRIVAL_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') BETWEEN #{startDate} AND #{endDate}
+			</if>
+		</if>
+		
+		<if test="type == 'Y'.toString() ">
+			GROUP BY TO_CHAR(TO_DATE(TR.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YYYY')
+		</if>
+		<if test="type == 'N'.toString() ">
+			GROUP BY TO_CHAR(TO_DATE(TR.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YYYY-MM')
+		</if>
+		ORDER BY SAMPLE_ARRIVAL_DATE
+	</select>
+	
+	<select id="selectItemStatistics" parameterType="MakeGridVO" resultType="Hashmap">
+		SELECT 
+			NVL(GET_COMMON_CODE(ANAL.TESTITM_LCLAS_CD, ''),'') AS TESTITM_LCLAS_NM,
+			NVL(GET_COMMON_CODE(ANAL.TESTITM_MLSFC_CD, ''),'') AS TESTITM_MLSFC_NM,
+			ANAL.TESTITM_CD AS TEST_ITEM_CD,
+			ANAL.TESTITM_NM AS TEST_ITEM_NM ,
+		<if test="type == 'Y'.toString() ">
+			<foreach collection="head" item="item" index="idx">
+				SUM(DECODE(TO_CHAR(TO_DATE(TR.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, DECODE(TSI.JDG_TYPE, 'C37002', 0, 1), 0)) AS SUC${idx} ,
+				SUM(DECODE(TO_CHAR(TO_DATE(TR.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, DECODE(TSI.JDG_TYPE, 'C37002', 1, 0), 0)) AS FAL${idx} ,
+				SUM(DECODE(TO_CHAR(TO_DATE(TR.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, 1, 0)) AS SUM${idx} ,
+			</foreach>
+		</if>
+		<if test="type == 'N'.toString() ">
+			<foreach collection="head" item="item" index="idx">
+				SUM(DECODE(TO_CHAR(TO_DATE(TR.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, DECODE(TSI.JDG_TYPE, 'C37002', 0, 1), 0)) AS SUC${idx} ,
+				SUM(DECODE(TO_CHAR(TO_DATE(TR.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, DECODE(TSI.JDG_TYPE, 'C37002', 1, 0), 0)) AS FAL${idx} ,
+				SUM(DECODE(TO_CHAR(TO_DATE(TR.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, 1, 0)) AS SUM${idx} ,
+			</foreach>
+		</if>
+		COUNT(*) AS TOTAL
+		FROM TEST_SAMPLE_ITEM TSI
+		INNER JOIN TEST_SAMPLE TS ON TS.TEST_SAMPLE_SEQ = TSI.TEST_SAMPLE_SEQ
+		INNER JOIN TEST_REQ TR ON TR.TEST_REQ_SEQ = TS.TEST_REQ_SEQ
+		INNER JOIN ANALYSIS ANAL ON ANAL.TESTITM_CD = TSI.TEST_ITEM_CD
+		INNER JOIN PRDLST_CL PC ON PC.PRDLST_CD = TS.PRDLST_CD 
+		WHERE TR.STATE IN ('F','G','H')
+		<if test="htrk_prdlst_cd != null and htrk_prdlst_cd != '' ">
+			AND PC.HTRK_PRDLST_CD = #{htrk_prdlst_cd}
+		</if>
+		<if test="test_item_nm != null and test_item_nm != ''">
+			AND ANAL.TESTITM_NM LIKE '%' || #{test_item_nm} || '%'
+		</if>
+		<if test="dept_cd != null and dept_cd != ''">
+			AND TSI.TEST_DEPT_CD = #{dept_cd}
+		</if>
+		<if test="unit_work_cd != null and unit_work_cd != ''">
+			AND TR.UNIT_WORK_CD = #{unit_work_cd}
+		</if>
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				AND TO_CHAR(TO_DATE(TR.SAMPLE_ARRIVAL_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') BETWEEN #{startDate} AND #{endDate}
+			</if>
+		</if>
+		GROUP BY ANAL.TESTITM_CD, ANAL.TESTITM_NM, ANAL.TESTITM_LCLAS_CD, ANAL.TESTITM_MLSFC_CD
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY ANAL.TESTITM_NM
+		</if>
+	</select>
+
+</mapper>

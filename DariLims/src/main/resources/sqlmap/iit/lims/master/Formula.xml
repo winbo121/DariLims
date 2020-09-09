@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="formula">
+
+	<!-- 계산식관리 리스트 -->
+	<select id="selectFormulaList" resultType="FormulaVO" parameterType="FormulaVO">		
+		SELECT 
+		     FORMULA_NO
+		    ,FORMULA_NM
+		    ,FORMULA_DESC
+		    ,FORMULA_DISP
+		    ,DECODE(USE_FLAG, 'Y', '사용', '미사용') USE_FLAG
+		    ,#{formula_yn}
+		FROM FORMULA 
+		WHERE 1 = 1
+		<if test="use_flag != null and use_flag != '' ">
+			AND USE_FLAG = #{use_flag}
+		</if>
+		<if test="formula_nm != null and formula_nm != '' ">
+			AND UPPER(TRIM(FORMULA_NM)) LIKE '%' || UPPER(TRIM(#{formula_nm})) || '%'
+		</if>
+		<if test="formula_yn == 'Y'.toString() ">
+				AND USE_FLAG=#{formula_yn}
+			<if test="formula_no != null and formula_no != ''  ">
+				AND FORMULA_NO = #{formula_no}
+			</if>
+			<!-- 계산식 분별식-->
+		</if>		
+		<if test="formula_yn == 'UA'.toString() ">
+		    AND USE_FLAG = 'Y'
+		</if>
+		ORDER BY FORMULA_NO DESC
+	</select>
+	
+	<!-- 계산식관리 상세 -->
+	<select id="selectFormulaDetail" resultType="FormulaVO" parameterType="FormulaVO">		
+		SELECT 
+		     FORMULA_NO
+		    ,FORMULA_NM
+		    ,FORMULA_DESC
+		    ,FORMULA_DISP
+		    ,USE_FLAG
+		FROM FORMULA
+		WHERE FORMULA_NO = #{formula_no}
+	</select>
+	
+	<!-- 계산식관리 상세 리스트 -->
+	<select id="selectFormulaDetailList" resultType="FormulaVO" parameterType="FormulaVO">		
+		
+		<if test="formula_no=='70'">
+		SELECT
+			 FORMULA_NO
+		    ,VARIABLE_NO
+		    ,VARIABLE_NM
+		    ,VARIABLE_DESC
+		    ,'0' AS INPUT_VAL
+		FROM FORMULA_DETAIL
+		WHERE FORMULA_NO = #{formula_no}
+		</if>
+		<if test="formula_no!='70'">
+		SELECT
+			 FORMULA_NO
+		    ,VARIABLE_NO
+		    ,VARIABLE_NM
+		    ,VARIABLE_DESC
+		FROM FORMULA_DETAIL
+		WHERE FORMULA_NO = #{formula_no}
+		</if>
+	</select>
+	
+	<select id="selectFormulaNo" resultType="String">
+		SELECT NVL(MAX(FORMULA_NO),0)+1 FROM FORMULA
+	</select>
+	
+	<!-- 계산식관리 등록 -->
+	<insert id="insertFormula" parameterType="FormulaVO">
+		INSERT INTO FORMULA
+		(
+		     FORMULA_NO
+		    ,FORMULA_NM
+		    ,FORMULA_DESC
+		    ,FORMULA_DISP
+		    ,USE_FLAG
+		 )
+		 VALUES
+		 (
+		     #{formula_no}
+		    ,#{formula_nm}
+		    ,#{formula_desc}
+		    ,#{formula_disp}
+		    ,#{use_flag}
+	    )
+	</insert>
+
+	<!-- 계산식관리 수정 -->
+	<update id="updateFormula" parameterType="FormulaVO">		
+		UPDATE FORMULA SET
+		     FORMULA_NM = #{formula_nm}
+		    ,FORMULA_DESC = #{formula_desc}
+		    ,FORMULA_DISP = #{formula_disp}
+		    ,USE_FLAG = #{use_flag}
+		WHERE FORMULA_NO = #{formula_no} 
+	</update>
+	
+	<!-- 계산식관리 등록 -->
+	<insert id="insertFormulaDetail" parameterType="FormulaVO">
+		INSERT INTO FORMULA_DETAIL
+		(
+		     FORMULA_NO
+		    ,VARIABLE_NO
+		    ,VARIABLE_NM
+		    ,VARIABLE_DESC
+		    ,INPUT_VAL
+		 )
+		 VALUES
+		 (
+		     (SELECT NVL(MAX(FORMULA_NO),0) FROM FORMULA)
+		    ,(SELECT NVL(MAX(VARIABLE_NO),0)+1 FROM FORMULA_DETAIL WHERE FORMULA_NO = (SELECT NVL(MAX(FORMULA_NO),0) FROM FORMULA))
+		    ,#{variable_nm}
+		    ,#{variable_desc}
+		    ,#{input_val}
+	    )
+	</insert>
+
+	<!-- 계산식관리 수정 -->
+	<update id="updateFormulaDetail" parameterType="FormulaVO">		
+		<selectKey resultType="int" keyProperty="formulaDtailYorN"  order="BEFORE">
+		SELECT COUNT(*) FROM FORMULA_DETAIL WHERE FORMULA_NO = #{formula_no} AND VARIABLE_NO = #{variable_no}
+		</selectKey>
+		<if test="formulaDtailYorN != 0 ">
+		UPDATE FORMULA_DETAIL SET
+		     VARIABLE_NM = #{variable_nm}
+		    ,VARIABLE_DESC = #{variable_desc}
+		    ,INPUT_VAL= #{input_val}
+		WHERE FORMULA_NO = #{formula_no} AND VARIABLE_NO = #{variable_no}
+		</if>
+		<if test="formulaDtailYorN == 0 ">
+		INSERT INTO FORMULA_DETAIL
+		(
+		     FORMULA_NO
+		    ,VARIABLE_NO
+		    ,VARIABLE_NM
+		    ,VARIABLE_DESC
+		    ,INPUT_VAL
+		 )
+		 VALUES
+		 (
+		     #{formula_no}
+		    ,(SELECT NVL(MAX(VARIABLE_NO),0)+1 FROM FORMULA_DETAIL WHERE FORMULA_NO = #{formula_no})
+		    ,#{variable_nm}
+		    ,#{variable_desc}
+		    ,#{input_val}
+	    )
+		</if>
+	</update>
+	
+	<delete id="deleteFormulaDetail" parameterType="FormulaVO">
+		DELETE FORMULA_DETAIL WHERE 
+		FORMULA_NO = #{formula_no} 
+		AND VARIABLE_NO = #{variable_no}
+	</delete>
+
+</mapper>

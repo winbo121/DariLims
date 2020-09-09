@@ -1,0 +1,1481 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="reportPublish">
+
+	<!-- 성적서 발행 리스트 -->
+	<select id="selectReportWriteList" parameterType="ReportVO" resultType="ReportVO">
+		SELECT
+			RD.REPORT_DOC_SEQ
+			, RD.STATE
+			, RD.TITLE
+			, O4.ORG_NM AS DESTINATION_NM
+			, O4.ZIP_CODE
+			, O4.ADDR1 AS REQ_ORG_ADDR
+			, RN.REPORT_NM REPORT_TYPE
+			, RN.REPORT_FILE_NM
+			, RD.TEST_REQ_SEQ
+			, RD.TEST_REQ_NO
+			, GET_COMMON_CODE(RD.REQ_TYPE, 'EX1') REQ_TYPE
+			, C2.CODE_NAME TEST_GOAL
+			, UW.UNIT_WORK_NM UNIT_WORK_CD
+			, TO_CHAR(TO_DATE(RD.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') SAMPLE_ARRIVAL_DATE
+			, RD.REQ_BASIS
+			, RD.REQ_TEL
+			, RD.REQ_NM
+			, RD.DEPT_CD AS DEPT_CD
+			, RD.REPORT_MAKE_ID AS USER_ID
+			, D1.DEPT_NM DEPT_NM
+			, U.USER_NM USER_NM
+			, RD.REPORT_MAKE_ID
+			, RD.REPORT_SIGN_ID
+			, NVL2(O1.ORG_NM, O1.ORG_NM, O2.DEPT_NM) REQ_ORG_NM
+			, (
+				SELECT COUNT(*) FROM REPORT_PUBLISH_LOG PL 
+				WHERE PL.REPORT_DOC_SEQ = RD.REPORT_DOC_SEQ 
+				AND PL.TEST_REQ_SEQ = RD.TEST_REQ_SEQ
+				AND PL.LOG_FLAG = '1'
+			) AS LOG_CNT
+			, GET_VERIFY_ID(RD.VERIFY_ID) AS VERIFY_ID
+			,TO_CHAR((SELECT MAX(LOG_DATE) FROM REPORT_PUBLISH_LOG WHERE REPORT_DOC_SEQ=RD.REPORT_DOC_SEQ GROUP BY REPORT_DOC_SEQ), 'YYYY-MM-DD') AS REPORT_LAST_DATE
+			,RD.REPORT_NO
+			,RD.DEGREE
+			,SP.PICK_NO
+			<!-- ,(SELECT WM_CONCAT(TEST_SAMPLE_SEQ) FROM REPORT_SAMPLE WHERE REPORT_DOC_SEQ = RD.REPORT_DOC_SEQ) AS TEST_SAMPLE_SEQ  -->
+			,(SELECT LISTAGG(TEST_SAMPLE_SEQ, ',') WITHIN GROUP(ORDER BY TEST_SAMPLE_SEQ) FROM REPORT_SAMPLE WHERE REPORT_DOC_SEQ = RD.REPORT_DOC_SEQ) AS TEST_SAMPLE_SEQ
+			,RD.SEPARATION <!-- 분리발행여부 -->
+			,RD.DEADLINE_DATE <!-- 발행예정일 -->
+			,RD.REPORT_EXCEED_REASON <!-- 기한초과사유 -->
+		FROM REPORT_DOC RD
+		LEFT OUTER JOIN DEPART D1 ON D1.DEPT_CD = RD.DEPT_CD
+		LEFT OUTER JOIN USER_INFO U ON U.USER_ID = RD.REPORT_MAKE_ID
+		LEFT OUTER JOIN REQ_ORG O1 ON O1.REQ_ORG_NO = RD.REQ_ORG_NO
+		LEFT OUTER JOIN REQ_ORG O4 ON O4.REQ_ORG_NO = RD.REQ_ORG_NO4
+		LEFT OUTER JOIN DEPART O2 ON O2.DEPT_CD = RD.REQ_ORG_NO
+		LEFT OUTER JOIN UNIT_WORK UW ON UW.UNIT_WORK_CD = RD.UNIT_WORK_CD
+		LEFT OUTER JOIN COMMON_CODE_DETAIL C2 ON C2.CODE = RD.TEST_GOAL
+		LEFT OUTER JOIN REPORT_NAME RN ON RN.REPORT_SEQ = RD.REPORT_TYPE
+		LEFT OUTER JOIN ORG_COMMISSION_DEPOSIT OCD ON OCD.REQ_ORG_NO = RD.REQ_ORG_NO AND OCD.TEST_REQ_SEQ = RD.TEST_REQ_SEQ
+		LEFT OUTER JOIN SPLORE_PICK SP ON RD.TEST_REQ_SEQ = SP.TEST_REQ_SEQ
+		WHERE RD.REPORT_APPR_YN = 'Y'
+		<if test="state != null and state != '' ">
+			AND RD.STATE = #{state}
+		</if>
+		<if test="test_req_no != null and test_req_no != '' ">
+			AND UPPER(RD.TEST_REQ_NO) like '%' || UPPER( #{test_req_no} ) || '%'
+		</if>
+		<if test="title != null and title != '' ">
+			AND UPPER(RD.TITLE) like '%' || UPPER( #{title} ) || '%'
+		</if>
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				AND TO_CHAR(TO_DATE(RD.SAMPLE_ARRIVAL_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') BETWEEN #{startDate} AND #{endDate}
+			</if>
+		</if>
+		<if test="req_org_nm != null and req_org_nm != '' ">
+			AND (UPPER(O1.ORG_NM) like '%' || UPPER( #{req_org_nm} ) || '%' OR UPPER(O2.DEPT_NM) like '%' || UPPER( #{req_org_nm} ) || '%' )
+		</if>
+		<if test="req_nm != null and req_nm != '' ">
+			AND UPPER(RD.REQ_NM) LIKE '%' || UPPER(#{req_nm}) || '%'
+		</if>
+		<if test="test_goal != null and test_goal != '' ">
+			AND RD.TEST_GOAL = #{test_goal}
+		</if>
+		<if test="unit_work_cd != null and unit_work_cd != '' ">
+			AND RD.UNIT_WORK_CD = #{unit_work_cd}
+		</if>
+		<if test="req_type != null and req_type != '' ">
+			AND RD.REQ_TYPE = #{req_type}
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND RD.DEPT_CD = #{dept_cd}
+		</if>
+		<if test="report_start_date != null and report_start_date != ''">
+			<if test="report_end_date != null and report_end_date != ''">
+				AND RD.REPORT_LAST_DATE BETWEEN to_date(#{report_start_date}) AND to_date(#{report_end_date}) + 1
+			</if>
+		</if>
+		<if test="deadline_start_date != null and deadline_start_date != ''">
+			<if test="deadline_end_date != null and deadline_end_date != ''">
+				AND TO_CHAR(TO_DATE(RD.DEADLINE_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') BETWEEN #{deadline_start_date} AND #{deadline_end_date}
+			</if>
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY RD.TEST_REQ_NO DESC, RD.DEGREE DESC
+		</if>
+	</select>
+
+	<!-- 메일전송리스트 -->
+	<select id="selectReportMailList" parameterType="ReportVO" resultType="ReportVO">
+		SELECT
+			A.LOG_NO,
+<!-- 		TO_CHAR(A.LOG_DATE,'YYYY-MM-DD HH24:MM:SS') AS LOG_DATE, -->
+			A.REPORT_NO,
+			A.REPORT_PUBLISH_NO,
+			A.PUBLISH_GBN,
+			A.FORM_SEQ,
+			A.DOC_SEQ,
+			B.FORM_TITLE,
+			B.FORM_NAME,
+			C.DOC_REVISION_SEQ,
+			A.TEST_REQ_SEQ,
+			<!-- (SELECT WM_CONCAT(TEST_SAMPLE_SEQ) FROM REPORT_SAMPLE WHERE REPORT_DOC_SEQ = A.REPORT_DOC_SEQ) AS TEST_SAMPLE_SEQ, -->
+			(SELECT LISTAGG(TEST_SAMPLE_SEQ, ',') WITHIN GROUP(ORDER BY TEST_SAMPLE_SEQ) FROM REPORT_SAMPLE WHERE REPORT_DOC_SEQ = A.REPORT_DOC_SEQ) AS TEST_SAMPLE_SEQ,
+			D.PICK_NO,
+			A.REPORT_DOC_SEQ,
+			A.REQ_NM,
+			A.TEST_REQ_NO,
+			A.SAMPLING_NO,
+			A.REQ_ETC,
+			(SELECT EMAIL FROM REQ_ORG WHERE A.REQ_ORG_NO = REQ_ORG_NO) AS REQ_ORG_EMAIL
+		FROM REPORT_PUBLISH_LOG A
+	    LEFT JOIN FORM B ON A.FORM_SEQ = B.FORM_SEQ
+	    LEFT JOIN DOCUMENT C ON A.DOC_SEQ = C.DOC_SEQ
+	    LEFT JOIN SPLORE_PICK D ON A.TEST_REQ_SEQ = D.TEST_REQ_SEQ 
+		WHERE A.LOG_NO = #{log_no}
+		ORDER BY A.PUBLISH_GBN, A.REPORT_PUBLISH_NO
+	</select>
+	
+	<!-- 발행이력목록 -->
+	<select id="selectReportPublishHistoryList" parameterType="ReportVO" resultType="ReportVO">
+		SELECT
+			A.LOG_NO,
+		    TO_CHAR(A.LOG_DATE,'YYYY-MM-DD') AS LOG_DATE, 
+			A.REPORT_NO,
+			A.REPORT_PUBLISH_NO,
+			A.PUBLISH_GBN,
+			A.FORM_SEQ,
+			A.DOC_SEQ,
+			B.FORM_TITLE,
+			B.FORM_NAME,
+			C.DOC_REVISION_SEQ,
+			A.TEST_REQ_SEQ,
+			<!-- (SELECT WM_CONCAT(TEST_SAMPLE_SEQ) FROM REPORT_SAMPLE WHERE REPORT_DOC_SEQ = A.REPORT_DOC_SEQ) AS TEST_SAMPLE_SEQ, -->
+			(SELECT LISTAGG(TEST_SAMPLE_SEQ, ',') WITHIN GROUP(ORDER BY TEST_SAMPLE_SEQ) FROM REPORT_SAMPLE WHERE REPORT_DOC_SEQ = A.REPORT_DOC_SEQ) AS TEST_SAMPLE_SEQ,
+			D.PICK_NO,
+			A.REPORT_DOC_SEQ,
+			A.REQ_NM,
+			A.REPORT_EXCEED_REASON, <!-- 기한초과사유 -->
+			A.DEPT_CD,
+			A.REPORT_SIGN_ID AS USER_ID,
+			A.TEST_REQ_SEQ
+		FROM REPORT_PUBLISH_LOG A
+	    LEFT JOIN FORM B ON A.FORM_SEQ = B.FORM_SEQ
+	    LEFT JOIN DOCUMENT C ON A.DOC_SEQ = C.DOC_SEQ
+	    LEFT JOIN SPLORE_PICK D ON A.TEST_REQ_SEQ = D.TEST_REQ_SEQ 
+		WHERE A.TEST_REQ_SEQ = #{test_req_seq}
+		ORDER BY A.PUBLISH_GBN, A.REPORT_PUBLISH_NO
+	</select>
+
+	<!-- 성적서 발행 - 시료 목록 -->
+	<select id="selectReportWriteSampleList" parameterType="ReportVO" resultType="ReportVO">
+		SELECT
+			RS.TEST_SAMPLE_SEQ
+			, TO_CHAR(TO_DATE(RS.SAMPLING_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') SAMPLING_DATE
+			, LPAD(RS.SAMPLING_HOUR, 2, '0') SAMPLING_HOUR
+			, LPAD(RS.SAMPLING_MIN, 2, '0') SAMPLING_MIN
+			, TO_CHAR(TO_DATE(RD.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') REQ_DATE
+			, TO_CHAR(TO_DATE(RD.DEADLINE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') DEADLINE_DATE
+			, TEST_END
+			, RS.SAMPLE_REG_NM
+			, S.SAMPLE_NM SAMPLE_NM
+			, RS.SAMPLING_ID
+			, SP.SAMPLING_POINT_NM SAMPLING_POINT_NM
+			, C1.CODE_NAME SAMPLING_METHOD
+			, C2.CODE_NAME TEST_SAMPLE_RESULT
+			, RS.ETC_DESC
+			, STD.TEST_STD_NM TEST_STD_NM
+		FROM REPORT_SAMPLE RS
+		INNER JOIN REPORT_DOC RD ON RD.TEST_REQ_SEQ = RS.TEST_REQ_SEQ AND RD.REPORT_DOC_SEQ = RS.REPORT_DOC_SEQ
+		LEFT OUTER JOIN COMMON_CODE_DETAIL C1 ON C1.CODE = RS.SAMPLING_METHOD
+		LEFT OUTER JOIN COMMON_CODE_DETAIL C2 ON C2.CODE = RS.TEST_SAMPLE_RESULT
+		LEFT OUTER JOIN SAMPLE S ON S.SAMPLE_CD = RS.SAMPLE_CD
+		LEFT OUTER JOIN SAMPLING_POINT SP ON SP.SAMPLING_POINT_NO = RS.SAMPLING_POINT_NO
+		LEFT OUTER JOIN TEST_STD STD ON STD.TEST_STD_NO = RS.TEST_STD_NO
+		WHERE RS.REPORT_DOC_SEQ = #{report_doc_seq}
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY RS.TEST_SAMPLE_SEQ
+		</if>
+	</select>
+
+	<select id="selectReportWriteSampleItemList" parameterType="ReportVO" resultType="ReportVO">
+		SELECT 
+			RD.REPORT_DOC_SEQ
+			,RS.REPORT_SEQ
+			,RS.TEST_SAMPLE_SEQ
+			,RS.SAMPLE_REG_NM
+			,RSI.TEST_ITEM_SEQ
+			,RSI.TEST_ITEM_CD
+			,RSI.STD_VAL
+			,RSI.RESULT_VAL
+			,RSI.REPORT_DISP_VAL
+			,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = RSI.JDG_TYPE) AS JDG_TYPE
+			,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = RSI.UNIT) AS UNIT
+			,ANAL.TESTITM_NM AS TEST_ITEM_NM
+			,NVL2(RSI.TEST_ITEM_SEQ,'','제외') AS EXCEPT_FLAG
+		FROM REPORT_DOC RD
+		INNER JOIN REPORT_SAMPLE RS ON RS.REPORT_DOC_SEQ = RD.REPORT_DOC_SEQ AND RS.TEST_REQ_SEQ = RD.TEST_REQ_SEQ
+		INNER JOIN REPORT_SAMPLE_ITEM RSI ON RSI.TEST_SAMPLE_SEQ = RS.TEST_SAMPLE_SEQ AND RSI.REPORT_DOC_SEQ = RS.REPORT_DOC_SEQ
+		INNER JOIN ANALYSIS ANAL ON RSI.TEST_ITEM_CD = ANAL.TESTITM_CD
+		WHERE RD.REPORT_DOC_SEQ = #{report_doc_seq}
+		AND RS.TEST_SAMPLE_SEQ = #{test_sample_seq}
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY <!-- SI.REPORT_ORDER, --> RS.TEST_SAMPLE_SEQ, RSI.TEST_ITEM_CD
+		</if>
+	</select>
+	
+	<update id="updateReportPublish" parameterType="ReportVO">
+		UPDATE REPORT_DOC SET
+		STATE = #{state}
+		WHERE REPORT_DOC_SEQ = #{report_doc_seq}
+	</update>
+	<select id="checkReportPublish" parameterType="ReportVO" resultType="String">
+		SELECT STATE
+		FROM REPORT_DOC
+		WHERE REPORT_DOC_SEQ = #{report_doc_seq}
+	</select>
+	<delete id="deleteReport" parameterType="ReportVO">
+		BEGIN
+
+			DELETE FROM REPORT_SAMPLE_ITEM
+			WHERE REPORT_DOC_SEQ = #{report_doc_seq};
+			
+			DELETE FROM REPORT_SAMPLE
+			WHERE REPORT_DOC_SEQ = #{report_doc_seq};
+	
+			UPDATE TEST_REQ SET
+			REPORT_FLAG = 'N'
+			WHERE TEST_REQ_SEQ = 
+			(
+				SELECT TEST_REQ_SEQ FROM REPORT_DOC
+				WHERE REPORT_DOC_SEQ = #{report_doc_seq}
+			);
+			
+			DELETE FROM REPORT_DOC
+			WHERE REPORT_DOC_SEQ = #{report_doc_seq};
+	
+			DELETE FROM REPORT_PUBLISH_LOG
+			WHERE REPORT_DOC_SEQ = #{report_doc_seq};
+				
+			DELETE FROM REPORT_SAMPLE_PL
+			WHERE REPORT_DOC_SEQ = #{report_doc_seq};
+	
+			DELETE FROM REPORT_SAMPLE_ITEM_PL
+			WHERE REPORT_DOC_SEQ = #{report_doc_seq};
+	
+		END;
+	</delete>
+
+	<update id="updateReportNo" parameterType="ReportVO">
+		UPDATE REPORT_DOC SET
+			REPORT_NO = (SELECT 
+							TO_NUMBER(TO_CHAR(SYSDATE,'YYYY')) || '-'  || LPAD(MAX(NVL(TO_NUMBER(DECODE(LENGTH(REPORT_NO),7,REPORT_NO,SUBSTR(REPORT_NO,6,7))),0)) + 1,7,0)
+						 FROM REPORT_DOC)
+		WHERE REPORT_DOC_SEQ = #{report_doc_seq}
+	</update>
+
+	<select id="selectLogNo" parameterType="ReportVO" resultType="String">
+		SELECT NVL(MAX(LOG_NO)+1,1) FROM REPORT_PUBLISH_LOG
+	</select>
+	
+	<select id="selectReportPublishNo" parameterType="ReportVO" resultType="String">
+		SELECT REPORT_PUBLISH_NO FROM REPORT_PUBLISH_LOG  WHERE LOG_NO = #{log_no}
+	</select>
+
+	<insert id="insertReportPublishLog" parameterType="ReportVO">
+		BEGIN
+			INSERT INTO REPORT_PUBLISH_LOG
+			(
+				LOG_NO,
+				LOG_FLAG,
+				LOG_DATE,
+				TITLE,
+				REQ_BASIS,
+				DESTINATION_NM,
+				ZIP_CODE,
+				ADDR1,
+				ADDR2,
+				REPORT_TYPE,
+				REPORT_MAKE_ID,
+				REPORT_SIGN_ID,
+				STATE,
+				CREATE_DATE,
+				CREATER_ID,
+				UPDATE_DATE,
+				UPDATER_ID,
+				ONNARA_LINK_YN,
+				ONNARA_APPV_STATE,
+				ONNARA_DOC_NO,
+				ONNARA_APPV_DATE,
+				ONNARA_LINK_DATE,
+				ONNARA_FILE_FLAG,
+				ONNARA_FILE_NM,
+				TEST_REQ_NO,
+				REPORT_DOC_SEQ,
+				KOLAS_INFO,
+				ONNARA_TITLE,
+				ONNARA_CON,
+				KOLAS_RPT_USE,
+				KOLAS_SMP_DESC,
+				KOLAS_TEST_ENV,
+				YEAR,
+				QUART,
+				MON,
+				DAY,
+				WRITE_DATE,
+				QREPORT_TYPE,
+				QUART_START,
+				QUART_END,
+				WEEK_START,
+				WEEK_END,
+				REQ_ORG_ADDR,
+				TEST_REQ_SEQ,
+				VERIFY_ID,
+				REPORT_NO,
+				FORM_SEQ,
+				DOC_SEQ,
+				PUBLISH_GBN,
+				REPORT_PUBLISH_NO,
+                REQ_TYPE,
+                REQ_ID,
+                REQ_DATE,
+                SUPV_DEPT_CD,
+                UNIT_WORK_CD,
+                TEST_GOAL,
+                REQ_TEL,
+                REQ_NM,
+                ADDR_REPORT,
+                TEL_REPORT,
+                FAX_REPORT,
+                REQ_MESSAGE,
+                FEE_TOT,
+                TRAVEL_EXP,
+                DEPT_APPR_DATE,
+                DEPT_APPR_ID,
+                DEPT_CD,
+                ACT_USER_ID,
+                REQ_ORG_NO,
+                REQ_ORG_NO2,
+                REQ_ORG_NO3,
+                REQ_ORG_NO4,
+                ACT_DATE,
+                REQ_ACT_USER_ID,
+                REQ_ACT_DATE,
+                DEADLINE_DATE,
+                TEST_END,
+                UMS_FLAG,
+                DISCOUNT_RATE,
+                DISCOUNT_FLAG,
+                RETURN_FLAG,
+                FEE_AUTO_FLAG,
+                EST_NO,
+                COMMISSION_TYPE,
+                SAMPLE_ARRIVAL_DATE,
+                REC_REQ_NO,
+                BACKUP_STATE,
+                STOP_REASON,
+                TEST_STD_NO,
+                SENSORY_TEST,
+                MEMBER_FLAG,
+                REQ_ACT_USER_NM,
+                FEE_TOT_ITEM,
+                RAWDATA_FLAG,
+                PRE_TEST_REQ_NO,
+                RETURN_COMMENT,
+                TEST_TYPE,
+                SALES_USER_ID,
+                SALES_DEPT_CD,
+                REQ_CLASS,
+                EXPRESS_FLAG,
+                SMS_FLAG,
+                SMS_TARGET,
+                SMS_TYPE,
+                REPORT_LAST_DATE,
+                TEST_COUNT,
+                TEST_PLACE,
+                WARE_CLERK,
+                WARE_TEL,
+                SHIP_PORT,
+                UNSHIP_PORT,
+                TB_COL_LINE,
+                DEGREE,
+                PICK_NO,
+                FEE_TOT_PRECOST,
+                ACCEPT_METHOD,
+                ORIGIN,
+                MANUFACTURER,
+                CONTAINER,
+                VESSEL,
+                BILL_OF_LADING,
+                SEPARATION, 
+                QUALITY_DEPT_CD1, 
+                QUALITY_DEPT_CD2, 
+                QUALITY_USER_ID1, 
+                QUALITY_USER_ID2,
+                SAMPLE_NUM,
+                SAMPLING_NO,
+                BARCODE_DESC,
+				REQ_PLANT_NM,
+				REQ_PLANT_ADDR,
+				REQ_PLANT_TEL,
+				QR_NM,
+				QR_FILE,
+				EST_CHECK,
+				CALCULATION,
+				ADDR1_ENG,
+				ADDR2_ENG,
+				REQ_ETC,
+				ADMIN_MESSAGE,
+				REPORT_EXCEED_REASON
+			)
+			SELECT
+				#{log_no},
+				'1',
+				SYSDATE,
+				TITLE,
+				REQ_BASIS,
+				DESTINATION_NM,
+				ZIP_CODE,
+				ADDR1,
+				ADDR2,
+				REPORT_TYPE,
+				REPORT_MAKE_ID,
+				REPORT_SIGN_ID,
+				'Y',
+				CREATE_DATE,
+				CREATER_ID,
+				UPDATE_DATE,
+				UPDATER_ID,
+				ONNARA_LINK_YN,
+				ONNARA_APPV_STATE,
+				ONNARA_DOC_NO,
+				ONNARA_APPV_DATE,
+				ONNARA_LINK_DATE,
+				ONNARA_FILE_FLAG,
+				ONNARA_FILE_NM,
+				TEST_REQ_NO,
+				REPORT_DOC_SEQ,
+				KOLAS_INFO,
+				ONNARA_TITLE,
+				ONNARA_CON,
+				KOLAS_RPT_USE,
+				KOLAS_SMP_DESC,
+				KOLAS_TEST_ENV,
+				YEAR,
+				QUART,
+				MON,
+				DAY,
+				WRITE_DATE,
+				QREPORT_TYPE,
+				QUART_START,
+				QUART_END,
+				WEEK_START,
+				WEEK_END,
+				REQ_ORG_ADDR,
+				TEST_REQ_SEQ,
+				VERIFY_ID,
+				REPORT_NO,
+				FORM_SEQ,
+				#{doc_seq},
+				CASE WHEN (SELECT COUNT(*) FROM REPORT_PUBLISH_LOG WHERE TEST_REQ_SEQ = #{test_req_seq}) = 0 THEN 'P01001'
+					 ELSE 'P01002'
+				END,
+				CASE WHEN (SELECT COUNT(*) FROM REPORT_PUBLISH_LOG WHERE TEST_REQ_SEQ = #{test_req_seq}) = 0 THEN TEST_REQ_NO
+					 ELSE TEST_REQ_NO || '/M' || (SELECT TO_CHAR(COUNT(*)+1) FROM REPORT_PUBLISH_LOG WHERE TEST_REQ_SEQ = #{test_req_seq} AND PUBLISH_GBN = #{publish_gbn})
+				END,
+                REQ_TYPE,
+                REQ_ID,
+                REQ_DATE,
+                SUPV_DEPT_CD,
+                UNIT_WORK_CD,
+                TEST_GOAL,
+                REQ_TEL,
+                REQ_NM,
+                ADDR_REPORT,
+                TEL_REPORT,
+                FAX_REPORT,
+                REQ_MESSAGE,
+                FEE_TOT,
+                TRAVEL_EXP,
+                DEPT_APPR_DATE,
+                DEPT_APPR_ID,
+                DEPT_CD,
+                ACT_USER_ID,
+                REQ_ORG_NO,
+                REQ_ORG_NO2,
+                REQ_ORG_NO3,
+                REQ_ORG_NO4,
+                ACT_DATE,
+                REQ_ACT_USER_ID,
+                REQ_ACT_DATE,
+                DEADLINE_DATE,
+                TEST_END,
+                UMS_FLAG,
+                DISCOUNT_RATE,
+                DISCOUNT_FLAG,
+                RETURN_FLAG,
+                FEE_AUTO_FLAG,
+                EST_NO,
+                COMMISSION_TYPE,
+                SAMPLE_ARRIVAL_DATE,
+                REC_REQ_NO,
+                BACKUP_STATE,
+                STOP_REASON,
+                TEST_STD_NO,
+                SENSORY_TEST,
+                MEMBER_FLAG,
+                REQ_ACT_USER_NM,
+                FEE_TOT_ITEM,
+                RAWDATA_FLAG,
+                PRE_TEST_REQ_NO,
+                RETURN_COMMENT,
+                TEST_TYPE,
+                SALES_USER_ID,
+                SALES_DEPT_CD,
+                REQ_CLASS,
+                EXPRESS_FLAG,
+                SMS_FLAG,
+                SMS_TARGET,
+                SMS_TYPE,
+                REPORT_LAST_DATE,
+                TEST_COUNT,
+                TEST_PLACE,
+                WARE_CLERK,
+                WARE_TEL,
+                SHIP_PORT,
+                UNSHIP_PORT,
+                TB_COL_LINE,
+                DEGREE,
+                PICK_NO,
+                FEE_TOT_PRECOST,
+                ACCEPT_METHOD,
+                ORIGIN,
+                MANUFACTURER,
+                CONTAINER,
+                VESSEL,
+                BILL_OF_LADING,
+                SEPARATION,
+                QUALITY_DEPT_CD1, 
+                QUALITY_DEPT_CD2, 
+                QUALITY_USER_ID1, 
+                QUALITY_USER_ID2,
+                SAMPLE_NUM,
+                SAMPLING_NO,
+                BARCODE_DESC,
+				REQ_PLANT_NM,
+				REQ_PLANT_ADDR,
+				REQ_PLANT_TEL,
+				QR_NM,
+				QR_FILE,
+				EST_CHECK,
+				CALCULATION,
+				ADDR1_ENG,
+				ADDR2_ENG,
+				REQ_ETC,
+				ADMIN_MESSAGE,
+				#{report_exceed_reason}
+			FROM REPORT_DOC
+			WHERE REPORT_DOC_SEQ = #{report_doc_seq}
+			;
+			
+			INSERT INTO REPORT_SAMPLE_PL
+			(
+				 LOG_NO
+				,REPORT_SEQ
+				,REPORT_DOC_SEQ
+				,TEST_SAMPLE_SEQ
+				,TEST_REQ_SEQ
+				,SAMPLING_DATE
+				,SAMPLING_POINT_NO
+				,SAMPLING_METHOD
+				,SAMPLING_ID
+				,STATE
+				,TEST_SAMPLE_RESULT
+				,ETC_DESC
+				,TOT_ITEM_COUNT
+				,DEPT_APPR_FLAG
+				,SAMPLE_CD
+				,TEST_STD_NO
+				,SAMPLE_REG_NM
+				,SAMPLING_HOUR
+				,DISUSE_FLAG
+				,SAMPLING_MIN
+				,REPORT_FLAG
+				,TEST_SAMPLE_RESULT_REASON
+				,KFDA_YN
+				,PRDLST_CD
+				,TEST_SAMPLE_NO
+				,SAMPLE_FEE
+				,JDG_ETC
+				,PRODUCE_DATE
+				,PRODUCE_NO
+				,PRODUCER_NM
+				,PRODUCE_PLACE
+				,SAMPLE_ETC_NM
+				,EXPIRY_DATE
+				,SAMPLE_WEIGHT
+				,KEEP_METHOD
+				,ORDERER_NM
+				,BUILDER_NM
+				,JOINER_NM
+				,COLLECTOR_NM
+				,COLLECT_DATE
+				,COLLECT_PLACE
+				,SM_CODE
+				,REPORT_PUBLISH_NO
+				,TEST_REQ_NO
+			  	,PRETREATMENT_CD
+                ,RESULT_INPUT_TYPE
+                ,PURPOSE
+                ,MAX_GRADE
+                ,SUPPLIER
+			)
+			SELECT
+				 #{log_no}
+				,REPORT_SEQ
+				,REPORT_DOC_SEQ
+				,TEST_SAMPLE_SEQ
+				,TEST_REQ_SEQ
+				,SAMPLING_DATE
+				,SAMPLING_POINT_NO
+				,SAMPLING_METHOD
+				,SAMPLING_ID
+				,STATE
+				,TEST_SAMPLE_RESULT
+				,ETC_DESC
+				,TOT_ITEM_COUNT
+				,DEPT_APPR_FLAG
+				,SAMPLE_CD
+				,TEST_STD_NO
+				,SAMPLE_REG_NM
+				,SAMPLING_HOUR
+				,DISUSE_FLAG
+				,SAMPLING_MIN
+				,REPORT_FLAG
+				,TEST_SAMPLE_RESULT_REASON
+				,KFDA_YN
+				,PRDLST_CD
+				,TEST_SAMPLE_NO
+				,SAMPLE_FEE
+				,JDG_ETC
+				,PRODUCE_DATE
+				,PRODUCE_NO
+				,PRODUCER_NM
+				,PRODUCE_PLACE
+				,SAMPLE_ETC_NM
+				,EXPIRY_DATE
+				,SAMPLE_WEIGHT
+				,KEEP_METHOD
+				,ORDERER_NM
+				,BUILDER_NM
+				,JOINER_NM
+				,COLLECTOR_NM
+				,COLLECT_DATE
+				,COLLECT_PLACE
+				,SM_CODE
+				,CASE WHEN (SELECT COUNT(*) FROM REPORT_PUBLISH_LOG PL WHERE TEST_REQ_SEQ = #{test_req_seq}) = 1 THEN TEST_REQ_NO
+					 ELSE TEST_REQ_NO || '/M' || (SELECT TO_CHAR(COUNT(*)) FROM REPORT_PUBLISH_LOG PL WHERE TEST_REQ_SEQ = #{test_req_seq} AND PUBLISH_GBN = #{publish_gbn})
+				END
+				,TEST_REQ_NO
+			  	,PRETREATMENT_CD
+                ,RESULT_INPUT_TYPE
+                ,PURPOSE
+                ,MAX_GRADE
+                ,SUPPLIER
+			FROM REPORT_SAMPLE
+			WHERE REPORT_DOC_SEQ = #{report_doc_seq} 
+			;
+			
+			INSERT INTO REPORT_SAMPLE_ITEM_PL
+			(
+				 LOG_NO
+				,REPORT_DOC_SEQ
+				,REPORT_SEQ
+				,TEST_SAMPLE_SEQ
+				,TEST_ITEM_SEQ
+				,TESTER_ID
+				,TEST_END_DATE
+				,DISP_ORDER
+				,SECT_APPR_FLAG
+				,RESULT_TYPE
+				,STD_HVAL
+				,STD_LVAL
+				,REPORT_ITEM_NM
+				,REPORT_ITEM_ENG_NM
+				,CREATER_ID
+				,CREATE_DATE
+				,UPDATE_DATE
+				,UPDATER_ID
+				,FEE
+				,UNIT
+				,FEE_GROUP_NO
+				,VALID_POSITION
+				,JDG_TYPE
+				,STATE
+				,TEST_ITEM_DIARY
+				,TEST_ITEM_CD
+				,COLLA_FLAG
+				,RESULT_VAL
+				,STD_FIT
+				,STD_UNFIT
+				,TEST_ITEM_GROUP_NO
+				,HVAL_TYPE
+				,LVAL_TYPE
+				,STD_VAL
+				,STD_TYPE
+				,REPORT_DISP_VAL
+				,TEST_INST
+				,TEST_METHOD
+				,TEST_DEPT_CD
+				,LOQ_HVAL
+				,RESULT_CD
+				,TEST_UNCERTAINTY
+				,RETURN_FLAG
+				,RETURN_COMMENT
+				,DEPT_CD
+				,TEAM_CD
+				,REPORT_FLAG
+				,ACCOUNT_NO
+				,ACCOUNT_TOT_CAL_DISP
+				,ACCOUNT_VAL_DESC_TOT
+				,PRDLST_CD
+				,TEST_REQ_SEQ
+				,ASSIGNMENT_FLAG
+				,STD_DEPT_CD
+				,STD_DEPT_NM
+				,REPRESENT_CD
+				,PRDLST_FEE
+				,DEPT_FEE
+				,EXCEED_REASON
+				,REPORT_ORDER
+				,REPORT_PUBLISH_NO
+				,TEST_REQ_NO
+				,GRADE1
+                ,GRADE1_RANGE
+                ,GRADE2
+                ,GRADE2_RANGE
+                ,GRADE3
+                ,GRADE3_RANGE
+                ,GRADE4
+                ,GRADE4_RANGE
+                ,OXIDE_CD
+				,OXIDE_NM
+				,BASE
+				,LOQ_LVAL
+			)
+			SELECT
+				 #{log_no}
+				,REPORT_DOC_SEQ
+				,REPORT_SEQ
+				,TEST_SAMPLE_SEQ
+				,TEST_ITEM_SEQ
+				,TESTER_ID
+				,TEST_END_DATE
+				,DISP_ORDER
+				,SECT_APPR_FLAG
+				,RESULT_TYPE
+				,STD_HVAL
+				,STD_LVAL
+				,REPORT_ITEM_NM
+				,REPORT_ITEM_ENG_NM
+				,CREATER_ID
+				,CREATE_DATE
+				,UPDATE_DATE
+				,UPDATER_ID
+				,FEE
+				,UNIT
+				,FEE_GROUP_NO
+				,VALID_POSITION
+				,JDG_TYPE
+				,STATE
+				,TEST_ITEM_DIARY
+				,TEST_ITEM_CD
+				,COLLA_FLAG
+				,RESULT_VAL
+				,STD_FIT
+				,STD_UNFIT
+				,TEST_ITEM_GROUP_NO
+				,HVAL_TYPE
+				,LVAL_TYPE
+				,STD_VAL
+				,STD_TYPE
+				,REPORT_DISP_VAL
+				,TEST_INST
+				,TEST_METHOD
+				,TEST_DEPT_CD
+				,LOQ_HVAL
+				,RESULT_CD
+				,TEST_UNCERTAINTY
+				,RETURN_FLAG
+				,RETURN_COMMENT
+				,DEPT_CD
+				,TEAM_CD
+				,REPORT_FLAG
+				,ACCOUNT_NO
+				,ACCOUNT_TOT_CAL_DISP
+				,ACCOUNT_VAL_DESC_TOT
+				,PRDLST_CD
+				,TEST_REQ_SEQ
+				,ASSIGNMENT_FLAG
+				,STD_DEPT_CD
+				,STD_DEPT_NM
+				,REPRESENT_CD
+				,PRDLST_FEE
+				,DEPT_FEE
+				,EXCEED_REASON
+				,REPORT_ORDER
+				,CASE WHEN (SELECT COUNT(*) FROM REPORT_PUBLISH_LOG PL WHERE TEST_REQ_SEQ = #{test_req_seq}) = 1 THEN TEST_REQ_NO
+					 ELSE TEST_REQ_NO || '/M' || (SELECT TO_CHAR(COUNT(*)) FROM REPORT_PUBLISH_LOG PL WHERE TEST_REQ_SEQ = #{test_req_seq} AND PUBLISH_GBN = #{publish_gbn})
+				END
+				,TEST_REQ_NO
+				,GRADE1
+                ,GRADE1_RANGE
+                ,GRADE2
+                ,GRADE2_RANGE
+                ,GRADE3
+                ,GRADE3_RANGE
+                ,GRADE4
+                ,GRADE4_RANGE
+                ,OXIDE_CD
+				,OXIDE_NM
+				,BASE
+				,LOQ_LVAL
+			FROM REPORT_SAMPLE_ITEM
+			WHERE REPORT_DOC_SEQ = #{report_doc_seq} 
+			;
+			
+			UPDATE TEST_REQ 
+			SET STATE = 'H' 
+			WHERE TEST_REQ_SEQ = #{test_req_seq}
+			;
+			
+		END;
+	</insert>
+	
+	<insert id="insertReportPublishLog2" parameterType="ReportVO">
+		BEGIN
+			INSERT INTO REPORT_PUBLISH_LOG
+			(
+				LOG_NO,
+				LOG_FLAG,
+				LOG_DATE,
+				TITLE,
+				REQ_BASIS,
+				DESTINATION_NM,
+				ZIP_CODE,
+				ADDR1,
+				ADDR2,
+				REPORT_TYPE,
+				REPORT_MAKE_ID,
+				REPORT_SIGN_ID,
+				STATE,
+				CREATE_DATE,
+				CREATER_ID,
+				UPDATE_DATE,
+				UPDATER_ID,
+				ONNARA_LINK_YN,
+				ONNARA_APPV_STATE,
+				ONNARA_DOC_NO,
+				ONNARA_APPV_DATE,
+				ONNARA_LINK_DATE,
+				ONNARA_FILE_FLAG,
+				ONNARA_FILE_NM,
+				TEST_REQ_NO,
+				REPORT_DOC_SEQ,
+				KOLAS_INFO,
+				ONNARA_TITLE,
+				ONNARA_CON,
+				KOLAS_RPT_USE,
+				KOLAS_SMP_DESC,
+				KOLAS_TEST_ENV,
+				YEAR,
+				QUART,
+				MON,
+				DAY,
+				WRITE_DATE,
+				QREPORT_TYPE,
+				QUART_START,
+				QUART_END,
+				WEEK_START,
+				WEEK_END,
+				REQ_ORG_ADDR,
+				TEST_REQ_SEQ,
+				VERIFY_ID,
+				REPORT_NO,
+				FORM_SEQ,
+				DOC_SEQ,
+				PUBLISH_GBN,
+				REPORT_PUBLISH_NO,
+                REQ_TYPE,
+                REQ_ID,
+                REQ_DATE,
+                SUPV_DEPT_CD,
+                UNIT_WORK_CD,
+                TEST_GOAL,
+                REQ_TEL,
+                REQ_NM,
+                ADDR_REPORT,
+                TEL_REPORT,
+                FAX_REPORT,
+                REQ_MESSAGE,
+                FEE_TOT,
+                TRAVEL_EXP,
+                DEPT_APPR_DATE,
+                DEPT_APPR_ID,
+                DEPT_CD,
+                ACT_USER_ID,
+                REQ_ORG_NO,
+                REQ_ORG_NO2,
+                REQ_ORG_NO3,
+                REQ_ORG_NO4,
+                ACT_DATE,
+                REQ_ACT_USER_ID,
+                REQ_ACT_DATE,
+                DEADLINE_DATE,
+                TEST_END,
+                UMS_FLAG,
+                DISCOUNT_RATE,
+                DISCOUNT_FLAG,
+                RETURN_FLAG,
+                FEE_AUTO_FLAG,
+                EST_NO,
+                COMMISSION_TYPE,
+                SAMPLE_ARRIVAL_DATE,
+                REC_REQ_NO,
+                BACKUP_STATE,
+                STOP_REASON,
+                TEST_STD_NO,
+                SENSORY_TEST,
+                MEMBER_FLAG,
+                REQ_ACT_USER_NM,
+                FEE_TOT_ITEM,
+                RAWDATA_FLAG,
+                PRE_TEST_REQ_NO,
+                RETURN_COMMENT,
+                TEST_TYPE,
+                SALES_USER_ID,
+                SALES_DEPT_CD,
+                REQ_CLASS,
+                EXPRESS_FLAG,
+                SMS_FLAG,
+                SMS_TARGET,
+                SMS_TYPE,
+                REPORT_LAST_DATE,
+                TEST_COUNT,
+                TEST_PLACE,
+                WARE_CLERK,
+                WARE_TEL,
+                SHIP_PORT,
+                UNSHIP_PORT,
+                TB_COL_LINE,
+                DEGREE,
+                PICK_NO,
+                FEE_TOT_PRECOST,
+                ACCEPT_METHOD,
+                ORIGIN,
+                MANUFACTURER,
+                CONTAINER,
+                VESSEL,
+                BILL_OF_LADING,
+                SEPARATION,
+                QUALITY_DEPT_CD1, 
+                QUALITY_DEPT_CD2, 
+                QUALITY_USER_ID1, 
+                QUALITY_USER_ID2,
+                SAMPLE_NUM,
+                SAMPLING_NO,
+                BARCODE_DESC,
+				REQ_PLANT_NM,
+				REQ_PLANT_ADDR,
+				REQ_PLANT_TEL,
+				QR_NM,
+				QR_FILE,
+				EST_CHECK,
+				CALCULATION,
+				ADDR1_ENG,
+				ADDR2_ENG,
+				REQ_ETC,
+				ADMIN_MESSAGE   
+			)
+			SELECT
+				#{log_no},
+				'1',
+				SYSDATE,
+				TITLE,
+				REQ_BASIS,
+				DESTINATION_NM,
+				ZIP_CODE,
+				ADDR1,
+				ADDR2,
+				REPORT_TYPE,
+				REPORT_MAKE_ID,
+				REPORT_SIGN_ID,
+				STATE,
+				CREATE_DATE,
+				CREATER_ID,
+				UPDATE_DATE,
+				UPDATER_ID,
+				ONNARA_LINK_YN,
+				ONNARA_APPV_STATE,
+				ONNARA_DOC_NO,
+				ONNARA_APPV_DATE,
+				ONNARA_LINK_DATE,
+				ONNARA_FILE_FLAG,
+				ONNARA_FILE_NM,
+				TEST_REQ_NO,
+				REPORT_DOC_SEQ,
+				KOLAS_INFO,
+				ONNARA_TITLE,
+				ONNARA_CON,
+				KOLAS_RPT_USE,
+				KOLAS_SMP_DESC,
+				KOLAS_TEST_ENV,
+				YEAR,
+				QUART,
+				MON,
+				DAY,
+				WRITE_DATE,
+				QREPORT_TYPE,
+				QUART_START,
+				QUART_END,
+				WEEK_START,
+				WEEK_END,
+				REQ_ORG_ADDR,
+				TEST_REQ_SEQ,
+				VERIFY_ID,
+				REPORT_NO,
+				FORM_SEQ,
+				#{doc_seq},
+				'P01003',
+				REPORT_PUBLISH_NO || '/R' || (SELECT TO_CHAR(COUNT(*)+1) FROM REPORT_PUBLISH_LOG WHERE REPORT_DOC_SEQ = #{report_doc_seq} AND PUBLISH_GBN = #{publish_gbn}),
+                REQ_TYPE,
+                REQ_ID,
+                REQ_DATE,
+                SUPV_DEPT_CD,
+                UNIT_WORK_CD,
+                TEST_GOAL,
+                REQ_TEL,
+                REQ_NM,
+                ADDR_REPORT,
+                TEL_REPORT,
+                FAX_REPORT,
+                REQ_MESSAGE,
+                FEE_TOT,
+                TRAVEL_EXP,
+                DEPT_APPR_DATE,
+                DEPT_APPR_ID,
+                DEPT_CD,
+                ACT_USER_ID,
+                REQ_ORG_NO,
+                REQ_ORG_NO2,
+                REQ_ORG_NO3,
+                REQ_ORG_NO4,
+                ACT_DATE,
+                REQ_ACT_USER_ID,
+                REQ_ACT_DATE,
+                DEADLINE_DATE,
+                TEST_END,
+                UMS_FLAG,
+                DISCOUNT_RATE,
+                DISCOUNT_FLAG,
+                RETURN_FLAG,
+                FEE_AUTO_FLAG,
+                EST_NO,
+                COMMISSION_TYPE,
+                SAMPLE_ARRIVAL_DATE,
+                REC_REQ_NO,
+                BACKUP_STATE,
+                STOP_REASON,
+                TEST_STD_NO,
+                SENSORY_TEST,
+                MEMBER_FLAG,
+                REQ_ACT_USER_NM,
+                FEE_TOT_ITEM,
+                RAWDATA_FLAG,
+                PRE_TEST_REQ_NO,
+                RETURN_COMMENT,
+                TEST_TYPE,
+                SALES_USER_ID,
+                SALES_DEPT_CD,
+                REQ_CLASS,
+                EXPRESS_FLAG,
+                SMS_FLAG,
+                SMS_TARGET,
+                SMS_TYPE,
+                REPORT_LAST_DATE,
+                TEST_COUNT,
+                TEST_PLACE,
+                WARE_CLERK,
+                WARE_TEL,
+                SHIP_PORT,
+                UNSHIP_PORT,
+                TB_COL_LINE,
+                DEGREE,
+                PICK_NO,
+                FEE_TOT_PRECOST,
+                ACCEPT_METHOD,
+                ORIGIN,
+                MANUFACTURER,
+                CONTAINER,
+                VESSEL,
+                BILL_OF_LADING,
+                SEPARATION,
+                QUALITY_DEPT_CD1, 
+                QUALITY_DEPT_CD2, 
+                QUALITY_USER_ID1, 
+                QUALITY_USER_ID2,
+                SAMPLE_NUM,
+                SAMPLING_NO,
+                BARCODE_DESC,
+				REQ_PLANT_NM,
+				REQ_PLANT_ADDR,
+				REQ_PLANT_TEL,
+				QR_NM,
+				QR_FILE,
+				EST_CHECK,
+				CALCULATION,
+				ADDR1_ENG,
+				ADDR2_ENG,
+				REQ_ETC,
+				ADMIN_MESSAGE   
+          	FROM REPORT_PUBLISH_LOG
+			WHERE LOG_NO = #{sec_log_no}
+			;
+			
+			INSERT INTO REPORT_SAMPLE_PL
+			(
+				 LOG_NO
+				,REPORT_SEQ
+				,REPORT_DOC_SEQ
+				,TEST_SAMPLE_SEQ
+				,TEST_REQ_SEQ
+				,SAMPLING_DATE
+				,SAMPLING_POINT_NO
+				,SAMPLING_METHOD
+				,SAMPLING_ID
+				,STATE
+				,TEST_SAMPLE_RESULT
+				,ETC_DESC
+				,TOT_ITEM_COUNT
+				,DEPT_APPR_FLAG
+				,SAMPLE_CD
+				,TEST_STD_NO
+				,SAMPLE_REG_NM
+				,SAMPLING_HOUR
+				,DISUSE_FLAG
+				,SAMPLING_MIN
+				,REPORT_FLAG
+				,TEST_SAMPLE_RESULT_REASON
+				,KFDA_YN
+				,PRDLST_CD
+				,TEST_SAMPLE_NO
+				,SAMPLE_FEE
+				,JDG_ETC
+				,PRODUCE_DATE
+				,PRODUCE_NO
+				,PRODUCER_NM
+				,PRODUCE_PLACE
+				,SAMPLE_ETC_NM
+				,EXPIRY_DATE
+				,SAMPLE_WEIGHT
+				,KEEP_METHOD
+				,ORDERER_NM
+				,BUILDER_NM
+				,JOINER_NM
+				,COLLECTOR_NM
+				,COLLECT_DATE
+				,COLLECT_PLACE
+				,SM_CODE
+				,REPORT_PUBLISH_NO
+				,TEST_REQ_NO
+			  	,PRETREATMENT_CD
+                ,RESULT_INPUT_TYPE
+                ,PURPOSE
+                ,MAX_GRADE
+                ,SUPPLIER
+			)
+			SELECT
+				 #{log_no}
+				,REPORT_SEQ
+				,REPORT_DOC_SEQ
+				,TEST_SAMPLE_SEQ
+				,TEST_REQ_SEQ
+				,SAMPLING_DATE
+				,SAMPLING_POINT_NO
+				,SAMPLING_METHOD
+				,SAMPLING_ID
+				,STATE
+				,TEST_SAMPLE_RESULT
+				,ETC_DESC
+				,TOT_ITEM_COUNT
+				,DEPT_APPR_FLAG
+				,SAMPLE_CD
+				,TEST_STD_NO
+				,SAMPLE_REG_NM
+				,SAMPLING_HOUR
+				,DISUSE_FLAG
+				,SAMPLING_MIN
+				,REPORT_FLAG
+				,TEST_SAMPLE_RESULT_REASON
+				,KFDA_YN
+				,PRDLST_CD
+				,TEST_SAMPLE_NO
+				,SAMPLE_FEE
+				,JDG_ETC
+				,PRODUCE_DATE
+				,PRODUCE_NO
+				,PRODUCER_NM
+				,PRODUCE_PLACE
+				,SAMPLE_ETC_NM
+				,EXPIRY_DATE
+				,SAMPLE_WEIGHT
+				,KEEP_METHOD
+				,ORDERER_NM
+				,BUILDER_NM
+				,JOINER_NM
+				,COLLECTOR_NM
+				,COLLECT_DATE
+				,COLLECT_PLACE
+				,SM_CODE
+				,REPORT_PUBLISH_NO || '/R' || (SELECT TO_CHAR(COUNT(*)) FROM REPORT_PUBLISH_LOG WHERE REPORT_DOC_SEQ = #{report_doc_seq} AND PUBLISH_GBN = #{publish_gbn})
+				,TEST_REQ_NO
+			  	,PRETREATMENT_CD
+                ,RESULT_INPUT_TYPE
+                ,PURPOSE
+                ,MAX_GRADE
+                ,SUPPLIER
+			FROM REPORT_SAMPLE_PL
+			WHERE LOG_NO = #{sec_log_no} 
+			;
+			
+			INSERT INTO REPORT_SAMPLE_ITEM_PL
+			(
+				 LOG_NO
+				,REPORT_DOC_SEQ
+				,REPORT_SEQ
+				,TEST_SAMPLE_SEQ
+				,TEST_ITEM_SEQ
+				,TESTER_ID
+				,TEST_END_DATE
+				,DISP_ORDER
+				,SECT_APPR_FLAG
+				,RESULT_TYPE
+				,STD_HVAL
+				,STD_LVAL
+				,REPORT_ITEM_NM
+				,REPORT_ITEM_ENG_NM
+				,CREATER_ID
+				,CREATE_DATE
+				,UPDATE_DATE
+				,UPDATER_ID
+				,FEE
+				,UNIT
+				,FEE_GROUP_NO
+				,VALID_POSITION
+				,JDG_TYPE
+				,STATE
+				,TEST_ITEM_DIARY
+				,TEST_ITEM_CD
+				,COLLA_FLAG
+				,RESULT_VAL
+				,STD_FIT
+				,STD_UNFIT
+				,TEST_ITEM_GROUP_NO
+				,HVAL_TYPE
+				,LVAL_TYPE
+				,STD_VAL
+				,STD_TYPE
+				,REPORT_DISP_VAL
+				,TEST_INST
+				,TEST_METHOD
+				,TEST_DEPT_CD
+				,LOQ_HVAL
+				,RESULT_CD
+				,TEST_UNCERTAINTY
+				,RETURN_FLAG
+				,RETURN_COMMENT
+				,DEPT_CD
+				,TEAM_CD
+				,REPORT_FLAG
+				,ACCOUNT_NO
+				,ACCOUNT_TOT_CAL_DISP
+				,ACCOUNT_VAL_DESC_TOT
+				,PRDLST_CD
+				,TEST_REQ_SEQ
+				,ASSIGNMENT_FLAG
+				,STD_DEPT_CD
+				,STD_DEPT_NM
+				,REPRESENT_CD
+				,PRDLST_FEE
+				,DEPT_FEE
+				,EXCEED_REASON
+				,REPORT_ORDER
+				,REPORT_PUBLISH_NO
+				,TEST_REQ_NO
+				,GRADE1
+                ,GRADE1_RANGE
+                ,GRADE2
+                ,GRADE2_RANGE
+                ,GRADE3
+                ,GRADE3_RANGE
+                ,GRADE4
+                ,GRADE4_RANGE
+                ,OXIDE_CD
+				,OXIDE_NM
+				,BASE
+				,LOQ_LVAL
+			)
+			SELECT
+				 #{log_no}
+				,REPORT_DOC_SEQ
+				,REPORT_SEQ
+				,TEST_SAMPLE_SEQ
+				,TEST_ITEM_SEQ
+				,TESTER_ID
+				,TEST_END_DATE
+				,DISP_ORDER
+				,SECT_APPR_FLAG
+				,RESULT_TYPE
+				,STD_HVAL
+				,STD_LVAL
+				,REPORT_ITEM_NM
+				,REPORT_ITEM_ENG_NM
+				,CREATER_ID
+				,CREATE_DATE
+				,UPDATE_DATE
+				,UPDATER_ID
+				,FEE
+				,UNIT
+				,FEE_GROUP_NO
+				,VALID_POSITION
+				,JDG_TYPE
+				,STATE
+				,TEST_ITEM_DIARY
+				,TEST_ITEM_CD
+				,COLLA_FLAG
+				,RESULT_VAL
+				,STD_FIT
+				,STD_UNFIT
+				,TEST_ITEM_GROUP_NO
+				,HVAL_TYPE
+				,LVAL_TYPE
+				,STD_VAL
+				,STD_TYPE
+				,REPORT_DISP_VAL
+				,TEST_INST
+				,TEST_METHOD
+				,TEST_DEPT_CD
+				,LOQ_HVAL
+				,RESULT_CD
+				,TEST_UNCERTAINTY
+				,RETURN_FLAG
+				,RETURN_COMMENT
+				,DEPT_CD
+				,TEAM_CD
+				,REPORT_FLAG
+				,ACCOUNT_NO
+				,ACCOUNT_TOT_CAL_DISP
+				,ACCOUNT_VAL_DESC_TOT
+				,PRDLST_CD
+				,TEST_REQ_SEQ
+				,ASSIGNMENT_FLAG
+				,STD_DEPT_CD
+				,STD_DEPT_NM
+				,REPRESENT_CD
+				,PRDLST_FEE
+				,DEPT_FEE
+				,EXCEED_REASON
+				,REPORT_ORDER
+				,REPORT_PUBLISH_NO || '/R' || (SELECT TO_CHAR (COUNT(*)) FROM REPORT_PUBLISH_LOG WHERE REPORT_DOC_SEQ = #{report_doc_seq} AND PUBLISH_GBN = #{publish_gbn})
+				,TEST_REQ_NO
+				,GRADE1
+                ,GRADE1_RANGE
+                ,GRADE2
+                ,GRADE2_RANGE
+                ,GRADE3
+                ,GRADE3_RANGE
+                ,GRADE4
+                ,GRADE4_RANGE
+                ,OXIDE_CD
+				,OXIDE_NM
+				,BASE
+				,LOQ_LVAL
+			FROM REPORT_SAMPLE_ITEM_PL
+			WHERE LOG_NO = #{sec_log_no} 
+			;
+			
+		END;
+	</insert>
+	
+	<delete id="deleteAllSampleItem" parameterType="ReportVO">
+		DELETE FROM REPORT_SAMPLE_ITEM
+		WHERE REPORT_DOC_SEQ = #{report_doc_seq}
+		AND TEST_SAMPLE_SEQ = #{test_sample_seq}
+	</delete>
+	
+	<delete id="deleteReportPublishLog" parameterType="ReportVO">
+		BEGIN
+			DELETE FROM REPORT_PUBLISH_LOG WHERE LOG_NO = #{log_no}
+			;
+			DELETE FROM REPORT_SAMPLE_PL WHERE LOG_NO = #{log_no}
+			;
+			DELETE FROM REPORT_SAMPLE_ITEM_PL  WHERE LOG_NO = #{log_no}
+			;
+		END;
+	</delete>
+
+	<insert id="insertReportSampleItem" parameterType="ReportVO">
+		INSERT INTO REPORT_SAMPLE_ITEM(
+			REPORT_DOC_SEQ, REPORT_SEQ, TEST_SAMPLE_SEQ, TEST_ITEM_SEQ
+		) VALUES(
+			#{report_doc_seq}, 
+			#{report_seq}, 
+			#{test_sample_seq}, 
+			#{test_item_seq}
+		)
+	</insert>	
+	
+	<select id="selectReportFormInfo" parameterType="ReportVO" resultType="ReportVO">
+		SELECT
+			FORM_SEQ,
+			DOC_SEQ,
+			REPORT_NO
+		FROM REPORT_DOC
+		WHERE REPORT_DOC_SEQ = #{report_doc_seq}
+	</select>
+	
+	
+		<!-- 메일팝업 화면용 -->
+	<select id="selectSurfaceMailList" parameterType="ReportVO" resultType="ReportVO">
+			SELECT
+			A.REPORT_NO,
+			A.FORM_SEQ,
+			A.DOC_SEQ,
+			B.FORM_TITLE,
+			B.FORM_NAME,
+			C.DOC_REVISION_SEQ,
+			A.TEST_REQ_SEQ,
+			(SELECT LISTAGG(TEST_SAMPLE_SEQ, ',') WITHIN GROUP(ORDER BY TEST_SAMPLE_SEQ) FROM REPORT_SAMPLE WHERE REPORT_DOC_SEQ = A.REPORT_DOC_SEQ) AS TEST_SAMPLE_SEQ,
+			D.PICK_NO,
+			A.REPORT_DOC_SEQ,
+			A.REQ_NM,
+			A.TEST_REQ_NO,
+			A.SAMPLING_NO,
+			A.REQ_ETC,
+			(SELECT EMAIL FROM REQ_ORG RO WHERE A.REQ_ORG_NO = RO.REQ_ORG_NO) AS REQ_ORG_EMAIL
+		FROM REPORT_DOC A
+	    LEFT JOIN FORM B ON A.FORM_SEQ = B.FORM_SEQ
+	    LEFT JOIN DOCUMENT C ON A.DOC_SEQ = C.DOC_SEQ
+	    LEFT JOIN SPLORE_PICK D ON A.TEST_REQ_SEQ = D.TEST_REQ_SEQ 
+		WHERE A.report_doc_seq = #{report_doc_seq}
+	</select>
+	
+</mapper>

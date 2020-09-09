@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="document">
+
+	<!-- 양식 관리 리스트 -->
+	<select id="selectFormList" parameterType="DocumentVO" resultType="DocumentVO">
+		SELECT 
+		    FORM_SEQ,
+			FORM_TITLE,
+			FORM_NAME,
+			FORM_TYPE,
+			CREATER_ID,
+			TO_CHAR(CREATE_DATE,'YYYY-MM-DD') CREATE_DATE,
+			ETC
+		FROM FORM
+		WHERE USE_YN = 'Y'
+		<if test="form_seq != null and form_seq != '' ">
+			AND UPPER(FORM_SEQ) like '%' || UPPER( #{form_seq} ) || '%'
+		</if>
+		<if test="form_title != null and form_title != '' ">
+			AND UPPER(FORM_TITLE) like '%' || UPPER( #{form_title} ) || '%'
+		</if>
+		<if test="form_type != null and form_type != '' ">
+			AND FORM_TYPE = #{form_type}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY FORM_SEQ
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+	</select>
+	
+	<!-- 문서 관리 리스트 -->
+	<select id="selectDocumentList" parameterType="DocumentVO" resultType="DocumentVO">
+		SELECT 
+		    D.DOC_SEQ,
+		    DOC_REVISION_SEQ,
+		    TO_CHAR(TO_DATE(DOC_REVISION_DATE,'YYYYMMDD'),'YYYY-MM-DD') DOC_REVISION_DATE,
+		    CREATER_ID,
+		    TO_CHAR(CREATE_DATE,'YYYY-MM-DD') CREATE_DATE
+		FROM DOCUMENT D
+		WHERE SUBSTR(D.DOC_SEQ, 1, 6) = #{form_seq}
+		AND D.USE_YN = 'Y'		
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY D.DOC_SEQ
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+	</select>
+	
+	<!--  문서 상세 페이지 -->
+	<select id="documentDetail" parameterType="DocumentVO" resultType="DocumentVO">
+		SELECT 
+		    D.DOC_SEQ,
+		    DOC_REVISION_SEQ,
+		    TO_CHAR(TO_DATE(DOC_REVISION_DATE,'YYYYMMDD'),'YYYY-MM-DD') DOC_REVISION_DATE,
+		    CREATER_ID,
+		    TO_CHAR(CREATE_DATE,'YYYY-MM-DD') CREATE_DATE,
+		    DA.FILE_NM,
+		    ETC
+		FROM DOCUMENT D
+		LEFT JOIN DOC_ATTACH DA ON DA.DOC_SEQ = D.DOC_SEQ
+		WHERE 1 = 1
+		<if test="key != null and key != '' ">
+			AND D.DOC_SEQ = #{key}
+		</if>
+	</select>
+	
+	<!-- 양식번호 번호 조회 -->
+	<select id="selectFormNo" resultType="DocumentVO">
+		SELECT 
+			TO_CHAR(SYSDATE, 'yy') || '-'  || LPAD(NVL(MAX(SUBSTR(FORM_SEQ, 4, 6)),0)+1, 3, 0) AS FORM_SEQ
+		FROM FORM
+		WHERE SUBSTR(FORM_SEQ, 0, 2) = TO_CHAR(SYSDATE, 'yy')
+	</select>
+	
+	<!--  양식 관리 등록 -->
+	<insert id="insertForm" parameterType="DocumentVO">
+		INSERT INTO FORM (
+			FORM_SEQ
+			, FORM_TITLE
+			, FORM_NAME
+			<if test="form_type != null and form_type != '' ">
+				, FORM_TYPE
+			</if>
+			<if test="user_id != null and user_id != '' ">
+				, CREATER_ID
+			</if>
+				, CREATE_DATE
+			<if test="etc != null and etc != '' ">
+				, ETC
+			</if>
+			, USE_YN
+		) VALUES (
+			#{form_seq}
+			, #{form_title}
+			, #{form_name}
+			<if test="form_type != null and form_type != '' ">
+				, #{form_type}
+			</if>
+			<if test="user_id != null and user_id != '' ">
+				, #{user_id}
+			</if>
+				, SYSDATE
+			<if test="etc != null and etc != '' ">
+				, #{etc}
+			</if>
+			, 'Y'
+		)
+	</insert>
+
+	<!--  문서 관리 등록 -->
+	<insert id="insertDocument" parameterType="DocumentVO">
+		INSERT INTO DOCUMENT (
+			  DOC_SEQ
+			, DOC_REVISION_SEQ
+			, DOC_REVISION_DATE
+			, CREATER_ID
+			, CREATE_DATE
+			, USE_YN
+		) VALUES (
+			  #{doc_seq}
+			, #{doc_revision_seq}
+			, TO_CHAR(SYSDATE,'YYYYMMDD')
+			, #{user_id}
+			, SYSDATE
+			, 'Y'
+		)
+	</insert>
+	
+	<!-- 문서 개정 번호 조회 -->
+	<select id="selectDocumentNo" parameterType="DocumentVO" resultType="String">
+		SELECT 
+		    LPAD(NVL(MAX(SUBSTR(DOC_REVISION_SEQ, 1, 2)),0)+1, 2, 0) AS DOC_REVISION_SEQ
+		FROM DOCUMENT
+		WHERE SUBSTR(DOC_SEQ, 1, 6) = #{form_seq}
+	</select>
+
+	<!--  양식 관리 수정 -->
+	<update id="updateForm" parameterType="DocumentVO">
+		UPDATE FORM SET 
+		    	  FORM_TITLE = #{form_title}
+				, FORM_NAME = #{form_name}
+			<if test="form_type != null and form_type != '' ">
+		    	, FORM_TYPE = #{form_type}
+		    </if>			
+			<if test="etc != null and etc != '' ">
+		    	, ETC = #{etc}
+		    </if>			
+		WHERE FORM_SEQ = #{form_seq}
+	</update>
+	
+	<!--  문서 관리 수정 -->
+	<update id="updateDocument" parameterType="DocumentVO">
+		UPDATE DOCUMENT SET 
+			<if test="doc_revision_date != null and doc_revision_date != '' ">
+		    	DOC_REVISION_DATE = REPLACE(#{doc_revision_date}, '-', '')
+		    </if>
+			<if test="etc != null and etc != '' ">
+		    	, ETC = #{etc}
+		    </if>
+		WHERE DOC_SEQ = #{doc_seq}
+	</update>
+	
+	<!-- 양식 관리 삭제 -->
+	<delete id="deleteForm" parameterType="DocumentVO">
+		UPDATE FORM SET
+		USE_YN = 'Y'
+		WHERE FORM_SEQ = #{form_seq}
+	</delete>
+	
+	<!-- 양식 삭제 가능여부 -->
+	<select id="countDeleteDoc" parameterType="DocumentVO" resultType="Integer">
+		SELECT COUNT(*) 
+		FROM DOCUMENT
+		WHERE SUBSTR(DOC_SEQ , 0, 8) = #{form_seq}
+	</select>
+	
+	<!-- 문서 관리 삭제 -->
+	<delete id="deleteDocument" parameterType="DocumentVO">	
+ 	<!-- 	DELETE DOCUMENT
+		WHERE DOC_SEQ = #{doc_seq}  -->
+		UPDATE DOCUMENT SET
+		USE_YN = 'N'
+		WHERE DOC_SEQ = #{doc_seq} 
+	</delete>
+	
+	<!-- 파일 여부 확인 -->
+	<select id="countFormDocFile" parameterType="DocumentVO" resultType="Integer">
+		SELECT COUNT(DOC_SEQ)
+		FROM DOC_ATTACH
+		WHERE DOC_SEQ = #{doc_seq}
+	</select>
+	
+	<!-- 파일 등록 -->
+	<insert id="insertFormDocFile" parameterType="DocumentVO">
+		INSERT INTO DOC_ATTACH (
+			DOC_SEQ,
+			FILE_NM,
+			FILE_ATT		
+		) VALUES (
+			#{doc_seq}
+			, #{file_nm}
+			<if test="file_att != null and file_att != '' ">
+			, #{file_att}
+			</if>
+		)
+	</insert>
+	
+	<!-- 파일 수정 -->
+	<update id="updateFormDocFile" parameterType="DocumentVO">
+		UPDATE DOC_ATTACH SET		
+			FILE_NM = #{file_nm}		
+		<if test="file_att != null and file_att != '' ">
+			, FILE_ATT = #{file_att}
+		</if>	
+		WHERE DOC_SEQ = #{doc_seq}
+	</update>
+	
+	<!-- 파일 삭제 -->
+	<delete id="deleteFormDocFile" parameterType="DocumentVO">
+		DELETE DOC_ATTACH
+		WHERE DOC_SEQ = #{doc_seq}
+	</delete>
+	
+	<!-- 파일 다운로드 -->
+	<select id="formDocDown" parameterType="DocumentVO" resultType="DocumentVO">
+		SELECT 
+			FILE_NM, 
+			FILE_ATT
+		FROM DOC_ATTACH
+		WHERE DOC_SEQ = #{doc_seq}
+	</select>
+</mapper>

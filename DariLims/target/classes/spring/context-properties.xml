@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.2.xsd">
+	<bean name="propertiesService" class="egovframework.rte.fdl.property.impl.EgovPropertyServiceImpl" destroy-method="destroy">
+		<property name="properties">
+			<map>
+				<!-- <entry key="excelReport.path" value="/limsApp/limsReport/eLABMate" /> -->
+				<!-- <entry key="excelReport.realPath" value="/report" /> -->
+				<!-- <entry key="rdms.url" value="211.232.4.102:8090" /> -->
+				
+				<!-- 개발 -->
+ 				
+				<entry key="rdReport.data_server" value="http://203.229.218.192:23002/DataServer/rdagent.jsp" />
+				<entry key="rdReport.reporting_server" value="http://203.229.218.192:23002/ReportingServer/service" />
+				<entry key="rdReport.mrd_path" value="http://203.229.218.192:23002/ReportingServer/mrd/DARI/" />
+				<entry key="rdReport.rd_service_nm" value="DARI" />				
+				<entry key="rdReport.report_id" value="admin" />
+				<entry key="rdReport.report_pw" value="iit3274!@" />
+				<entry key="web.server_url" value="http://localhost:8080" />
+				<entry key="rdReport.download_path" value="http://203.229.218.192:23002/ReportingServer/report" />
+				
+				<!-- 운영 -->
+				<!-- 				 
+				<entry key="rdReport.data_server" value="http://211.233.37.46:9090/DataServer/rdagent.jsp" />
+				<entry key="rdReport.reporting_server" value="http://211.233.37.46:9090/ReportingServer/service" />
+				<entry key="rdReport.mrd_path" value="http://211.233.37.46:9090/ReportingServer/mrd/DARI/" />
+				<entry key="rdReport.rd_service_nm" value="DARI" />				
+				<entry key="rdReport.report_id" value="admin" />
+				<entry key="rdReport.report_pw" value="iit3274!@" />
+				<entry key="web.server_url" value="http://211.233.37.46:8080" />
+				<entry key="rdReport.download_path" value="http://211.233.37.46:9090/ReportingServer/report" />
+				-->
+				
+				<entry key="homePage_url" value="http://www.dari.re.kr/index.action" />
+			</map>
+		</property>
+		<!-- <property name="extFileName"> <set> <value>classpath:/property/ums.properties</value> </set> </property> -->
+	</bean>
+</beans>

@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="system">
+
+	<!--  감사추적 리스트 -->
+	<select id="selectAuditTrailList" parameterType="AuditTrailVO" resultType="AuditTrailVO">	
+		SELECT LAST.* 
+		FROM (
+			SELECT ROWNUM rNum, S.* 
+			FROM (
+				SELECT			
+				    MN.MENU_NM
+				    ,ANAL.TESTITM_NM AS TEST_ITEM_NM
+				    ,TR.TITLE
+				    ,TS.SAMPLE_REG_NM
+				    ,UI.USER_NM
+				    ,AT.*
+				FROM AUDIT_TRAIL AT
+				LEFT OUTER JOIN ANALYSIS ANAL ON AT.TEST_ITEM_CD = ANAL.TESTITM_CD
+				LEFT OUTER JOIN MENU MN ON AT.MENU_CD = MN.MENU_CD 
+				LEFT OUTER JOIN TEST_SAMPLE TS ON AT.TEST_SAMPLE_SEQ = TS.TEST_SAMPLE_SEQ
+				LEFT OUTER JOIN TEST_REQ TR ON AT.TEST_REQ_SEQ = TR.TEST_REQ_SEQ    
+				LEFT OUTER JOIN USER_INFO UI ON AT.CREATER_ID = UI.USER_ID 
+				WHERE 1=1
+				<if test="test_req_no != null and test_req_no != '' ">
+					AND TR.TEST_REQ_NO like '%'|| #{test_req_no} ||'%'
+				</if>
+				<if test="test_sample_seq != null and test_sample_seq != '' ">
+					AND AT.TEST_SAMPLE_SEQ like '%'|| #{test_sample_seq} ||'%'
+				</if>
+				<if test="test_item_nm != null and test_item_nm != '' ">
+					AND ANAL.TESTITM_NM like '%'|| #{test_item_nm} ||'%'
+				</if>
+				<if test="menu_nm != null and menu_nm != '' ">
+					AND MN.MENU_NM like '%'|| #{menu_nm} ||'%'
+				</if>
+				<if test="user_nm != null and user_nm != '' ">
+					AND UI.USER_NM like '%'|| #{user_nm} ||'%'
+				</if>
+				<if test="user_id != null and user_id != '' ">
+					AND UI.USER_ID like '%'|| #{user_id} ||'%'
+				</if>
+				<if test="startDate != null and startDate != ''">
+				<if test="endDate != null and endDate != ''">
+					AND (TO_CHAR(AT.CREATE_DATE, 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate} 
+					OR TO_CHAR(AT.CREATE_DATE, 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate})
+				</if>
+				</if> 
+				<if test="sortName != null and sortName != '' ">
+					ORDER BY ${sortName} ${sortType}
+				</if>
+				<if test="sortName == null or sortName == '' ">
+					ORDER BY AT.AT_SEQ DESC
+				</if>  
+			) S
+		)LAST
+		WHERE rNum BETWEEN #{firstIndex} +1 AND #{firstIndex} + #{recordCountPerPage}
+		ORDER BY rNum
+	</select>
+	
+	<!-- 감사추적 리스트 COUNT -->
+	<select id="auditTrailCnt" parameterType="AuditTrailVO" resultType="int">	
+		SELECT			
+		    COUNT(*)
+		FROM AUDIT_TRAIL AT
+		LEFT OUTER JOIN ANALYSIS ANAL ON AT.TEST_ITEM_CD = ANAL.TESTITM_CD
+		LEFT OUTER JOIN MENU MN ON AT.MENU_CD = MN.MENU_CD 
+		LEFT OUTER JOIN TEST_SAMPLE TS ON AT.TEST_SAMPLE_SEQ = TS.TEST_SAMPLE_SEQ
+		LEFT OUTER JOIN TEST_REQ TR ON AT.TEST_REQ_SEQ = TR.TEST_REQ_SEQ    
+		LEFT OUTER JOIN USER_INFO UI ON AT.CREATER_ID = UI.USER_ID 
+		WHERE 1=1
+		<if test="test_req_no != null and test_req_no != '' ">
+			AND TR.TEST_REQ_NO like '%'|| #{test_req_no} ||'%'
+		</if>
+		<if test="test_sample_seq != null and test_sample_seq != '' ">
+			AND AT.TEST_SAMPLE_SEQ like '%'|| #{test_sample_seq} ||'%'
+		</if>
+		<if test="test_item_nm != null and test_item_nm != '' ">
+			AND ANAL.TESTITM_NM like '%'|| #{test_item_nm} ||'%'
+		</if>
+		<if test="menu_nm != null and menu_nm != '' ">
+			AND MN.MENU_NM like '%'|| #{menu_nm} ||'%'
+		</if>
+		<if test="user_nm != null and user_nm != '' ">
+			AND UI.USER_NM like '%'|| #{user_nm} ||'%'
+		</if>
+		<if test="user_id != null and user_id != '' ">
+			AND UI.USER_ID like '%'|| #{user_id} ||'%'
+		</if>
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				AND (TO_CHAR(AT.CREATE_DATE, 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate} 
+				OR TO_CHAR(AT.CREATE_DATE, 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate})
+			</if>
+		</if>		 
+	</select>
+
+	<!-- 감사추적 등록 -->
+	<insert id="system.insertAuditTrail" parameterType="CommonVO">
+		INSERT INTO AUDIT_TRAIL (
+			AT_SEQ
+			,MENU_CD
+			,AT_STATE
+			,AT_PROC
+			,AT_CONT
+			<if test="test_sample_seq != null and test_sample_seq != '' ">
+				,TEST_SAMPLE_SEQ
+			</if>
+			,CREATER_ID
+			,CREATE_DATE
+			<if test="test_item_cd != null and test_item_cd != '' ">
+			,TEST_ITEM_CD
+			</if>
+			,AT_IP
+			<if test="test_req_seq != null and test_req_seq != '' ">
+			,TEST_REQ_SEQ
+			</if>
+		) VALUES (
+			(SELECT LPAD(NVL(MAX(AT_SEQ),0)+1,8,'0') FROM AUDIT_TRAIL)
+			,#{menu_cd}
+			,#{crud}
+			,#{at_proc}
+			,#{at_cont}
+			<if test="test_sample_seq != null and test_sample_seq != '' ">
+				,#{test_sample_seq}
+			</if>
+			,#{worker_id}
+			,SYSDATE
+			<if test="test_item_cd != null and test_item_cd != '' ">
+				,#{test_item_cd}
+			</if>
+			,#{at_ip}
+			<if test="test_req_seq != null and test_req_seq != '' ">
+			,#{test_req_seq}
+			</if>
+		)
+	</insert>
+	
+</mapper>

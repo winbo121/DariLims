@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="samplePosition">
+
+	<!-- 검체위치 검체 목록 조회 -->
+	<select id="selectSamplePositionSampleList" parameterType="ResultInputVO" resultType="ResultInputVO">
+		SELECT
+			  R.TEST_REQ_NO 
+			, R.TEST_SAMPLE_SEQ
+			, R.TEST_SAMPLE_NO
+			, R.TEST_REQ_SEQ
+			, LPAD(R.SAMPLING_HOUR, 2, '0') SAMPLING_HOUR
+			, LPAD(R.SAMPLING_MIN, 2, '0') SAMPLING_MIN
+			, R.ETC_DESC
+			, R.TOT_ITEM_COUNT
+			, R.SAMPLE_CD
+			, R.SAMPLE_REG_NM
+			, PC.PRDLST_CD
+			, PC.KOR_NM AS PRDLST_NM
+			, R.TEST_STD_NO
+			, R.TOT_ITEM_COUNT
+			, CCD.CODE_NAME AS DISUSE_FLAG
+			, R.KFDA_YN
+			, R.SAMPLE_FEE
+			, R.PRODUCE_DATE
+			, R.PRODUCE_NO
+			, R.PRODUCER_NM
+			, R.PRODUCE_PLACE
+			, R.SAMPLE_ETC_NM
+			, TO_CHAR(TO_DATE(R.EXPIRY_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') AS EXPIRY_DATE
+			, R.SAMPLE_WEIGHT
+			, R.KEEP_METHOD
+			, R.ORDERER_NM
+			, R.BUILDER_NM
+			, R.JOINER_NM
+			, R.COLLECTOR_NM
+			, TO_CHAR(TO_DATE(R.COLLECT_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') AS COLLECT_DATE
+			, R.COLLECT_PLACE
+			, R.SM_CODE
+            , SN.SM_NAME
+            , R.PRETREATMENT_CD
+            , P.PRE_COST
+            , R.SUPPLIER
+            , R.RESULT_INPUT_TYPE
+        FROM TEST_SAMPLE R
+		LEFT OUTER JOIN PRDLST_CL PC ON R.PRDLST_CD = PC.PRDLST_CD
+		LEFT OUTER JOIN STANDARD_NAME SN ON R.SM_CODE = SN.SM_CODE
+		LEFT OUTER JOIN PRETREATMENT P ON R.PRDLST_CD = P.PRDLST_CD AND R.PRETREATMENT_CD = P.PRETREATMENT_CD
+		LEFT OUTER JOIN TEST_SAMPLE_DISUSE TSD ON TSD.TEST_SAMPLE_SEQ = R.TEST_SAMPLE_SEQ
+		INNER JOIN COMMON_CODE_DETAIL CCD ON CCD.CODE = R.DISUSE_FLAG
+		WHERE 1=1 
+		AND R.TEST_REQ_NO = #{test_req_no}
+		
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY TEST_SAMPLE_SEQ
+		</if>
+	</select>	
+	<!-- 검체위치 이력 목록 조회 -->
+	<select id="selectSamplePositionHistoryList" parameterType="ResultInputVO" resultType="ResultInputVO">
+		SELECT 
+			 A.SEQNO
+			,A.TEST_REQ_SEQ
+			,A.TEST_SAMPLE_SEQ
+			,A.POSITION_DESC
+			,A.ETC_DESC
+			,A.CREATE_IP 
+			,TO_CHAR(A.CREATE_DATE,'YYYY-MM-DD HH24:MI:SS') AS CREATE_DATE
+			,B.USER_NM AS CREATER_ID
+			,A.UPDATE_IP
+			,TO_CHAR(A.UPDATE_DATE,'YYYY-MM-DD HH24:MI:SS') AS UPDATE_DATE
+			,C.USER_NM AS UPDATER_ID
+		FROM TEST_SAMPLE_POSITION A
+		LEFT JOIN USER_INFO B ON A.CREATER_ID = B.USER_ID
+		LEFT JOIN USER_INFO C ON A.UPDATER_ID = C.USER_ID
+		WHERE A.TEST_REQ_SEQ = #{test_req_seq}
+		AND A.TEST_SAMPLE_SEQ = #{test_sample_seq}
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY A.SEQNO
+		</if>
+	</select>
+	
+	<!-- 검체위치 등록 처리 -->
+	<insert id="insertSamplePosition" parameterType="ResultInputVO">
+		INSERT INTO TEST_SAMPLE_POSITION
+		(
+			 SEQNO
+			,TEST_REQ_SEQ
+			,TEST_SAMPLE_SEQ
+			,POSITION_DESC
+			<if test="etc_desc != null and etc_desc != ''">
+			,ETC_DESC
+			</if>
+			,CREATE_IP
+			,CREATE_DATE
+			,CREATER_ID
+		)
+		VALUES
+		(
+			 (SELECT NVL(MAX(SEQNO),0)+1 FROM TEST_SAMPLE_POSITION)
+			,#{test_req_seq}
+			,#{test_sample_seq}
+			,#{position_desc}
+			<if test="etc_desc != null and etc_desc != ''">
+			,#{etc_desc}
+			</if>			
+			,#{ip_address}
+			,SYSDATE
+			,#{user_id}
+		)
+	</insert>
+	
+	<!-- 검체위치 수정 처리 -->
+	<update id="updateSamplePosition" parameterType="ResultInputVO">
+		UPDATE TEST_SAMPLE_POSITION SET
+			 POSITION_DESC = #{position_desc}
+			 <if test="etc_desc != null">
+			,ETC_DESC = #{etc_desc}
+			</if>
+			,UPDATE_IP = #{ip_address}
+			,UPDATE_DATE = SYSDATE
+			,UPDATER_ID = #{user_id}
+		WHERE SEQNO = #{seqno}
+	</update>
+</mapper>

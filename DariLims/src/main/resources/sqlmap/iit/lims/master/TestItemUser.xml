@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="testItemUser">
+	<select id="selectTestItemUserList" parameterType="TestItemVO" resultType="TestItemVO">
+		SELECT * FROM 
+		(
+			SELECT 
+				VW_LIST.*, 
+				ROWNUM AS ROW_NUM, 
+				FLOOR((ROWNUM -1) / #{pageSize} + 1) AS PAGENUM,
+				COUNT(*) OVER() AS TOTALCOUNT, 
+				COUNT(*) OVER() AS TOTAL, 
+				CEIL(COUNT(*) OVER() / #{pageSize}) AS TOTALPAGE
+			FROM 
+			(
+				SELECT
+					NVL(GET_COMMON_CODE(A.TESTITM_LCLAS_CD, ''),'') AS TESTITM_LCLAS_NM,
+					NVL(GET_COMMON_CODE(A.TESTITM_MLSFC_CD, ''),'') AS TESTITM_MLSFC_NM,
+					A.TESTITM_CD AS TEST_ITEM_CD,
+					A.TESTITM_NM AS TEST_ITEM_NM,
+					A.ENG_NM AS TEST_ITEM_ENG_NM,
+					B.USER_ID AS TESTER_USER_ID,
+					C.USER_NM AS TESTER_USER_NM,
+					D.DEPT_CD AS TESTER_DEPT_CD,
+					D.DEPT_NM AS TESTER_DEPT_NM, 
+					DECODE(A.USE_YN, 'Y', '예', '아니오') USE_FLAG
+				FROM ANALYSIS A
+				LEFT JOIN DEPT_USER_ITEM B ON A.TESTITM_CD = B.TEST_ITEM_CD
+				LEFT JOIN USER_INFO C ON B.USER_ID = C.USER_ID
+				LEFT JOIN DEPART D ON B.DEPT_CD = D.DEPT_CD
+				WHERE 1=1
+				<if test="test_item_nm != null and test_item_nm != '' ">
+					AND (UPPER(A.TESTITM_NM) LIKE '%' || UPPER(#{test_item_nm}) || '%' OR UPPER(A.ENG_NM) LIKE '%' || UPPER(#{test_item_nm}) || '%')
+				</if>
+				<if test="testitm_lclas_cd != null and testitm_lclas_cd != '' ">
+					AND A.TESTITM_LCLAS_CD = #{testitm_lclas_cd}
+				</if>
+				<if test="testitm_mlsfc_cd != null and testitm_mlsfc_cd != '' ">
+					AND A.TESTITM_MLSFC_CD = #{testitm_mlsfc_cd}
+				</if>
+				<if test="tester_user_id!= null and tester_user_id != '' ">
+					AND B.USER_ID = #{tester_user_id}
+				</if>
+				<if test="use_flag != null and use_flag != '' ">
+					AND A.USE_YN = #{use_flag} 
+				</if>
+				<if test="sortName != null and sortName != '' ">
+					ORDER BY ${sortName} ${sortType}
+				</if>
+				<if test="sortName == null or sortName == '' ">
+					ORDER BY A.TESTITM_LCLAS_CD, A.TESTITM_MLSFC_CD
+				</if>
+			) VW_LIST
+	    )  
+		WHERE PAGENUM = #{pageNum}
+	</select>
+
+	<insert id="insertTestItemUser" parameterType="TestItemVO">
+		MERGE INTO DEPT_USER_ITEM
+		USING DUAL ON (
+			TEST_ITEM_CD = #{test_item_cd}
+		)
+		WHEN MATCHED THEN
+			UPDATE SET
+				 DEPT_CD = #{tester_dept_cd}
+				,USER_ID = #{tester_user_id}
+				,UPDATE_DATE = SYSDATE
+				,UPDATER_ID = #{user_id}
+		WHEN NOT MATCHED THEN
+			INSERT 
+			(
+				 TEST_ITEM_CD
+				,DEPT_CD
+				,USER_ID
+				,CREATE_DATE
+				,CREATER_ID
+			) 
+			VALUES 
+			(
+				 #{test_item_cd}
+				,#{tester_dept_cd}
+				,#{tester_user_id}
+				,SYSDATE
+				,#{user_id}
+			)
+	</insert>
+	
+	<update id="updateTestItemUser" parameterType="TestItemVO">
+		UPDATE DEPT_USER_ITEM SET
+			 DEPT_CD = #{tester_dept_cd}
+			,USER_ID = #{tester_user_id}
+			,UPDATE_DATE = SYSDATE
+			,UPDATER_ID = #{user_id}
+		WHERE TEST_ITEM_CD = #{test_item_cd}
+	</update>
+	
+	<delete id="deleteTestItemUser" parameterType="TestItemVO">
+		DELETE FROM DEPT_USER_ITEM
+		WHERE TEST_ITEM_CD = #{test_item_cd}
+	</delete>
+</mapper>

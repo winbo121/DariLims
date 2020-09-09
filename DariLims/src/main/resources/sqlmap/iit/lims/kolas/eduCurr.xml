@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="eduCurr">
+
+	<select id="selectEduCurrList" parameterType="eduResultVO" resultType="eduResultVO">
+		SELECT A.EDU_RESULT_NO, 
+		(SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = A.EDU_KIND) EDU_KIND,
+		(SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = A.MGR_DEPT) MGR_DEPT,
+		A.EDU_ORG,
+		A.EDU_PLACE,
+		TO_CHAR(TO_DATE( A.EDU_SDATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') EDU_SDATE, 
+        TO_CHAR(TO_DATE( A.EDU_EDATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') EDU_EDATE,
+		A.EDU_TYPE,
+		A.EDU_CONTENT,
+		A.EDU_DESC  
+		FROM EDU_RESULT A
+		WHERE 1=1
+		<if test="edu_kind != null and edu_kind != '' ">
+			AND UPPER(A.EDU_KIND) LIKE '%' || UPPER(#{edu_kind}) || '%'
+		</if>
+		<if test="mgr_dept != null and mgr_dept != '' ">
+			AND UPPER(A.MGR_DEPT) LIKE '%' || UPPER(#{mgr_dept}) || '%'
+		</if>
+		<if test="edu_org != null and edu_org != '' ">
+			AND UPPER(A.EDU_ORG) LIKE '%' || UPPER(#{edu_org}) || '%'
+		</if>
+		<if test="edu_place != null and edu_place != '' ">
+			AND UPPER(A.EDU_PLACE) LIKE '%' || UPPER(#{edu_place}) || '%'
+		</if>
+		<if test="edu_type != null and edu_type != '' ">
+			AND UPPER(A.EDU_TYPE) LIKE '%' || UPPER(#{edu_type}) || '%'
+		</if>	
+		<if test="edu_content != null and edu_content != '' ">
+			AND UPPER(A.EDU_CONTENT) LIKE '%' || UPPER(#{edu_content}) || '%'
+		</if>	
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				<![CDATA[
+     				AND TO_DATE(A.EDU_SDATE) >= TO_DATE(#{startDate})
+     				AND TO_DATE(A.EDU_EDATE) <= TO_DATE(#{endDate})
+     			]]>
+    		</if>
+			<if test="endDate == null or endDate == ''">
+    			<![CDATA[
+     				AND TO_DATE(A.EDU_SDATE) >= TO_DATE(#{startDate})
+     			]]>	 
+    		</if>
+ 	    </if>
+ 	    <if test="startDate == null or startDate == ''">
+ 	    	<if test="endDate != null and endDate != ''">
+ 	    		<![CDATA[
+     				AND TO_DATE(A.EDU_EDATE) <= TO_DATE(#{endDate})
+     			]]> 
+ 	    	</if>
+ 	    </if>
+ 	    <if test="user_nm != null and user_nm != '' ">
+ 	    	AND A.EDU_RESULT_NO IN (SELECT 
+ 	    								WA.EDU_RESULT_NO WA 
+ 	    						    FROM EDU_ATTEND WA
+ 	    						  	LEFT JOIN USER_INFO WB
+ 	    						  	ON WA.USER_NO = WB.USER_ID
+ 	    						  	WHERE WB.USER_NM LIKE '%' || #{user_nm} || '%')
+ 	    </if>
+ 	    
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null and sortName == '' ">
+			ORDER BY A.REQ_ORG_NO
+		</if>
+	</select>
+	
+	<select id="selectEduCurriculumDetail" parameterType="eduResultVO" resultType="eduResultVO">
+		SELECT A.EDU_RESULT_NO, 
+		A.EDU_KIND,
+		A.MGR_DEPT,
+		A.EDU_ORG,
+		A.EDU_PLACE,
+		TO_CHAR(TO_DATE( A.EDU_SDATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') EDU_SDATE, 
+        TO_CHAR(TO_DATE( A.EDU_EDATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') EDU_EDATE,
+		A.EDU_TYPE,
+		A.EDU_CONTENT,
+		A.EDU_DESC,
+		B.EDU_DOC_NO,
+		B.FILE_NM,
+		B.DOC_NM,
+		B.ATT_FILE
+		FROM EDU_RESULT A left outer join EDU_RESULT_DOC B
+ 		ON A.EDU_RESULT_NO = B.EDU_RESULT_NO
+		WHERE A.EDU_RESULT_NO = #{key}
+	</select>
+	
+	<select id="getNewEduResultNo" resultType="String">
+		SELECT LPAD(NVL(MAX(EDU_RESULT_NO),0)+1,3,0) FROM EDU_RESULT
+	</select>
+	
+	<insert id="insertEduCurriculum" parameterType="eduResultVO">
+		INSERT INTO EDU_RESULT (
+		EDU_RESULT_NO,
+		EDU_KIND,
+		MGR_DEPT,
+		EDU_ORG,
+		EDU_PLACE,
+		EDU_SDATE,
+		EDU_EDATE,
+		EDU_TYPE,
+		EDU_CONTENT,		
+		EDU_DESC,
+		CREATER_ID,
+		CREATE_DATE
+		 )	VALUES (
+		#{edu_result_no},
+		#{edu_kind},
+		#{mgr_dept},
+		#{edu_org},
+		#{edu_place},
+		REPLACE(#{edu_sdate}, '-', ''),
+		REPLACE(#{edu_edate}, '-', ''),
+		#{edu_type},
+		#{edu_content},			
+		#{edu_desc},
+		#{user_id},
+		SYSDATE
+		)
+	</insert>
+	
+	<insert id="insertEduCurrDocFile" parameterType="eduResultVO">
+		INSERT INTO EDU_RESULT_DOC (
+		EDU_DOC_NO,		
+		DOC_NM,
+		<if test="att_file != null and att_file != '' ">
+		FILE_NM,
+		ATT_FILE,
+		</if>
+		EDU_RESULT_NO		
+		) VALUES (
+		(SELECT LPAD(NVL(MAX(EDU_DOC_NO),0)+1,6,0) FROM EDU_RESULT_DOC),		
+		#{doc_nm},
+		<if test="att_file != null and att_file != '' ">
+		#{file_nm},
+		#{att_file},
+		</if>
+		#{edu_result_no}
+		)		
+	</insert>
+	
+	<update id="updateEduCurriculum" parameterType="eduResultVO">
+		UPDATE EDU_RESULT SET
+		EDU_KIND = #{edu_kind},
+		MGR_DEPT = #{mgr_dept},
+		EDU_ORG = #{edu_org},
+		EDU_PLACE = #{edu_place},
+		EDU_SDATE = REPLACE(#{edu_sdate}, '-', ''),
+		EDU_EDATE = REPLACE(#{edu_edate}, '-', ''),
+		EDU_TYPE = #{edu_type},
+		EDU_CONTENT = #{edu_content},
+		EDU_DESC = #{edu_desc}
+		WHERE EDU_RESULT_NO = #{edu_result_no} 
+	</update>
+	
+	<delete id="deleteEduCurriculum" parameterType="eduResultVO">
+		DELETE EDU_RESULT
+		WHERE EDU_RESULT_NO = #{edu_result_no} 
+	</delete>
+	
+	<update id="updateEduCurrDocFile" parameterType="eduResultVO">
+		UPDATE EDU_RESULT_DOC SET	
+		<if test="att_file != null and att_file != '' ">	
+		FILE_NM = #{file_nm},
+		ATT_FILE = #{att_file},
+		</if>
+		<if test="att_file == null or att_file == '' ">
+			<if test="file_nm == null or file_nm == '' ">
+				FILE_NM = #{file_nm},
+				ATT_FILE = EMPTY_BLOB(),
+			</if>
+		</if>
+		DOC_NM = #{doc_nm}		
+		WHERE EDU_RESULT_NO = #{edu_result_no}
+		AND EDU_DOC_NO = #{edu_doc_no}		
+	</update>
+	
+	<select id="selectEduCurrDocFile" resultType="Integer">
+		SELECT COUNT(EDU_DOC_NO) FROM EDU_RESULT_DOC
+		WHERE EDU_RESULT_NO = #{edu_result_no} 
+	</select>
+	
+	<select id="selectEduAttendInfoList" resultType="eduAttendVO" parameterType="eduAttendVO">		
+		SELECT A.ATTEND_NO,
+        A.EDU_RESULT_NO,
+        A.DEPT_NO,
+        A.USER_NO,
+        A.DOC_NM, 
+		A.FILE_NM,
+        U.USER_NM,
+        D.DEPT_NM
+        FROM EDU_ATTEND A, USER_INFO U, DEPART D
+        WHERE A.USER_NO = U.USER_ID AND A.DEPT_NO = D.DEPT_CD
+		AND A.EDU_RESULT_NO = #{edu_result_no}
+	</select>
+	
+	<select id="eduCurriculumDown" resultType="eduResultVO" parameterType="eduResultVO">
+		SELECT FILE_NM, ATT_FILE
+		FROM EDU_RESULT_DOC
+		WHERE EDU_DOC_NO = #{edu_doc_no}
+	</select>
+	
+	<delete id="deleteEduCurrDocFile" parameterType="eduResultVO">
+		DELETE EDU_RESULT_DOC
+		WHERE EDU_DOC_NO = #{edu_doc_no} AND EDU_RESULT_NO = #{edu_result_no} 
+	</delete>
+
+	<select id="selectEduAttendCnt" resultType="Integer">
+		SELECT COUNT(ATTEND_NO) FROM EDU_ATTEND WHERE EDU_RESULT_NO = #{edu_result_no} 
+	</select>
+	
+	<select id="selectEduEndDt" resultType="String">
+		SELECT EDU_EDATE FROM EDU_RESULT WHERE EDU_RESULT_NO = #{edu_result_no} 
+	</select>
+
+</mapper>

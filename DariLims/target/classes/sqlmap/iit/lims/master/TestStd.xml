@@ -1,0 +1,411 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="testStd">
+
+	<!-- 검사기준 조회(팝업) -->
+	<select id="selectTestStdList" parameterType="testStdVO" resultType="testStdVO">
+		SELECT 
+			TEST_STD_NO,
+			TEST_STD_NM,
+			STD_DESC
+		FROM TEST_STD
+		WHERE 1=1
+		<if test="test_std_nm != null and test_std_nm != '' ">
+			AND UPPER(TEST_STD_NM) LIKE '%' ||
+			UPPER(#{test_std_nm}) || '%'
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY TEST_STD_NO
+		</if>
+	</select>
+	
+	<!-- 검사기준 등록(팝업) -->
+	<insert id="insertTestStd" parameterType="testStdVO">
+		BEGIN
+
+			INSERT INTO TEST_STD (
+				TEST_STD_NO
+				, TEST_STD_NM
+				, STD_DESC
+				, CREATER_ID 
+				, CREATE_DATE
+				, KFDA_YN
+			) VALUES (
+				(SELECT LPAD(NVL(MAX (TEST_STD_NO),0)+1,3,0) FROM TEST_STD WHERE KFDA_YN = 'N')
+				, #{test_std_nm}
+				, #{std_desc}
+				, #{user_id}
+				, SYSDATE
+				, 'N'
+			);
+			
+			INSERT INTO TEST_STD_REV (
+				TEST_STD_NO
+				, REV_NO
+				, CREATER_ID 
+				, CREATE_DATE
+				, REV_DATE
+			) VALUES (
+				(SELECT LPAD(NVL(MAX (TEST_STD_NO),0),3,0) FROM TEST_STD)
+				, (SELECT LPAD(NVL(MAX (REV_NO),0)+1,3,0) FROM TEST_STD_REV WHERE TEST_STD_NO = (SELECT LPAD(NVL(MAX (TEST_STD_NO),0),3,0) FROM TEST_STD))
+				, #{user_id}
+				, SYSDATE
+				, SYSDATE
+			);
+		    
+		END;
+	</insert>	
+	
+	<!-- 검사기준 수정(팝업) -->
+	<update id="updateTestStd" parameterType="testStdVO">
+		UPDATE TEST_STD SET
+		TEST_STD_NM = #{test_std_nm},
+		STD_DESC = #{std_desc},
+		UPDATER_ID = #{user_id},
+		UPDATE_DATE = SYSDATE
+		WHERE TEST_STD_NO = #{test_std_no}
+	</update>	
+	
+	<!-- 검사기준 삭제(팝업) -->
+	<delete id="deleteTestStd" parameterType="testStdVO">
+		DELETE TEST_STD
+		WHERE TEST_STD_NO = #{test_std_no}
+	</delete>
+	
+	<!-- 항목별 기준정보 삭제 -->
+	<delete id="deleteStdTestItemAll" parameterType="testStdVO">
+		DELETE STD_TEST_ITEM
+		WHERE TEST_STD_NO = #{test_std_no}
+	</delete>
+	
+	<select id="selectTestStdRevList" resultType="testStdRevVO" parameterType="testStdRevVO">
+		SELECT 
+			TEST_STD_NO,
+	        REV_NO,
+	        TO_CHAR(REV_DATE, 'YYYY-MM-DD') REV_DATE,
+	        REV_REASON
+        FROM TEST_STD_REV
+        WHERE 1=1
+		<if test="rev_reason == null or rev_reason == '' ">
+        	AND TEST_STD_NO = '001'
+        </if>
+		<if test="rev_reason != null and rev_reason != '' ">
+        	AND TEST_STD_NO = #{test_std_no}
+		</if>
+		<if test="rev_reason != null and rev_reason != '' ">
+			AND UPPER(REV_REASON) LIKE '%' || UPPER(#{rev_reason}) || '%'
+		</if>
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				AND TO_DATE(REV_DATE) BETWEEN TO_DATE(#{startDate}) AND TO_DATE(#{endDate})
+    		</if>
+			<if test="endDate == null or endDate == ''">
+    			<![CDATA[
+     			AND TO_DATE(REV_DATE) >= TO_DATE(#{startDate}) 
+     			]]>	 
+    		</if>
+ 	    </if>
+ 	    <if test="startDate == null or startDate == ''">
+ 	    	<if test="endDate != null and endDate != ''">
+ 	    		<![CDATA[
+     			AND TO_DATE(REV_DATE) <= TO_DATE(#{endDate}) 
+     			]]> 
+ 	    	</if>
+ 	    </if> 
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY REV_NO DESC
+		</if>
+	</select>
+	
+	<insert id="insertTestStdRev" parameterType="StdTestItemVO">
+		INSERT INTO TEST_STD_REV
+		(TEST_STD_NO, REV_NO, REV_DATE, REV_REASON, CREATER_ID, CREATE_DATE) VALUES
+		(#{test_std_no},
+		(SELECT LPAD(NVL(MAX (REV_NO),0)+1,3,0) FROM TEST_STD_REV 
+		WHERE TEST_STD_NO = #{test_std_no}),
+		#{rev_date}, #{rev_reason}, #{user_id}, SYSDATE)
+	</insert>
+	
+	<update id="updateTestStdRev" parameterType="StdTestItemVO">
+		UPDATE TEST_STD_REV SET
+<!-- 		REV_DATE = #{rev_date}, -->
+<!-- 		REV_REASON = #{rev_reason}, -->
+		UPDATER_ID = #{user_id},
+		UPDATE_DATE = SYSDATE
+		WHERE TEST_STD_NO = #{test_std_no} 
+ 		<if test="rev_no != null and rev_no != '' ">
+			AND REV_NO = #{rev_no}
+		</if>
+ 		<if test="rev_no == null or rev_no == '' ">
+			AND REV_NO = ( SELECT MAX(REV_NO) FROM TEST_STD_REV
+					WHERE TEST_STD_NO = #{test_std_no} )
+		</if>
+	</update>
+<!-- 	
+	<delete id="deleteTestStdRev" parameterType="StdTestItemVO">
+		DELETE TEST_STD_REV
+		WHERE TEST_STD_NO = #{test_std_no} AND REV_NO = #{rev_no}
+	</delete>
+-->
+	<select id="selectAllTestItemList" parameterType="stdTestItemVO" resultType="stdTestItemVO">
+		SELECT 
+			ANAL.TESTITM_CD AS TEST_ITEM_CD,
+	        ANAL.TESTITM_NM AS TEST_ITEM_NM,
+	        ANAL.ENG_NM AS TEST_ITEM_ENG_NM,
+<!-- 	        DECODE(C.KOLAS_FLAG, 'Y', '예', '아니요') KOLAS_FLAG , -->
+			ANAL.L_KOR_NM AS TEST_ITEM_TYPE
+<!-- 			B.CODE_NAME TEST_ITEM_TYPE -->
+		FROM ANALYSIS ANAL
+<!-- 		LEFT OUTER JOIN COMMON_CODE_DETAIL B ON C.TEST_ITEM_TYPE = B.CODE -->
+		WHERE ANAL.USE_FLAG = 'Y'
+ 		<if test="test_item_nm != null and test_item_nm != '' ">
+			AND  ( UPPER(ANAL.TESTITM_NM) LIKE '%' || UPPER(#{test_item_nm}) || '%' OR UPPER(ANAL.ENG_NM) LIKE '%' || UPPER(#{test_item_nm}) || '%' )
+		</if>
+		<if test="kolas_flag != null and kolas_flag != '' ">
+			AND ANAL.KOLAS_FLAG = #{kolas_flag}
+		</if>
+		<if test="testitm_lclas_cd != null and testitm_lclas_cd != '' ">
+			AND ANAL.TESTITM_LCLAS_CD = #{testitm_lclas_cd}
+		</if>
+		 <if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		 </if>
+		 <if test="sortName == null or sortName == '' ">
+			ORDER BY ANAL.TESTITM_NM
+		 </if>
+	</select>
+	
+	<!-- 기준관리(현대) -->
+	<select id="selectStdTestItemList" parameterType="stdTestItemVO" resultType="stdTestItemVO">
+		SELECT * FROM (
+		        SELECT VW_LIST.*, ROWNUM AS ROW_NUM, FLOOR((ROWNUM -1) / #{pageSize} + 1) AS PAGENUM,
+		               COUNT(*) OVER() AS TOTALCOUNT, COUNT(*) OVER() AS TOTAL, CEIL(COUNT(*) OVER() / #{pageSize}) AS TOTALPAGE
+		        FROM (		
+				<if test="test_std_no != 'I01'.toString()">
+					SELECT
+						TEST_STD_NO,
+						REV_NO,
+					    S.PRDLST_CD,
+					    S.PRDLST_CD_NM AS PRDLST_NM,
+					    S.TESTITM_CD AS TEST_ITEM_CD,
+					    S.TESTITM_NM AS TEST_ITEM_NM,
+					    S.UNIT_CD,
+					    DECODE(SUBSTR(S.JDGMNT_FOM_CD,0,1), 'C' , S.JDGMNT_FOM_CD ,(SELECT CODE FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'JDGMNT_FOM_CD' AND CCD.KFDA_CODE = S.JDGMNT_FOM_CD)) JDGMNT_FOM_CD,
+					    VALD_MANLI,
+					    CHOIC_FIT,		    
+					    DECODE(SUBSTR(CHOIC_FIT,0,1), 'C' , CHOIC_FIT ,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'CHOIC' AND CCD.KFDA_CODE = CHOIC_FIT)) CHOIC_FIT_NM,
+					    CHOIC_IMPROPT,
+					    DECODE(SUBSTR(CHOIC_IMPROPT,0,1), 'C' , CHOIC_IMPROPT ,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'CHOIC' AND CCD.KFDA_CODE = CHOIC_IMPROPT)) STD_UNFIT_VAL_NM,
+					    LOQ_LVAL,
+					    LOQ_HVAL,
+					    SPEC_VAL,
+					    MIMM_VAL,
+					    DECODE(SUBSTR(MIMM_VAL_DVS_CD,0,1), 'C' , MIMM_VAL_DVS_CD ,(SELECT CODE FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'MIMM_VAL' AND CCD.KFDA_CODE = MIMM_VAL_DVS_CD)) MIMM_VAL_DVS_CD,
+					    MXMM_VAL,
+					    DECODE(SUBSTR(MXMM_VAL_DVS_CD,0,1), 'C' , MXMM_VAL_DVS_CD ,(SELECT CODE FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'MXMM_VAL' AND CCD.KFDA_CODE = MXMM_VAL_DVS_CD)) MXMM_VAL_DVS_CD,
+					    VALD_BEGN_DT,
+					    INDV_SPEC_SEQ,
+					    DEPT_CD
+					FROM INDV_SPEC S
+					WHERE 1=1
+					<if test="rev_no != null and rev_no != '' ">
+						AND S.REV_NO = #{rev_no}
+					</if>
+					<if test="test_std_no != null and test_std_no != '' ">
+						AND S.TEST_STD_NO = #{test_std_no}
+					</if>
+				</if>		
+				
+				<if test="test_std_no == 'I01'.toString()">
+					SELECT
+					    S.PRDLST_CD,
+					    S.PRDLST_CD_NM AS PRDLST_NM,
+					    S.TESTITM_CD AS TEST_ITEM_CD,
+					    S.TESTITM_NM AS TEST_ITEM_NM,
+					    S.UNIT_CD,
+					    DECODE(SUBSTR(S.JDGMNT_FOM_CD,0,1), 'C' , S.JDGMNT_FOM_CD ,(SELECT CODE FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'JDGMNT_FOM_CD' AND CCD.KFDA_CODE = S.JDGMNT_FOM_CD)) JDGMNT_FOM_CD,
+					    VALD_MANLI,
+					    CHOIC_FIT,		    
+					    DECODE(SUBSTR(CHOIC_FIT,0,1), 'C' , CHOIC_FIT ,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'CHOIC' AND CCD.KFDA_CODE = CHOIC_FIT)) CHOIC_FIT_NM,
+					    CHOIC_IMPROPT,
+					    DECODE(SUBSTR(CHOIC_IMPROPT,0,1), 'C' , CHOIC_IMPROPT ,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'CHOIC' AND CCD.KFDA_CODE = CHOIC_IMPROPT)) STD_UNFIT_VAL_NM,
+					    SPEC_VAL,
+					    MIMM_VAL,
+					    DECODE(SUBSTR(MIMM_VAL_DVS_CD,0,1), 'C' , MIMM_VAL_DVS_CD ,(SELECT CODE FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'MIMM_VAL' AND CCD.KFDA_CODE = MIMM_VAL_DVS_CD)) MIMM_VAL_DVS_CD,
+					    MXMM_VAL,
+					    DECODE(SUBSTR(MXMM_VAL_DVS_CD,0,1), 'C' , MXMM_VAL_DVS_CD ,(SELECT CODE FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'MXMM_VAL' AND CCD.KFDA_CODE = MXMM_VAL_DVS_CD)) MXMM_VAL_DVS_CD,
+					    VALD_BEGN_DT,
+					    CMMN_SPEC_SEQ AS INDV_SPEC_SEQ
+					FROM CMMN_SPEC S
+					WHERE 1=1
+				</if>
+					AND VALD_BEGN_DT <![CDATA[<= ]]> TO_CHAR(SYSDATE,'YYYYmmdd')			
+				<if test="sortName != null and sortName != '' ">
+					ORDER BY ${sortName} ${sortType}
+				</if>
+				<if test="sortName == null or sortName == '' ">
+					ORDER BY S.PRDLST_CD
+				</if>
+			) VW_LIST
+	    )  
+		WHERE PAGENUM = #{pageNum}
+	</select>
+	
+	<insert id="insertStdTestItem" parameterType="java.util.HashMap">
+		INSERT INTO INDV_SPEC (
+			TEST_STD_NO,
+			REV_NO,			
+		    PRDLST_CD,
+		    PRDLST_CD_NM,		    
+		    TESTITM_CD,
+		    TESTITM_NM,		    
+		    UNIT_CD,
+		    <if test="vald_manli != null and vald_manli != '' ">
+		    VALD_MANLI,	
+		    </if>	    
+		    <if test="choic_fit != null and choic_fit != '' ">
+		    CHOIC_FIT,
+		    </if>
+		    <if test="choic_fit_nm != null and choic_fit_nm != '' ">
+		    A082_CF_FNPRT_CD_NM,
+		    </if>
+		    <if test="choic_impropt != null and choic_impropt != '' ">
+		    CHOIC_IMPROPT,
+		    </if>
+		    <if test="choic_impropt_nm != null and choic_impropt_nm != '' ">
+		    A082_CI_FNPRT_CD_NM,
+		    </if>	    
+		    <if test="loq_lval != null and loq_lval != '' ">
+		    LOQ_LVAL,
+		    </if>
+		    <if test="loq_hval != null and loq_hval != '' ">
+		    LOQ_HVAL,
+		    </if>	    
+		    <if test="spec_val != null and spec_val != '' ">
+		    SPEC_VAL,
+		    </if>
+		    <if test="mimm_val != null and mimm_val != '' ">
+		    MIMM_VAL,
+		    </if>
+		    <if test="mimm_val_dvs_cd != null and mimm_val_dvs_cd != '' ">
+		    MIMM_VAL_DVS_CD,
+		    </if>
+		    <if test="mxmm_val != null and mxmm_val != '' ">
+		    MXMM_VAL,
+		    </if>
+		    <if test="mxmm_val_dvs_cd != null and mxmm_val_dvs_cd != '' ">
+		    MXMM_VAL_DVS_CD,
+		    </if>
+		    VALD_BEGN_DT,
+			CREATER_ID,
+			CREATE_DATE,
+			LAST_UPDT_DTM,
+			KFDA_YN
+		) VALUES (
+			#{test_std_no}, 
+			#{rev_no}, 
+			#{prdlst_cd}, 
+			#{prdlst_nm},			
+			#{test_item_cd},
+			(SELECT TESTITM_NM FROM ANALYSIS WHERE TESTITM_CD = #{test_item_cd}),			
+			#{unit_cd},
+		    <if test="vald_manli != null and vald_manli != '' ">
+			#{vald_manli},
+			</if>
+		    <if test="choic_fit != null and choic_fit != '' ">
+			#{choic_fit},
+			</if>
+		    <if test="choic_fit_nm != null and choic_fit_nm != '' ">
+			#{choic_fit_nm},
+			</if>
+		    <if test="choic_impropt != null and choic_impropt != '' ">
+			#{choic_impropt},
+			</if>
+		    <if test="choic_impropt_nm != null and choic_impropt_nm != '' ">
+			#{choic_impropt_nm},
+			</if>
+		    <if test="loq_lval != null and loq_lval != '' ">
+			#{loq_lval},
+			</if>
+		    <if test="loq_hval != null and loq_hval != '' ">
+			#{loq_hval},
+			</if>
+		    <if test="spec_val != null and spec_val != '' ">
+			#{spec_val},
+			</if>
+		    <if test="mimm_val != null and mimm_val != '' ">
+			#{mimm_val},
+			</if>
+		    <if test="mimm_val_dvs_cd != null and mimm_val_dvs_cd != '' ">
+			#{mimm_val_dvs_cd}, 
+			</if>
+		    <if test="mxmm_val != null and mxmm_val != '' ">
+			#{mxmm_val},
+			</if>
+		    <if test="mxmm_val_dvs_cd != null and mxmm_val_dvs_cd != '' ">
+			#{mxmm_val_dvs_cd},
+			</if>
+			TO_CHAR(SYSDATE, 'YYYYmmdd'),
+			#{user_id},
+			TO_CHAR(SYSDATE, 'YYYYmmdd'),
+			TO_CHAR(SYSDATE, 'yyyymmdd'),
+			'N'
+		)
+	</insert>
+	
+	<!-- 검사기준 수정 -->
+ 	<update id="updateStdTestItem" parameterType="java.util.HashMap">
+		UPDATE INDV_SPEC SET
+		    PRDLST_CD = #{prdlst_cd},
+		    PRDLST_CD_NM = #{prdlst_nm},	    
+		    TESTITM_CD = #{test_item_cd},
+		    TESTITM_NM = #{test_item_nm},
+		    UNIT_CD = #{unit_cd},
+		    VALD_MANLI = #{vald_manli},
+		    CHOIC_FIT = #{choic_fit},
+		    <if test="choic_fit != null and choic_fit != '' ">
+		    A082_CF_FNPRT_CD_NM = (SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE #{choic_fit} = CODE),
+		    </if>
+		    CHOIC_IMPROPT = #{choic_impropt},
+		    <if test="choic_impropt != null and choic_impropt != '' ">
+		    	A082_CI_FNPRT_CD_NM = (SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE #{choic_impropt} = CODE),
+		    </if>
+		    LOQ_LVAL = #{loq_lval},
+		    LOQ_HVAL = #{loq_hval},
+		    SPEC_VAL = #{spec_val},
+		    MIMM_VAL = #{mimm_val},
+		    MIMM_VAL_DVS_CD = #{mimm_val_dvs_cd},
+		    MXMM_VAL = #{mxmm_val},
+		    MXMM_VAL_DVS_CD = #{mxmm_val_dvs_cd},
+		    JDGMNT_FOM_CD = #{jdgmnt_fom_cd},
+			LAST_UPDT_DTM = TO_CHAR(SYSDATE, 'yyyymmdd')
+		WHERE TEST_STD_NO = #{test_std_no} 
+			AND REV_NO = #{rev_no}
+			AND TESTITM_CD = #{test_item_cd}
+	</update> 
+	
+	<delete id="deleteStdTestItem" parameterType="java.util.HashMap">
+		DELETE INDV_SPEC
+		WHERE TEST_STD_NO = #{test_std_no} 
+		AND REV_NO = #{rev_no}
+		AND TESTITM_CD = #{test_item_cd}
+	</delete>
+	
+	<delete id="deleteProtocolItem" parameterType="testStdVO">
+		DELETE INDV_SPEC
+		WHERE INDV_SPEC_SEQ = #{indv_spec_seq}
+	</delete>
+	
+	<select id="getLastTestStdRevNo" resultType="String" parameterType="stdTestItemVO">
+		SELECT LPAD(NVL(MAX(REV_NO),0),3,0) 
+        FROM TEST_STD_REV
+        WHERE TEST_STD_NO = #{test_std_no}
+	</select>
+
+</mapper>

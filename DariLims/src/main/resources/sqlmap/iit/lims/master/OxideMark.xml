@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="oxideMark">
+
+	<select id="selectOxideMarkList" parameterType="oxideMarkVO" resultType="oxideMarkVO">
+		SELECT OXIDE_CD,
+		OXIDE_CONTENT,
+		USED_FLAG
+		FROM OXIDE_MARK
+		WHERE 1=1
+		<if test="oxide_content != null and oxide_content != '' ">
+			AND UPPER(OXIDE_CONTENT) LIKE '%' ||
+			UPPER(#{oxide_content}) || '%'
+		</if>
+		<if test="used_flag != null and used_flag != '' ">
+			AND USED_FLAG = #{used_flag}
+		</if>
+		ORDER BY OXIDE_CD
+	</select>
+	
+	<select id="selectOxideMarkListDetail" parameterType="oxideMarkVO" resultType="oxideMarkVO">
+		SELECT OXIDE_CD,
+		OXIDE_CONTENT,
+		USED_FLAG
+		FROM OXIDE_MARK
+		WHERE OXIDE_CD = #{key}
+	</select>
+	
+	<insert id="insertOxideMark" parameterType="oxideMarkVO">
+		INSERT INTO OXIDE_MARK (
+		OXIDE_CD,
+		OXIDE_CONTENT,
+		USED_FLAG
+		) VALUES (
+		(SELECT
+		
+		LPAD(NVL(MAX(OXIDE_CD),0)+1 ,4 ,0) FROM OXIDE_MARK),
+		#{oxide_content},
+		#{used_flag}
+		)
+	</insert>
+	
+	<update id="updateOxideMark" parameterType="oxideMarkVO">
+		UPDATE OXIDE_MARK SET
+		OXIDE_CONTENT = #{oxide_content},
+		USED_FLAG = #{used_flag}
+		WHERE OXIDE_CD = #{oxide_cd}
+	</update>
+</mapper>

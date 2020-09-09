@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="resultAssignment">
+	<select id="selectAcceptCompleteList" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT
+		CASE
+		WHEN P.PRC_CD = 'Q' OR P.PRC_CD = 'R' THEN P.EXT_PRC_NM
+		ELSE P.SIMPLE_PRC_NM
+		END AS STATE
+		,R.TEST_REQ_NO
+		,R.TEST_REQ_SEQ
+		,P.PRC_CD PROCESS
+		,R.TITLE
+		,GET_COMMON_CODE(R.REQ_TYPE,'EX1') REQ_TYPE
+		,GET_COMMON_CODE(R.SENSORY_TEST,'EX1') SENSORY_TEST
+        ,GET_COMMON_CODE(R.TEST_GOAL,'') TEST_GOAL
+		,TO_CHAR(TO_DATE(R.REQ_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') REQ_DATE
+		,TO_CHAR(TO_DATE(R.DEADLINE_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') DEADLINE_DATE
+		,R.REQ_NM
+		,UW.UNIT_WORK_NM UNIT_WORK_CD
+		,R.REQ_TEL
+		,RD.DEPT_NM
+		, NVL2(RO.ORG_NM , RO.ORG_NM, RD.DEPT_NM ) REQ_ORG_NM
+		,R.DEPT_CD
+		,U.USER_NM
+		,R.ACT_USER_ID
+		,R.ACT_USER_NM
+		,R.REQ_ACT_USER_ID
+		,R.REQ_ACT_USER_NM
+		,U2.USER_NM CREATER_NM
+		,R.CREATER_ID
+		,R.COMMISSION_TYPE
+		,R.SENSORY_TEST
+		,OCD.COMMISSION_AMT_FLAG
+		,(
+	       	SELECT
+	        	COUNT(*) || ' / ' || SUM(CASE WHEN TESTER_ID IS NULL THEN 0 ELSE 1 END) || ' / ' || SUM(CASE WHEN TESTER_ID IS NOT NULL THEN 0 ELSE 1 END)
+	        FROM TEST_SAMPLE_ITEM XA
+	        WHERE XA.TEST_REQ_SEQ = R.TEST_REQ_SEQ
+	    ) AS ACCEPT_ITEM_INFO
+		FROM TEST_REQ R
+		INNER JOIN PROCESS P ON P.PRC_CD = R.STATE
+		LEFT OUTER JOIN DEPART RD ON RD.DEPT_CD = R.DEPT_CD
+		LEFT OUTER JOIN REQ_ORG RO ON RO.REQ_ORG_NO = R.REQ_ORG_NO
+		LEFT OUTER JOIN UNIT_WORK UW ON UW.UNIT_WORK_CD = R.UNIT_WORK_CD
+		LEFT OUTER JOIN USER_INFO U ON U.USER_ID = R.ACT_USER_ID
+		LEFT OUTER JOIN USER_INFO U2 ON U2.USER_ID = R.CREATER_ID		
+		LEFT OUTER JOIN ORG_COMMISSION_DEPOSIT OCD ON OCD.REQ_ORG_NO = R.REQ_ORG_NO AND OCD.TEST_REQ_SEQ = R.TEST_REQ_SEQ		
+		WHERE R.STATE = 'B'
+		<if test="req_org_nm != null and req_org_nm != '' ">
+			AND UPPER(R.REQ_ORG_NM) like '%' || UPPER( #{req_org_nm} ) || '%'
+		</if>
+		<if test="req_nm != null and req_nm != '' ">
+			AND UPPER(R.REQ_NM) like '%' || UPPER( #{req_nm} ) || '%'
+		</if>
+		<if test="title != null and title != '' ">
+			AND UPPER(R.TITLE) like '%' || UPPER( #{title} ) || '%'
+		</if>
+		<if test="test_req_no != null and test_req_no != '' ">
+			AND R.TEST_REQ_NO like '%' || #{test_req_no} || '%'
+		</if>
+		<if test="req_type != null and req_type != '' ">
+			AND R.REQ_TYPE = #{req_type}
+		</if>
+		<if test="sensory_test != null and sensory_test != '' ">
+			AND R.SENSORY_TEST = #{sensory_test}
+		</if>
+		<if test="unit_work_cd != null and unit_work_cd != '' ">
+			AND R.UNIT_WORK_CD = #{unit_work_cd}
+		</if>
+		<if test="test_goal != null and test_goal != '' ">
+			AND R.TEST_GOAL = #{test_goal}
+		</if>
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				AND TO_CHAR(TO_DATE(R.REQ_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') BETWEEN #{startDate} AND #{endDate}
+			</if>
+		</if>
+		<!-- 의뢰 시험부서 조회조건에서 시험항목 시험부서로 조건 변경 0629 이민아 -->
+		<if test="dept_cd != null and dept_cd != ''">
+			AND R.DEPT_CD = #{dept_cd}
+			AND EXISTS (
+				SELECT 
+					1 
+				FROM 
+					TEST_SAMPLE_ITEM IA 
+				WHERE 
+					IA.TEST_REQ_SEQ = R.TEST_REQ_SEQ
+				AND
+					IA.ASSIGNMENT_FLAG = 'N'
+		 )
+<!-- 			AND EXISTS (
+		        	SELECT 'O'
+		          FROM TEST_SAMPLE_ITEM IA 
+		          WHERE IA.TEST_REQ_SEQ = R.TEST_REQ_SEQ
+   		          AND IA.ASSIGNMENT_FLAG = 'N'
+		          AND IA.DEPT_CD = #{dept_cd}
+		          <if test="accept_wait_yn == 'N'.toString()">
+		          AND IA.TESTER_ID IS NULL
+		          </if>
+		      ) --> 
+		</if>		
+<!-- 		<if test="accept_wait_yn == 'Y'.toString()">
+			AND EXISTS (
+				SELECT IA.TEST_REQ_SEQ
+		        FROM TEST_SAMPLE_ITEM IA 
+		        WHERE IA.TEST_REQ_SEQ = R.TEST_REQ_SEQ 
+		        AND IA.ASSIGNMENT_FLAG = 'N' 
+		        GROUP BY IA.TEST_REQ_SEQ
+		        HAVING COUNT(IA.TEST_REQ_SEQ) = COUNT(IA.TESTER_ID)
+		      ) 
+		</if>	 -->
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY R.TEST_REQ_SEQ, R.TEST_REQ_NO DESC
+		</if>
+	</select>
+
+	<!-- 결과입력 상세리스트[시료별] -->
+	<select id="selectSampleAssignmentList" parameterType="ResultInputVO" resultType="ResultInputVO">
+		SELECT
+		    DISTINCT TS.TEST_SAMPLE_SEQ ,
+		    TS.SAMPLE_REG_NM ,
+		    C1.CODE_NAME SAMPLING_METHOD ,
+		    TS.SAMPLING_ID ,
+		    TS.ETC_DESC ,
+		    S.SAMPLE_NM ,
+		    STD.TEST_STD_NM ,
+		    STD.TEST_STD_NO ,
+		    TR.REQ_MESSAGE,
+		    GET_COMMON_CODE(TS.TEST_SAMPLE_RESULT,'') AS TEST_SAMPLE_RESULT_NM,
+			TS.TEST_SAMPLE_RESULT AS TEST_SAMPLE_RESULT_CD,
+			TS.TEST_SAMPLE_RESULT_REASON,
+			TS.JDG_ETC
+		FROM  TEST_SAMPLE TS
+		INNER JOIN TEST_REQ TR ON TS.TEST_REQ_SEQ = TR.TEST_REQ_SEQ
+		INNER JOIN TEST_SAMPLE_ITEM TSI ON TSI.TEST_SAMPLE_SEQ = TS.TEST_SAMPLE_SEQ
+		LEFT OUTER JOIN SAMPLE S ON TS.SAMPLE_CD = S.SAMPLE_CD
+		LEFT OUTER JOIN COMMON_CODE_DETAIL C1 ON C1.CODE = TS.SAMPLING_METHOD
+		LEFT OUTER JOIN TEST_STD STD ON STD.TEST_STD_NO = TS.TEST_STD_NO
+		INNER JOIN  
+	    (
+	      SELECT DISTINCT TEST_REQ_SEQ, TEST_SAMPLE_SEQ, DEPT_CD AS DEPT_CD 
+	      FROM TEST_SAMPLE_ITEM IA
+	    ) TRI ON TRI.TEST_REQ_SEQ = TS.TEST_REQ_SEQ AND TRI.TEST_SAMPLE_SEQ = TS.TEST_SAMPLE_SEQ
+		WHERE TS.TEST_REQ_SEQ = #{test_req_seq}
+		<!-- 2019-09-23 정언구. 담당하는 항목만 가져오도록 추가(주석) -->  
+		AND TRI.DEPT_CD = #{dept_cd}
+		<!-- ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ -->
+		ORDER BY TS.TEST_SAMPLE_SEQ
+	</select>
+	
+	<!-- 배정 할 항목 리스트 -->
+	<select id="selectResultAssignmentList" parameterType="ResultInputVO" resultType="ResultInputVO">
+		SELECT
+		    R.TEST_REQ_NO,
+		    R.TITLE,
+		    R.TEST_REQ_SEQ,
+		    TS.TEST_SAMPLE_SEQ,
+		    TS.TEST_SAMPLE_NO,
+		    TS.SAMPLE_REG_NM,
+		    TS.PRDLST_CD,
+		    PC.KOR_NM AS PRDLST_NM,
+		    TSI.TEST_ITEM_CD,
+		    (SELECT TESTITM_NM FROM ANALYSIS WHERE TSI.TEST_ITEM_CD = TESTITM_CD) AS TEST_ITEM_NM,
+		    TSI.TEST_ITEM_SEQ,
+		    NVL(TSI.TESTER_ID, NVL(CASE WHEN TSI.PRDLST_CD IS NOT NULL THEN PC.CHARGER_USER_ID ELSE NULL END, (SELECT MAX(XA.USER_ID) KEEP(DENSE_RANK LAST ORDER BY XA.CREATE_DATE DESC) FROM DEPT_USER_ITEM XA JOIN USER_INFO XB ON XA.USER_ID = XB.USER_ID WHERE XA.TEST_ITEM_CD = TSI.TEST_ITEM_CD AND XB.DEPT_CD = TSI.DEPT_CD))) AS TESTER_ID,
+		    (SELECT XC.USER_NM FROM USER_INFO XC WHERE XC.USER_ID = NVL(TSI.TESTER_ID, NVL(CASE WHEN TSI.PRDLST_CD IS NOT NULL THEN PC.CHARGER_USER_ID ELSE NULL END, (SELECT MAX(XA.USER_ID) KEEP(DENSE_RANK LAST ORDER BY XA.CREATE_DATE DESC) FROM DEPT_USER_ITEM XA JOIN USER_INFO XB ON XA.USER_ID = XB.USER_ID WHERE XA.TEST_ITEM_CD = TSI.TEST_ITEM_CD AND XB.DEPT_CD = TSI.DEPT_CD)))) AS USER_NM,
+		    TSI.STATE,
+		    ASSIGNMENT_FLAG,
+		    GET_DEPT_NM(TSI.DEPT_CD) AS DEPT_NM,
+		    TSI.DEPT_CD,
+		    (SELECT USER_NM FROM USER_INFO UI WHERE UI.USER_ID = TSI.TESTER_ID) AS USER_NM
+		FROM TEST_SAMPLE_ITEM TSI
+		INNER JOIN TEST_REQ R ON R.TEST_REQ_SEQ = TSI.TEST_REQ_SEQ
+		INNER JOIN TEST_SAMPLE TS ON TS.TEST_SAMPLE_SEQ = TSI.TEST_SAMPLE_SEQ
+		INNER JOIN PRDLST_CL PC ON TS.PRDLST_CD = PC.PRDLST_CD
+		WHERE TSI.STATE = 'B' 
+			AND ASSIGNMENT_FLAG = 'N' 
+			AND R.STOP_FLAG = 'N'
+			AND R.TEST_REQ_SEQ = #{test_req_seq}
+			AND TSI.DEPT_CD = #{dept_cd}
+		<if test="test_sample_seq != null and test_sample_seq != '' ">
+			AND TS.TEST_SAMPLE_SEQ = #{test_sample_seq}
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY R.TEST_REQ_SEQ, TS.TEST_SAMPLE_SEQ, TS.PRDLST_CD, TSI.TEST_ITEM_CD
+		</if>
+	</select>
+	
+	<!-- 배정자 저장 -->
+	<update id="updateResultTester" parameterType="ResultInputVO">
+		UPDATE TEST_SAMPLE_ITEM SET
+			<if test="tester_id == null or tester_id == ''">
+			TESTER_ID = NULL
+			, DEPT_CD = NULL
+			</if>
+			<if test="tester_id != null and tester_id != ''">
+			TESTER_ID = #{tester_id}
+			, DEPT_CD = (SELECT DEPT_CD FROM USER_INFO WHERE USER_ID = #{tester_id})
+			</if>
+		WHERE TEST_SAMPLE_SEQ = #{test_sample_seq} AND TEST_ITEM_SEQ = #{test_item_seq}
+	</update>
+
+
+	<!-- 시험자 미배정인 시료건수 -->
+	<select id="selectAssignmentValidation" parameterType="ResultInputVO" resultType="ResultInputVO">
+		SELECT 
+		(
+			SELECT COUNT(*)
+			FROM TEST_SAMPLE_ITEM
+			WHERE TEST_REQ_SEQ = #{test_req_seq} AND ASSIGNMENT_FLAG = 'N'
+			AND (TESTER_ID IS NULL OR TRIM(TESTER_ID) = '')
+		) AS SAMPLE_CNT, 
+		(
+			SELECT TEST_REQ_NO
+			FROM TEST_REQ
+			WHERE TEST_REQ_SEQ = #{test_req_seq}
+		) AS TEST_REQ_NO
+		FROM DUAL
+	</select>
+
+	<!-- 배정완료 -->
+	<update id="updateAssignmentComplete" parameterType="ResultInputVO">
+		UPDATE TEST_SAMPLE_ITEM SET
+		    ASSIGNMENT_FLAG = 'Y'
+		WHERE TEST_REQ_SEQ = #{test_req_seq} AND ASSIGNMENT_FLAG = 'N'
+	</update>
+	
+</mapper>

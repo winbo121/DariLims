@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="resultStatistical">
+
+	<!--  시료유형별  -->
+	<select id="selectReceptionStatusList" resultType="receptionStatusVO" parameterType="receptionStatusVO">
+		SELECT 
+		  LAST.SAMPLE_CD,
+		  LAST.SAMPLE_NM,
+		  SUM(NVL(ACCEPT_COUNT,0)) AS ACCEPT_COUNT,
+		  SUM(NVL(YEAR_COUNT,0))   AS YEAR_COUNT 
+		FROM(
+		  SELECT 
+		    TS.TEST_SAMPLE_SEQ, 
+		    TR.TEST_REQ_NO,
+		    TR.REQ_DATE,
+		    TS.SAMPLE_CD,
+		    (SELECT SAMPLE_NM FROM SAMPLE WHERE SAMPLE_CD = TS.SAMPLE_CD) SAMPLE_NM,
+		    CASE WHEN 
+		    <!--(기간으로 조회)-->
+			<if test="startDate != null and startDate != ''">
+				<if test="endDate != null and endDate != ''">
+					TO_CHAR(TO_DATE(TR.REQ_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') BETWEEN #{startDate} AND #{endDate}
+	    		</if>
+				<if test="endDate == null or endDate == ''">
+	    			<![CDATA[
+	     				TO_DATE(TR.REQ_DATE) >= TO_DATE(#{startDate})
+	     			]]>	 
+	    		</if>
+	 	    </if>
+	 	    <if test="startDate == null or startDate == ''">
+	 	    	<if test="endDate != null and endDate != ''">
+	 	    		<![CDATA[
+	     				TO_DATE(TR.REQ_DATE) <= TO_DATE(#{endDate})
+	     			]]> 
+	 	    	</if>
+	 	    	<if test="endDate == null or endDate == ''">
+	 	    		1=1
+	 	    	</if>
+	 	    </if>
+			      THEN COUNT (TR.TEST_REQ_NO) END AS ACCEPT_COUNT,       
+				  COUNT (TR.TEST_REQ_NO) AS YEAR_COUNT   
+		  FROM TEST_REQ TR
+		  INNER JOIN TEST_SAMPLE TS ON TR.TEST_REQ_NO = TS.TEST_REQ_NO
+		  WHERE 1=1
+		  	<!--(해당년도 조회)-->
+			<if test="startDate != null and startDate != ''">
+				<if test="endDate != null and endDate != ''">
+					AND SUBSTR (TR.REQ_DATE, 0, 4) BETWEEN SUBSTR (#{startDate}, 0, 4) AND SUBSTR (#{endDate}, 0, 4)
+				</if>
+				<if test="endDate == null or endDate == ''">
+					<![CDATA[
+						AND SUBSTR (TR.REQ_DATE, 0, 4) >= SUBSTR (#{startDate}, 0, 4)
+					]]>	 
+				</if>
+			</if>
+			<if test="startDate == null or startDate == ''">
+				<if test="endDate != null and endDate != ''">
+					<![CDATA[
+						AND SUBSTR (TR.REQ_DATE, 0, 4) <= SUBSTR (#{endDate}, 0, 4)
+					]]> 
+				</if>
+			</if>
+		      AND TR.STATE NOT IN('A','Z')
+		  GROUP BY TS.TEST_SAMPLE_SEQ, TR.TEST_REQ_NO, TR.REQ_DATE, TS.SAMPLE_CD
+		) LAST
+		WHERE 1=1
+		<if test="sample_cd != null and sample_cd != ''">
+			AND LAST.SAMPLE_CD = #{sample_cd}
+		</if>
+		GROUP BY LAST.SAMPLE_CD, LAST.SAMPLE_NM
+		ORDER BY LAST.SAMPLE_CD	
+	</select>
+	
+	
+	<!--  단위업무별  -->
+	<select id="selectReceptionStatusUnitList" resultType="receptionStatusVO" parameterType="receptionStatusVO">
+		SELECT 
+			GET_COMMON_CODE(A.REQ_TYPE, 'EX1') AS REQ_TYPE, 
+			A.UNIT_WORK_CD, 
+			A.UNIT_WORK_NM, 
+		    SUM(NVL(ACCEPT_COUNT,0)) AS ACCEPT_COUNT,
+		    SUM(NVL(YEAR_COUNT,0)) AS YEAR_COUNT 
+		FROM (    
+		SELECT A.UNIT_WORK_CD, UW.UNIT_WORK_NM, REQ_TYPE, REQ_Y, 
+		    CASE WHEN 
+		    <if test="startDate != null and startDate != ''">
+				<if test="endDate != null and endDate != ''">
+					TO_CHAR(TO_DATE(A.REQ_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') BETWEEN #{startDate} AND #{endDate}
+	    		</if>
+				<if test="endDate == null or endDate == ''">
+	    			<![CDATA[
+	     				TO_DATE(A.REQ_DATE) >= TO_DATE(#{startDate})
+	     			]]>	 
+	    		</if>
+	 	    </if>
+	 	    <if test="startDate == null or startDate == ''">
+	 	    	<if test="endDate != null and endDate != ''">
+	 	    		<![CDATA[
+	     				TO_DATE(A.REQ_DATE) <= TO_DATE(#{endDate})
+	     			]]> 
+	 	    	</if>
+	 	    	<if test="endDate == null or endDate == ''">
+	 	    		1=1
+	 	    	</if>
+	 	    </if>		 
+		    THEN COUNT (A.TEST_REQ_NO) END AS ACCEPT_COUNT,       
+		    COUNT (A.TEST_REQ_NO) AS YEAR_COUNT          
+		    FROM (                 
+		        SELECT
+		            TEST_REQ_NO,
+		            REQ_TYPE,
+		            REQ_DATE,
+		            NVL(UNIT_WORK_CD,'N/A') AS UNIT_WORK_CD,
+		            SUBSTR(REQ_DATE,0,4) AS REQ_Y
+		            FROM TEST_REQ 
+		            WHERE STATE NOT IN('A','Z') 
+		            <if test="startDate != null and startDate != ''">
+						<if test="endDate != null and endDate != ''">
+							AND SUBSTR (REQ_DATE, 0, 4) BETWEEN SUBSTR (#{startDate}, 0, 4) AND SUBSTR (#{endDate}, 0, 4)
+			    		</if>
+						<if test="endDate == null or endDate == ''">
+			    			<![CDATA[
+			     				AND SUBSTR (REQ_DATE, 0, 4) >= SUBSTR (#{startDate}, 0, 4)
+			     			]]>	 
+			    		</if>
+			 	    </if>
+			 	    <if test="startDate == null or startDate == ''">
+			 	    	<if test="endDate != null and endDate != ''">
+			 	    		<![CDATA[
+			     				AND SUBSTR (REQ_DATE, 0, 4) <= SUBSTR (#{endDate}, 0, 4)
+			     			]]> 
+			 	    	</if>
+			 	    </if>
+		        ) A                 
+		    LEFT JOIN UNIT_WORK UW ON A.UNIT_WORK_CD = UW.UNIT_WORK_CD
+		    GROUP BY A.UNIT_WORK_CD, UW.UNIT_WORK_NM, REQ_TYPE, REQ_DATE
+		) A  
+		GROUP BY A.REQ_TYPE, A.UNIT_WORK_CD, A.UNIT_WORK_NM
+		ORDER BY REQ_TYPE, UNIT_WORK_CD
+		<!-- <if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY REQ_TYPE, UNIT_WORK_CD
+		</if> -->
+	</select>
+</mapper>

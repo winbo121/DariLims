@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kolasDoc">
+
+	<select id="selectKolasDocList" parameterType="kolasDocVO" resultType="kolasDocVO">
+		SELECT K.KOLAS_DOC_NO,
+		(SELECT CODE_NAME FROM COMMON_CODE_DETAIL
+        WHERE CODE = K.DOC_TYPE) DOC_TYPE,
+		K.DOC_TITLE,
+		K.ETC,
+		K.USE_FLAG,
+		(SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = K.CREATE_DEPT) CREATE_DEPT,
+		(SELECT USER_NM FROM USER_INFO WHERE USER_ID = K.CREATER_ID) CREATER_ID,
+<!-- 		TO_CHAR(TO_DATE(K.CREATE_DATE, 'YYYY-MM-DD'), 'YYYY-MM-DD') AS CREATE_DATE, -->
+		TO_CHAR(K.CREATE_DATE, 'YYYY-MM-DD') AS CREATE_DATE,
+		F.FILE_NO,
+		F.FILE_NM,
+		F.ADD_FILE_NM
+		FROM KOLAS_DOC K left outer join KOLAS_ADD_FILE F
+		ON K.KOLAS_DOC_NO = F.KOLAS_DOC_NO
+		WHERE 1=1
+		<if test="doc_type != null and doc_type != '' ">
+			AND UPPER(K.DOC_TYPE) LIKE '%' ||
+			UPPER(#{doc_type}) || '%'
+		</if>
+		<if test="doc_title != null and doc_title != '' ">
+			AND UPPER(K.DOC_TITLE) LIKE '%' || UPPER(#{doc_title}) || '%'
+		</if>
+		<if test="add_file_nm != null and add_file_nm != '' ">
+			AND UPPER(F.ADD_FILE_NM) LIKE '%' || UPPER(#{add_file_nm}) || '%'
+		</if>
+		<if test="etc != null and etc != '' ">
+			AND UPPER(K.ETC) LIKE '%' || UPPER(#{etc}) ||
+			'%'
+		</if>
+		<if test="use_flag != null and use_flag != '' ">
+			AND K.USE_FLAG = #{use_flag}
+		</if>
+		<if test="file_nm != null and file_nm != '' ">
+			AND UPPER(F.FILE_NM) LIKE '%' || UPPER(#{file_nm}) ||
+			'%'
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND K.CREATE_DEPT = #{dept_cd}
+		</if>
+		<if test="user_nm != null and user_nm != '' ">
+			AND UPPER((SELECT USER_NM FROM USER_INFO WHERE USER_ID = K.CREATER_ID)) LIKE '%' || UPPER(#{user_nm}) ||
+			'%'
+		</if>
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				AND TO_DATE(K.CREATE_DATE) BETWEEN TO_DATE(#{startDate}) AND TO_DATE(#{endDate})
+    		</if>
+			<if test="endDate == null or endDate == ''">
+    			<![CDATA[
+      			AND TO_DATE(K.CREATE_DATE) >= TO_DATE(#{startDate})  
+      			]]>	  
+    		</if>
+ 	    </if>
+ 	    <if test="startDate == null or startDate == ''">
+ 	    	<if test="endDate != null and endDate != ''">
+ 	    		<![CDATA[
+      			AND TO_DATE(K.CREATE_DATE) <= TO_DATE(#{endDate})
+     			]]>  
+ 	    	</if>
+ 	    </if> 
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY KOLAS_DOC_NO
+		</if>
+	</select>
+	
+	<select id="selectKolasDocDetail" parameterType="kolasDocVO" resultType="kolasDocVO">
+		SELECT K.KOLAS_DOC_NO,
+		K.DOC_TYPE,
+		K.DOC_TITLE,
+		K.ETC,
+		K.USE_FLAG,
+		K.CREATE_DEPT,
+		(SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = K.CREATE_DEPT) DEPT_NM,
+		K.CREATER_ID,
+		(SELECT USER_NM FROM USER_INFO WHERE USER_ID = K.CREATER_ID) USER_NM,
+<!-- 		TO_CHAR(TO_DATE(K.CREATE_DATE, 'YYYY-MM-DD'), 'YYYY-MM-DD') AS CREATE_DATE, -->
+		TO_CHAR(K.CREATE_DATE, 'YYYY-MM-DD') AS CREATE_DATE,
+		F.FILE_NO,
+		F.FILE_NM,
+		F.ADD_FILE_NM
+		FROM KOLAS_DOC K left outer join KOLAS_ADD_FILE F
+		ON K.KOLAS_DOC_NO = F.KOLAS_DOC_NO
+		WHERE K.KOLAS_DOC_NO = #{kolas_doc_no}
+	</select>
+
+	<select id="getNewKolasDocNo" resultType="String">
+		SELECT LPAD(NVL(MAX(KOLAS_DOC_NO),0)+1,4,0) FROM KOLAS_DOC
+	</select>
+	
+	<insert id="insertKolasDoc" parameterType="kolasDocVO">
+		INSERT INTO KOLAS_DOC (
+		KOLAS_DOC_NO,
+		DOC_TYPE,
+		DOC_TITLE,
+		ETC,
+		USE_FLAG,
+		CREATE_DEPT,
+		CREATER_ID,
+		CREATE_DATE
+		) VALUES (
+		#{kolas_doc_no},
+		#{doc_type},
+		#{doc_title},
+		#{etc},
+		#{use_flag},
+		#{create_dept},
+		#{creater_id},
+<!-- 		SYSDATE -->
+		<if test="create_date != null and create_date != '' ">		
+		REPLACE(#{create_date}, '-', '')
+		</if>
+		<if test="create_date == null or create_date == '' ">
+<!-- 		TO_CHAR(SYSDATE, 'YYYYMMDD') -->
+		SYSDATE
+		</if>
+		)
+	</insert>
+	
+	<update id="updateKolasDoc" parameterType="kolasDocVO">
+		UPDATE KOLAS_DOC SET
+		DOC_TYPE = #{doc_type},
+		DOC_TITLE = #{doc_title},
+		ETC = #{etc},
+		USE_FLAG = #{use_flag},
+		CREATE_DEPT = #{create_dept},
+		CREATER_ID = #{creater_id},
+<!-- 		CREATE_DATE = REPLACE(#{create_date}, '-', '')		 -->
+		CREATE_DATE = TO_DATE(#{create_date})	
+		WHERE KOLAS_DOC_NO = #{kolas_doc_no}
+	</update>
+<!-- 	
+	<delete id="deleteKolasDoc" parameterType="kolasDocVO">
+		UPDATE KOLAS_DOC SET
+		USE_FLAG = 'N'
+		WHERE KOLAS_DOC_NO = #{kolas_doc_no}
+	</delete>
+-->
+	<select id="selectKolasAddFile" parameterType="kolasDocVO" resultType="Integer">
+		SELECT COUNT(FILE_NO)
+		FROM KOLAS_ADD_FILE
+		WHERE KOLAS_DOC_NO = #{kolas_doc_no}
+	</select>
+	
+	<insert id="insertKolasAddFile" parameterType="kolasDocVO">
+		INSERT INTO KOLAS_ADD_FILE (
+		FILE_NO,
+		FILE_NM,				
+		<if test="att_file != null and att_file != '' ">
+		ADD_FILE_NM,
+		ATT_FILE,
+		</if>
+		KOLAS_DOC_NO
+		) VALUES (
+		(SELECT LPAD(NVL(MAX(FILE_NO),0)+1,5,0) FROM KOLAS_ADD_FILE),		
+		#{file_nm},
+		<if test="att_file != null and att_file != '' ">
+		#{add_file_nm},
+		#{att_file},
+		</if>
+		#{kolas_doc_no}
+		)
+	</insert>
+	
+	<update id="updateKolasAddFile" parameterType="kolasDocVO">
+		UPDATE KOLAS_ADD_FILE SET		
+		<if test="att_file != null and att_file != '' ">
+		ADD_FILE_NM = #{add_file_nm},		
+		ATT_FILE = #{att_file},
+		</if>
+		<if test="att_file == null or att_file == '' ">
+			<if test="add_file_nm == null or add_file_nm == '' ">
+				ADD_FILE_NM = #{add_file_nm},
+				ATT_FILE = EMPTY_BLOB(),
+			</if>
+		</if>
+<!-- 		<if test='pageType != null and pageType == "emptyFile"'> -->
+<!-- 		ADD_FILE_NM = #{add_file_nm}, -->
+<!-- 		ATT_FILE = EMPTY_BLOB(), -->
+<!-- 		</if> -->
+		FILE_NM = #{file_nm}		
+		WHERE FILE_NO = #{file_no} AND KOLAS_DOC_NO = #{kolas_doc_no}
+	</update>
+	
+	<delete id="deleteKolasAddFile" parameterType="kolasDocVO">
+		DELETE KOLAS_ADD_FILE
+		WHERE FILE_NO = #{file_no} AND KOLAS_DOC_NO = #{kolas_doc_no}
+	</delete>
+	
+	<select id="kolasDocDown" parameterType="kolasDocVO" resultType="kolasDocVO">
+		SELECT ATT_FILE, ADD_FILE_NM
+		FROM KOLAS_ADD_FILE
+		WHERE FILE_NO = #{file_no}
+	</select>	
+
+</mapper>

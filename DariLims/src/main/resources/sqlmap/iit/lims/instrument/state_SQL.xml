@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="state">
+	<select id="machineState" parameterType="machineVO" resultType="machineVO">
+		SELECT A.INST_NO
+		    ,CRT_NO
+		    ,NXT_CRT_DATE    
+		    ,(CASE WHEN 
+			    (TO_DATE(NXT_CRT_DATE,'YYYYMMDD')) <![CDATA[ < ]]> TO_CHAR(SYSDATE,'YYYYMMDD') 
+			    THEN
+			    'true'
+			    ELSE
+			    'false'
+		    END) CALI_PERIOD_STATE    
+		    ,(CASE WHEN 
+			    (TO_CHAR((SUBSTR (NXT_CRT_DATE, 0,4) + END_YEAR) || SUBSTR (NXT_CRT_DATE, 5,4))) <![CDATA[ < ]]> TO_CHAR(SYSDATE,'YYYYMMDD') 
+			    THEN
+			    'true'
+			    ELSE
+			    'false'
+			    END) END_YEAR_STATE
+		    , INST_MNG_NO
+		    , INST_KOR_NM
+		    , INST_ENG_NM
+		    , TO_CHAR(TO_DATE( INST_BUY_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') INST_BUY_DATE
+		    , INST_VND_NM
+		    , INST_VND_TEL
+		    , MAKE_NATION
+		    , SUB_INST
+		    , LAS_YN
+		    , KOLAS_YN
+		    , FLD_USE
+		    , MANUAL
+		    , SOFTWARE
+		    , CALI_PERIOD
+		    , PWR
+		    , TO_CHAR(TO_DATE( INSTL_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') INSTL_DATE
+		    , INSTL_PLC
+		    , BUY_COST
+		    , AST_NO
+		    , END_YEAR
+		    , A.USE_FLAG
+		    , ADMIN_USER
+		    , B.DEPT_NM
+		    , B.DEPT_CD 
+		FROM INSTRUMENT A
+		LEFT JOIN INST_CRT_HIS C ON A.INST_NO = C.INST_NO
+		LEFT JOIN DEPART B ON A.DEPT_CD = B.DEPT_CD
+		WHERE 1=1		
+		<if test="inst_mng_no != null and inst_mng_no != '' ">
+			AND UPPER(INST_MNG_NO) like '%' || UPPER( #{inst_mng_no} ) || '%'
+		</if>
+		<if test="inst_kor_nm != null and inst_kor_nm != '' ">
+			AND (UPPER(INST_KOR_NM) like '%' || UPPER( #{inst_kor_nm} ) || '%'  OR  
+			UPPER(INST_ENG_NM) like '%' || UPPER( #{inst_kor_nm} ) || '%' )
+		</if>
+		<if test="inst_buy_date != null and inst_buy_date != '' ">
+			AND INST_BUY_DATE like '%' ||  REPLACE(#{inst_buy_date}, '-', '') || '%'
+		</if>
+		<if test="inst_vnd_nm != null and inst_vnd_nm != '' ">
+			AND UPPER(INST_VND_NM) like '%' || UPPER( #{inst_vnd_nm} ) || '%'
+		</if>
+		<if test="inst_vnd_tel != null and inst_vnd_tel != '' ">
+			AND INST_VND_TEL like '%' || #{inst_vnd_tel} || '%'
+		</if>		
+		<if test="make_nation != null and make_nation != '' ">
+			AND UPPER(MAKE_NATION) like '%' || UPPER( #{make_nation} ) || '%'
+		</if>
+		<if test="main_part != null and main_part != '' ">
+			AND UPPER(MAIN_PART) like '%' || UPPER( #{main_part} ) || '%'
+		</if>
+		<if test="sub_inst != null and sub_inst != '' ">
+			AND UPPER(SUB_INST) like '%' || UPPER( #{sub_inst} ) || '%'
+		</if>
+		<if test="las_yn != null and las_yn != '' ">
+			AND LAS_YN =  #{las_yn} 
+		</if>
+		<if test="kolas_yn != null and kolas_yn != '' ">
+			AND KOLAS_YN =  #{kolas_yn}
+		</if>
+		<if test="fld_use != null and fld_use != '' ">
+			AND UPPER(FLD_USE) like '%' || UPPER( #{fld_use} ) || '%'
+		</if>
+		<if test="manual != null and manual != '' ">
+			AND UPPER(MANUAL) like '%' || UPPER( #{manual} ) || '%'
+		</if>
+		<if test="software != null and software != '' ">
+			AND UPPER(SOFTWARE) like '%' || UPPER( #{software} ) || '%'
+		</if>
+		<if test="cali_period != null and cali_period != '' ">
+			AND CALI_PERIOD like '%' || #{cali_period} || '%'
+		</if>
+		<if test="pwr != null and pwr != '' ">
+			AND UPPER(PWR) like '%' || UPPER( #{pwr} ) || '%'
+		</if>
+		<if test="instl_date != null and instl_date != '' ">
+			AND INSTL_DATE like '%' || REPLACE(#{instl_date}, '-', '') || '%'
+		</if>
+		<if test="instl_plc != null and instl_plc != '' ">
+			AND UPPER(INSTL_PLC) like '%' || UPPER( #{instl_plc} ) || '%'
+		</if>
+		<if test="buy_cost != null and buy_cost != '' ">
+			AND BUY_COST like '%' || #{buy_cost} || '%'
+		</if>
+		<if test="cmt != null and cmt != '' ">
+			AND UPPER(CMT) like '%' || UPPER( #{cmt} ) || '%'
+		</if>
+		<if test="img_file_nm != null and img_file_nm != '' ">
+			AND UPPER(IMG_FILE_NM) like '%' || UPPER( #{img_file_nm} ) || '%'
+		</if>
+		<if test="ast_no != null and ast_no != '' ">
+			AND UPPER(AST_NO) like '%' || UPPER( #{ast_no} ) || '%'
+		</if>
+		<if test="end_year != null and end_year != '' ">
+			AND END_YEAR like '%' ||  #{end_year} || '%'
+		</if>
+		<if test="use_flag != null and use_flag != '' ">
+			AND A.USE_FLAG = #{use_flag}
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND B.DEPT_CD = #{dept_cd}
+		</if>
+		<if test="admin_user != null and admin_user != '' ">
+			AND UPPER(ADMIN_USER) like '%' || UPPER( #{admin_user} ) || '%'
+		</if>
+		<if test="inst_jd_nm != null and inst_jd_nm != '' ">
+			AND UPPER(INST_JD_NM) like '%' || UPPER( #{inst_jd_nm} ) || '%'
+		</if>
+		<if test="inst_jd_no != null and inst_jd_no != '' ">
+			AND UPPER(INST_JD_NO) like '%' || UPPER( #{inst_jd_no} ) || '%'
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY CALI_PERIOD_STATE, END_YEAR_STATE
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+	</select>
+
+	<select id="state" parameterType="stateVO" resultType="stateVO">
+		SELECT INST_NO
+				, USE_NO
+				, USE_SDATE <!-- , TO_CHAR(TO_DATE( USE_SDATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') USE_SDATE -->
+		        , USE_EDATE <!-- , TO_CHAR(TO_DATE( USE_EDATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') USE_EDATE -->
+		        , USE_PURPOSE
+		        , HIS_USER
+		        , USE_ETC
+		FROM INST_USE_HIS
+		WHERE INST_NO = #{inst_no}
+	</select>
+	
+	<select id="stateDetail" parameterType="stateVO" resultType="stateVO">
+		SELECT USE_NO
+				, INST_NO
+				, USE_SDATE <!-- , TO_CHAR(TO_DATE( USE_SDATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') USE_SDATE -->
+		        , USE_EDATE <!-- , TO_CHAR(TO_DATE( USE_EDATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') USE_EDATE -->
+				, USE_PURPOSE
+				, HIS_USER
+				, USE_ETC
+		FROM INST_USE_HIS
+		WHERE 1=1
+		<if test="use_no != null and use_no != '' ">
+			AND USE_NO = #{use_no}
+		</if>
+	</select>
+
+	<insert id="insertState" parameterType="stateVO">
+		INSERT INTO INST_USE_HIS(
+		            USE_NO
+		            ,INST_NO
+		            ,USE_SDATE
+		            ,USE_EDATE
+		            ,USE_PURPOSE
+		            ,HIS_USER
+		            ,USE_ETC
+		    )VALUES(
+		    		(SELECT LPAD(NVL(MAX(USE_NO),0)+1,6,0) FROM INST_USE_HIS)
+				    , #{inst_no}
+				    , SYSDATE				<!-- REPLACE(#{use_sdate}, '-', '') -->
+		            , SYSDATE				<!-- REPLACE(#{use_edate}, '-', '') -->
+				    , #{use_purpose}
+				    , #{his_user}
+				    , #{use_etc}
+		    )
+	</insert>
+	
+	<update id="updateState" parameterType="stateVO">				
+		UPDATE INST_USE_HIS SET
+			INST_NO = #{inst_no}
+			, USE_SDATE = SYSDATE			<!-- REPLACE(#{use_sdate}, '-', '') --> 
+			, USE_EDATE = SYSDATE			<!-- REPLACE(#{use_edate}, '-', '') -->
+			, USE_PURPOSE = #{use_purpose}
+			, HIS_USER = #{his_user}
+			, USE_ETC = #{use_etc}
+		WHERE USE_NO = #{use_no}
+	</update>
+	
+	<delete id="deleteState" parameterType="stateVO">
+		DELETE INST_USE_HIS 
+		WHERE USE_NO = #{use_no}
+	</delete>
+</mapper>

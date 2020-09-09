@@ -1,0 +1,815 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="resultStatistical">
+	
+	<!-- 시험결과검색 -->
+	<select id="selectTestReultList" parameterType="ResultStatisticalVO" resultType="ResultStatisticalVO">
+		SELECT LAST.*
+		FROM (	
+			SELECT
+				GET_COMMON_CODE(T.REQ_TYPE, 'EX1') REQ_TYPE, 
+				(SELECT SIMPLE_PRC_NM FROM PROCESS WHERE PRC_CD = TSI.STATE) STATE,
+		        T.TEST_REQ_NO, 
+		        TO_CHAR(TO_DATE(T.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'),'YYYY-MM-DD') SAMPLE_ARRIVAL_DATE,
+		        T.TITLE,
+		        T.SUPV_DEPT_CD,
+		        (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = T.SUPV_DEPT_CD) DEPT_NM,
+		        TSI.TEST_SAMPLE_SEQ,
+		        T.UNIT_WORK_CD,
+		        NVL((SELECT UNIT_WORK_NM FROM UNIT_WORK WHERE UNIT_WORK_CD = T.UNIT_WORK_CD), 'N/A') UNIT_WORK_NM,
+		        TS.SAMPLE_REG_NM,
+		        TSI.TEST_ITEM_CD,
+		        ANAL.TESTITM_NM AS TEST_ITEM_NM,
+		        TS.SAMPLING_POINT_NO,
+				(SELECT  CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = TSI.JDG_TYPE) AS JDG_TYPE,
+		        (SELECT SAMPLING_POINT_NM FROM SAMPLING_POINT WHERE SAMPLING_POINT_NO = TS.SAMPLING_POINT_NO) SAMPLING_POINT_NM,
+		        TSI.RESULT_VAL,
+		        TSI.REPORT_DISP_VAL,
+		        (SELECT LISTAGG(REPORT_DISP_VAL,',') WITHIN GROUP (ORDER BY LOG_NO DESC)  FROM REPORT_SAMPLE_ITEM_PL A  WHERE A.TEST_REQ_NO = TSI.TEST_REQ_NO AND A.TEST_ITEM_SEQ = TSI.TEST_ITEM_SEQ) AS REPORT_DISP_VAL_HIS,
+		        (SELECT LISTAGG(RESULT_VAL,',') WITHIN GROUP (ORDER BY LOG_NO DESC)  FROM REPORT_SAMPLE_ITEM_PL A  WHERE A.TEST_REQ_NO = TSI.TEST_REQ_NO AND A.TEST_ITEM_SEQ = TSI.TEST_ITEM_SEQ) AS RESULT_VAL_HIS,
+		        (SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = TSI.UNIT) UNIT,
+		        TSI.STD_VAL,
+		        TSI.TESTER_ID,
+		        TSI.VALID_POSITION,
+                TSI.ACCOUNT_VAL_DESC_TOT AS FORMULA_RESULT_DISP,
+                I.INST_KOR_NM,
+                M.TEST_METHOD_NM,
+                TSI.STD_TYPE,
+                TRA.FILE_NM,
+                (SELECT  CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = TSI.RESULT_TYPE) AS RESULT_TYPE,
+                CASE WHEN  TSI.ACCOUNT_TOT_CAL_DISP IS NULL THEN (SELECT B.FORMULA_DISP FROM FORMULA B WHERE  TSI.ACCOUNT_NO = B.FORMULA_NO)
+      		    ELSE  TSI.ACCOUNT_TOT_CAL_DISP
+                END AS FORMULA_DISP, 
+		        U.USER_NM,
+		        U2.USER_NM AS REAL_USER_NM,
+		        ROWNUM rNum
+	        FROM TEST_SAMPLE_ITEM TSI
+	        INNER JOIN TEST_SAMPLE TS ON TS.TEST_SAMPLE_SEQ = TSI.TEST_SAMPLE_SEQ
+	        INNER JOIN TEST_REQ T ON T.TEST_REQ_SEQ = TS.TEST_REQ_SEQ
+	        INNER JOIN ANALYSIS ANAL ON ANAL.TESTITM_CD = TSI.TEST_ITEM_CD 
+            INNER JOIN PRDLST_CL PC ON PC.PRDLST_CD = TS.PRDLST_CD 
+            INNER JOIN USER_INFO U ON U.USER_ID = TSI.TESTER_ID
+            INNER JOIN USER_INFO U2 ON U2.USER_ID=TSI.REAL_TESTER_ID
+            LEFT OUTER JOIN INSTRUMENT I ON TSI.TEST_INST = I.INST_NO
+            LEFT OUTER JOIN TEST_REPORT_ATTACH TRA ON  TSI.TEST_ITEM_CD = TRA.TEST_ITEM_CD
+            LEFT OUTER JOIN TEST_METHOD M ON TSI.TEST_METHOD = M.TEST_METHOD_NO
+	        WHERE 1=1
+	        <if test="startDate != null and startDate != ''">
+				<if test="endDate != null and endDate != ''">
+					<![CDATA[
+	     				AND TO_CHAR(TO_DATE(T.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'),'YYYY-MM-DD') >= #{startDate}
+	     				AND TO_CHAR(TO_DATE(T.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'),'YYYY-MM-DD') <= #{endDate}
+	     			]]>
+	    		</if>
+				<if test="endDate == null or endDate == ''">
+	    			<![CDATA[
+	     				AND TO_CHAR(TO_DATE(T.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'),'YYYY-MM-DD') >= #{startDate}
+	     			]]>	 
+	    		</if>
+	 	    </if>
+	 	    <if test="startDate == null or startDate == ''">
+	 	    	<if test="endDate != null and endDate != ''">
+	 	    		<![CDATA[
+	     				AND TO_CHAR(TO_DATE(T.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'),'YYYY-MM-DD') <= #{endDate}
+	     			]]> 
+	 	    	</if>
+	 	    </if> 
+	 	    <if test="test_item_nm != null and test_item_nm != ''">
+	 	    	AND UPPER(ANAL.TESTITM_NM) LIKE '%' || UPPER(#{test_item_nm}) || '%'
+	 	    </if>
+	 	    <if test="test_sample_seq != null and test_sample_seq != ''">
+	 	    	AND UPPER(T.TEST_REQ_NO) LIKE '%' || UPPER(#{test_sample_seq}) || '%'
+	 	    </if>
+	 	    <if test="supv_dept_cd != null and supv_dept_cd != ''">
+	 	    	AND T.SUPV_DEPT_CD = #{supv_dept_cd}
+	 	    </if>
+	 	    <if test="req_type != null and req_type != ''">
+	 	    	AND T.REQ_TYPE = #{req_type}
+	 	    </if>
+	 	    <if test="sample_cd != null and sample_cd != ''">
+	 	    	AND TS.SAMPLE_CD = #{sample_cd}
+	 	    </if>
+	 	    <if test="state != null and state != ''">
+	 	    	AND TSI.STATE = #{state}
+	 	    </if>
+	 	    <if test="jdg_type != null and jdg_type != ''">
+	 	    	AND TSI.JDG_TYPE = #{jdg_type}
+	 	    </if> 	    
+	 	    <if test="dept_appr_flag != null and dept_appr_flag != ''">
+	    		<if test='dept_appr_flag == "Y"'>
+	  				AND TS.DEPT_APPR_FLAG = #{dept_appr_flag}
+	  			</if>
+	  			<if test='dept_appr_flag == "N"'>
+	  				AND TS.DEPT_APPR_FLAG NOT IN ('Y')
+	  			</if>
+	 	    </if>	    
+	 	    <if test="unit_work_cd != null and unit_work_cd != ''">
+	 	    	AND T.UNIT_WORK_CD = #{unit_work_cd}
+	 	    </if>
+		 	    
+			<if test="htrk_prdlst_cd != null and htrk_prdlst_cd != '' ">
+				AND PC.HTRK_PRDLST_CD = #{htrk_prdlst_cd}
+			</if>	    
+	 	    <if test="user_nm != null and user_nm != '' ">
+				AND U.USER_NM = #{user_nm}
+			</if>
+			 <if test="real_user_nm != null and real_user_nm != '' ">
+				AND U2.USER_NM = #{real_user_nm}
+			</if>	
+	 	    <if test="sortName != null and sortName != '' ">
+				ORDER BY ${sortName} ${sortType}
+			</if>
+			<if test="sortName == null or sortName == '' ">
+	 	    	ORDER BY TSI.TEST_SAMPLE_SEQ DESC, T.REQ_DATE DESC, T.TEST_REQ_NO DESC, T.SUPV_DEPT_CD DESC
+	 	    </if>
+	 	    )LAST
+		WHERE rNum BETWEEN #{firstIndex} +1 AND #{firstIndex} + #{recordCountPerPage}
+		ORDER BY rNum
+	</select>	
+	
+	<!-- 공통코드 콤보 조회 - 단위업무 -->
+	<select id="selectCommonCodeUnitWork" parameterType="String" resultType="CommonCodeVO">
+		SELECT
+        UNIT_WORK_CD AS CODE,
+        UNIT_WORK_NM AS CODE_NAME
+        FROM UNIT_WORK UW
+	</select>
+	
+	<!-- 시료정보목록 -->
+	<select id="selectTestSampleStateList" parameterType="ResultStatisticalVO" resultType="ResultStatisticalVO">
+		SELECT
+				GET_COMMON_CODE(T.REQ_TYPE, 'EX1') REQ_TYPE, 
+        T.TEST_REQ_SEQ,
+        T.TEST_REQ_NO,
+        T.DEPT_CD,    
+        T.TITLE,      
+        (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = T.DEPT_CD) DEPT_NM,
+        (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = T.SUPV_DEPT_CD) SUPV_DEPT_CD,
+        TO_CHAR(TO_DATE(T.SAMPLE_ARRIVAL_DATE,'YYYYMMDD'),'YYYY-MM-DD') SAMPLE_ARRIVAL_DATE,
+        TS.TEST_SAMPLE_SEQ,
+        T.UNIT_WORK_CD,
+        NVL((SELECT UNIT_WORK_NM FROM UNIT_WORK WHERE UNIT_WORK_CD = T.UNIT_WORK_CD), 'N/A') UNIT_WORK_NM,
+        TS.SAMPLE_REG_NM,
+        TO_CHAR(TO_DATE(TS.SAMPLING_DATE,'YYYYMMDD'),'YYYY-MM-DD') SAMPLING_DATE,
+        TS.SAMPLING_POINT_NO,
+        (SELECT SAMPLING_POINT_NM FROM SAMPLING_POINT WHERE SAMPLING_POINT_NO = TS.SAMPLING_POINT_NO) SAMPLING_POINT_NM,
+        TS.SAMPLING_METHOD,
+        TO_CHAR(TO_DATE(T.DEADLINE_DATE,'YYYYMMDD'),'YYYY-MM-DD') DEADLINE_DATE,
+        TS.SAMPLING_ID,
+        TS.TEST_SAMPLE_RESULT,
+        (SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = TS.TEST_SAMPLE_RESULT) TEST_SAMPLE_RESULT_NM,
+        (SELECT SIMPLE_PRC_NM FROM PROCESS WHERE PRC_CD = TS.STATE) STATE,
+        TS.TOT_ITEM_COUNT,
+        DECODE(TS.DEPT_APPR_FLAG, 'Y', '시험완료', '시험중') DEPT_APPR_FLAG,
+        TS.TEST_STD_NO,
+        LPAD(TS.SAMPLING_HOUR, 2, '0') SAMPLING_HOUR,
+				LPAD(TS.SAMPLING_MIN, 2, '0') SAMPLING_MIN,
+        TS.ETC_DESC,        
+        T.REQ_ORG_NO,        
+        NVL2(RO.ORG_NM , RO.ORG_NM, RD.DEPT_NM ) ORG_NM ,
+        T.REQ_NM,
+        NVL(NVL2(T.DISCOUNT_RATE, T.FEE_TOT - ( CASE WHEN T.DISCOUNT_FLAG = 'Y' THEN T.FEE_TOT * (T.DISCOUNT_RATE * 0.01) ELSE 0 END ), T.FEE_TOT),0) AS COMMISSION_AMT_DET,
+        T.TEST_GOAL,
+        (SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = T.TEST_GOAL) TEST_GOAL_NM,
+        CASE WHEN T.REPORT_FLAG = 'Y' THEN '발행' ELSE '미발행' END AS REPORT_FLAG,
+        PC.KOR_NM AS PRDLST_NM,
+        TO_CHAR(T.REPORT_LAST_DATE, 'YYYY-MM-DD') AS LAST_REPORT_DATE,
+        TO_CHAR(TO_DATE(T.DEPT_APPR_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') AS LAST_APPROVAL_DATE,
+        ( SELECT LISTAGG(EXCEED_REASON, ', ') WITHIN GROUP (ORDER BY TS.TEST_REQ_SEQ) 
+        	FROM TEST_SAMPLE_ITEM TSI 
+        	WHERE TSI.TEST_REQ_SEQ = TS.TEST_REQ_SEQ 
+        ) AS EXCEED_REASON
+    FROM TEST_SAMPLE TS
+    INNER JOIN TEST_REQ T ON T.TEST_REQ_SEQ = TS.TEST_REQ_SEQ
+		INNER JOIN PRDLST_CL PC ON PC.PRDLST_CD = TS.PRDLST_CD 
+    LEFT OUTER JOIN DEPART RD ON RD.DEPT_CD = T.REQ_ORG_NO
+		LEFT OUTER JOIN REQ_ORG RO ON RO.REQ_ORG_NO = T.REQ_ORG_NO
+    LEFT OUTER JOIN TEST_STD S ON S.TEST_STD_NO = TS.TEST_STD_NO
+    WHERE 1=1
+
+		<if test="sales_dept_cd != null and sales_dept_cd != '' ">
+			AND T.SALES_DEPT_CD = #{sales_dept_cd}
+		</if>
+		<if test="sales_user_id != null and sales_user_id != '' ">
+			AND T.SALES_USER_ID = #{sales_user_id}
+		</if>
+		
+ 	    <!-- 접수일자 -->
+ 	    <if test="reqStartDate != null and reqStartDate != ''">
+			<if test="reqEndDate != null and reqEndDate != ''">
+				<![CDATA[
+     				AND TO_DATE(T.SAMPLE_ARRIVAL_DATE,'YYYYMMDD') >= TO_DATE(REPLACE(#{reqStartDate},'-'),'YYYYMMDD')
+     				AND TO_DATE(T.SAMPLE_ARRIVAL_DATE,'YYYYMMDD') <= TO_DATE(REPLACE(#{reqEndDate},'-'),'YYYYMMDD')
+     			]]>
+    		</if>
+			<if test="reqEndDate == null or reqEndDate == ''">
+    			<![CDATA[
+     				AND TO_DATE(T.SAMPLE_ARRIVAL_DATE,'YYYYMMDD') >= TO_DATE(REPLACE(#{reqStartDate},'-'),'YYYYMMDD')
+     			]]>	
+    		</if>
+ 	    </if>
+ 	    <if test="reqStartDate == null or reqStartDate == ''">
+ 	    	<if test="reqEndDate != null and reqEndDate != ''">
+ 	    		<![CDATA[
+     				AND TO_DATE(T.SAMPLE_ARRIVAL_DATE,'YYYYMMDD') <= TO_DATE(REPLACE(#{reqEndDate},'-'),'YYYYMMDD')
+     			]]>
+ 	    	</if>
+ 	    </if>
+ 	    
+ 	    <!-- 처리기한 -->
+        <if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				<![CDATA[
+     				AND TO_DATE(T.DEADLINE_DATE,'YYYYMMDD') >= TO_DATE(REPLACE(#{startDate},'-'),'YYYYMMDD')
+     				AND TO_DATE(T.DEADLINE_DATE,'YYYYMMDD') <= TO_DATE(REPLACE(#{endDate},'-'),'YYYYMMDD')
+     			]]>
+    		</if>
+			<if test="endDate == null or endDate == ''">
+    			<![CDATA[
+     				AND TO_DATE(T.DEADLINE_DATE,'YYYYMMDD') >= TO_DATE(REPLACE(#{startDate},'-'),'YYYYMMDD')
+     			]]>
+    		</if>
+ 	    </if>
+ 	    <if test="startDate == null or startDate == ''">
+ 	    	<if test="endDate != null and endDate != ''">
+ 	    		<![CDATA[
+     				AND TO_DATE(T.DEADLINE_DATE,'YYYYMMDD') <= TO_DATE(REPLACE(#{endDate},'-'),'YYYYMMDD')
+     			]]>
+ 	    	</if>
+ 	    </if> 	    
+ 	    
+ 	    <if test="test_sample_seq != null and test_sample_seq != ''">
+ 	    	AND UPPER(T.TEST_REQ_NO) LIKE '%' || UPPER(#{test_sample_seq}) || '%'
+ 	    </if>	
+ 	    <if test="title != null and title != ''">
+ 	    	AND UPPER(T.TITLE) LIKE '%' || UPPER(#{title}) || '%'
+ 	    </if>   
+ 	    <if test="org_nm != null and org_nm != ''">
+ 	    	AND UPPER((SELECT ORG_NM FROM REQ_ORG WHERE REQ_ORG_NO = T.REQ_ORG_NO)) LIKE '%' || UPPER(#{org_nm}) || '%'
+ 	    	OR UPPER(T.REQ_NM) LIKE '%' || UPPER(#{org_nm}) || '%'
+ 	    </if> 
+		<!-- <if test="req_nm != null and req_nm != ''">
+ 	    	AND UPPER(T.REQ_NM) LIKE '%' || UPPER(#{req_nm}) || '%'
+ 	    </if>  -->
+ 	    <if test="req_type != null and req_type != ''">
+ 	    	AND T.REQ_TYPE = #{req_type}
+ 	    </if>
+ 	    <if test="supv_dept_cd != null and supv_dept_cd != ''">
+ 	    	AND T.SUPV_DEPT_CD = #{supv_dept_cd}
+ 	    </if>
+ 	    <if test="dept_cd != null and dept_cd != ''">
+ 	    	AND T.DEPT_CD = #{dept_cd}
+ 	    </if>
+ 	    <if test="state != null and state != ''">
+ 	    	AND TS.STATE IN (#{state})
+ 	    </if>
+ 	    <if test="test_sample_result != null and test_sample_result != ''">
+ 	    	AND TS.TEST_SAMPLE_RESULT = #{test_sample_result}
+ 	    </if>
+ 	    <if test="sample_cd != null and sample_cd != ''">
+ 	    	AND TS.SAMPLE_CD = #{sample_cd}
+ 	    </if>
+ 	    <if test="unit_work_cd != null and unit_work_cd != ''">
+ 	    	AND T.UNIT_WORK_CD = #{unit_work_cd}
+ 	    </if>
+ 	    <if test="test_goal != null and test_goal != ''">
+ 	    	AND T.TEST_GOAL = #{test_goal}
+ 	    </if>
+ 	    <if test="dept_appr_flag != null and dept_appr_flag != ''">
+    		<if test='dept_appr_flag == "Y"'>
+  				AND TS.DEPT_APPR_FLAG = #{dept_appr_flag}
+  			</if>
+  			<if test='dept_appr_flag == "N"'>
+  				AND TS.DEPT_APPR_FLAG NOT IN ('Y')
+  			</if>
+ 	    </if>
+ 	    
+		<if test="htrk_prdlst_cd != null and htrk_prdlst_cd != '' ">
+			AND PC.HTRK_PRDLST_CD = #{htrk_prdlst_cd}
+		</if>
+		<if test="report_flag != null and report_flag != '' ">
+			AND T.REPORT_FLAG = #{report_flag}
+		</if>
+		
+ 	    <if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+ 	    	ORDER BY TS.TEST_SAMPLE_SEQ DESC, TO_DATE(T.SAMPLE_ARRIVAL_DATE,'YYYYMMDD') DESC, T.TEST_REQ_NO DESC
+ 	    </if>
+	</select>
+	
+	<select id="selectTestReultBList" parameterType="ResultStatisticalVO" resultType="ResultStatisticalVO">
+		SELECT 
+		REQNUM TEST_REQ_NO,
+		TO_CHAR(REQDT,'YYYY-MM-DD') REQ_DATE,
+		LAB DEPT_NM,
+		SMPINFONUM TEST_SAMPLE_SEQ,
+		PPLSNM SAMPLING_POINT_NM,
+		TESTITMNM TEST_ITEM_NM,
+		MSRNM,
+		CRSTV RESULT_VAL,
+		CLSNM UNIT,
+		SPEC STD_VAL,
+		DECODE(JDG, '1', '부적합', '0', '적합', '') JDG_TYPE,
+		TSTR USER_NM
+		FROM V_ITM_RESULTS@ARISU_DEV
+		WHERE 1=1
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				<![CDATA[
+     				AND RCPDT >= TO_DATE(#{startDate},'YYYYMMDD')
+     				AND RCPDT <= TO_DATE(#{endDate},'YYYYMMDD')
+     			]]>
+    		</if>
+			<if test="endDate == null or endDate == ''">
+    			<![CDATA[
+     				AND RCPDT >= TO_DATE(#{startDate},'YYYYMMDD')
+     			]]>	 
+    		</if>
+ 	    </if>
+ 	    <if test="startDate == null or startDate == ''">
+ 	    	<if test="endDate != null and endDate != ''">
+ 	    		<![CDATA[
+     				AND RCPDT <= TO_DATE(#{endDate},'YYYYMMDD')
+     			]]> 
+ 	    	</if>
+ 	    </if> 
+ 	    <if test="supv_dept_cd != null and supv_dept_cd != ''">
+ 	    	AND LAB = (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = #{supv_dept_cd} )
+ 	    </if>
+ 	    <if test="test_sample_seq != null and test_sample_seq != ''">
+ 	    	AND UPPER(SMPINFONUM) LIKE '%' || UPPER(#{test_sample_seq}) || '%'
+ 	    </if>
+ 	    <if test="state != null and state != ''">
+ 	    	AND STS IN (${state})
+ 	    </if>
+ 	    <if test="req_type != null and req_type != ''">
+ 	    	AND IOFLG = #{req_type}
+ 	    </if>
+ 	    <if test="jdg_type != null and jdg_type != ''">
+ 	    	AND JDG = #{jdg_type}
+ 	    </if>
+ 	    <if test="unit_work_cd != null and unit_work_cd != ''">
+ 	    	AND TESTCLSNUM = #{unit_work_cd}
+ 	    </if>
+ 	    <if test="sample_cd != null and sample_cd != ''">
+ 	    	AND SMPNUM = #{sample_cd}
+ 	    </if>
+ 	    <if test="test_item_cd != null and test_item_cd != ''">
+ 	    	AND TESTITMNUM = #{test_item_cd}
+ 	    </if>
+ 	    ORDER BY SMPINFONUM DESC, REQDT DESC, REQNUM DESC, LAB		
+	</select>
+	
+	<select id="selectUnitWorkList" parameterType="ResultStatisticalVO" resultType="ResultStatisticalVO">
+		SELECT 
+		TESTCLSNUM UNIT_WORK_CD, 
+		TESTCLSNM UNIT_WORK_NM 
+		FROM RLCDTCLS@ARISU_DEV 
+		<if test="unit_work_nm != null and unit_work_nm != ''">
+ 	    	WHERE UPPER(TESTCLSNM) LIKE '%' || UPPER(#{unit_work_nm}) || '%'
+ 	    </if>
+		ORDER BY TESTCLSNM
+	</select>
+	
+	<select id="selectSampleChoiceList" parameterType="ResultStatisticalVO" resultType="ResultStatisticalVO">
+		SELECT 
+		SMPNUM SAMPLE_CD, 
+		SMP SAMPLE_NM  
+		FROM RLCDSMP@ARISU_DEV 
+		<if test="sample_nm != null and sample_nm != ''">
+ 	    	WHERE UPPER(SMP) LIKE '%' || UPPER(#{sample_nm}) || '%'
+ 	    </if>
+		ORDER BY SMP
+	</select>
+	
+	<select id="selectTestItemSearchList" parameterType="ResultStatisticalVO" resultType="ResultStatisticalVO">
+		SELECT 
+        A.TESTITMNUM TEST_ITEM_CD, 
+        A.TESTITMNM TEST_ITEM_MNM, 
+        A.ITMKNM TEST_ITEM_NM, 
+        A.ITMENM TEST_ITEM_ENM, 
+        A.ORD, 
+        A.TITMDEV1, 
+        A.TITMDEV2 
+        FROM RLCDTITM@ARISU_DEV A, RLCDTUSR@ARISU_DEV B 
+        WHERE 1 = 1
+        AND A.TESTITMNUM = B.TESTITMNUM
+        AND B.FLG = '1'
+        <if test="test_item_nm != null and test_item_nm != ''">
+ 	    	AND (UPPER(A.TESTITMNUM) LIKE '%' || UPPER(#{test_item_nm}) || '%'
+ 	    	OR UPPER(A.ITMKNM) LIKE '%' || UPPER(#{test_item_nm}) || '%'
+ 	    	OR UPPER(A.ITMENM) LIKE '%' || UPPER(#{test_item_nm}) || '%')
+ 	    </if> 	    
+        UNION
+        SELECT 
+        A.TESTITMNUM TEST_ITEM_CD, 
+        A.TESTITMNM TEST_ITEM_MNM, 
+        A.ITMKNM TEST_ITEM_NM, 
+        A.ITMENM TEST_ITEM_ENM, 
+        A.ORD, 
+        A.TITMDEV1, 
+        A.TITMDEV2 
+        FROM RLCDTITM@ARISU_DEV A, (SELECT DISTINCT(TESTITMNUM), USRID FROM RLTSTUNT@ARISU_DEV) B
+        WHERE 1 = 1
+        AND A.TESTITMNUM = B.TESTITMNUM		
+        <if test="test_item_nm != null and test_item_nm != ''">
+ 	    	AND (UPPER(A.TESTITMNUM) LIKE '%' || UPPER(#{test_item_nm}) || '%'
+ 	    	OR UPPER(A.ITMKNM) LIKE '%' || UPPER(#{test_item_nm}) || '%'
+ 	    	OR UPPER(A.ITMENM) LIKE '%' || UPPER(#{test_item_nm}) || '%')
+ 	    </if>
+		ORDER BY ORD, TEST_ITEM_MNM, TITMDEV1, TITMDEV2
+	</select>	
+	
+	<!-- 과별단위업무(월별) -->
+	<select id="selectDeptUnitWorkPerfMList" parameterType="ResultStatisticalVO" resultType="ResultStatisticalVO">
+        SELECT 
+        LAST.SUPV_DEPT_CD, LAST.DEPT_NM, LAST.REQ_TYPE,  LAST.REQ_TYPE_NM, LAST.UNIT_WORK_CD, NVL(LAST.UNIT_WORK_NM, 'N/A') AS UNIT_WORK_NM,
+        LAST.A01, LAST.A02, LAST.A03, LAST.A04, LAST.A05, LAST.A06, LAST.A07, LAST.A08, LAST.A09, LAST.A10, LAST.A11, LAST.A12, 
+        LAST.B01, LAST.B02, LAST.B03, LAST.B04, LAST.B05, LAST.B06, LAST.B07, LAST.B08, LAST.B09, LAST.B10, LAST.B11, LAST.B12,
+        LAST.C01, LAST.C02, LAST.C03, LAST.C04, LAST.C05, LAST.C06, LAST.C07, LAST.C08, LAST.C09, LAST.C10, LAST.C11, LAST.C12
+        ,SUM(NVL(A01,0) + NVL(A02,0) + NVL(A03,0) + NVL(A04,0) + NVL(A05,0) + NVL(A06,0) +
+        NVL(A07,0) + NVL(A08,0) + NVL(A09,0) + NVL(A10,0) + NVL(A11,0) + NVL(A12,0)) AS A_TOTAL  
+        ,SUM(NVL(B01,0) + NVL(B02,0) + NVL(B03,0) + NVL(B04,0) + NVL(B05,0) + NVL(B06,0) +
+        NVL(B07,0) + NVL(B08,0) + NVL(B09,0) + NVL(B10,0) + NVL(B11,0) + NVL(B12,0)) AS B_TOTAL 
+        ,SUM(NVL(C01,0) + NVL(C02,0) + NVL(C03,0) + NVL(C04,0) + NVL(C05,0) + NVL(C06,0) +
+        NVL(C07,0) + NVL(C08,0) + NVL(C09,0) + NVL(C10,0) + NVL(C11,0) + NVL(C12,0)) AS C_TOTAL
+		FROM( 		
+	    	SELECT  A.SUPV_DEPT_CD, DE.DEPT_NM, A.REQ_TYPE, GET_COMMON_CODE(A.REQ_TYPE, 'EX1') AS REQ_TYPE_NM, 
+            A.UNIT_WORK_CD, UNW.UNIT_WORK_NM
+            ,MAX(NVL(A_01,0)) AS A01, MAX(NVL(B_01,0)) AS B01, MAX(NVL(C_01,0)) AS C01                                                
+            ,MAX(NVL(A_02,0)) AS A02, MAX(NVL(B_02,0)) AS B02, MAX(NVL(C_02,0)) AS C02                                                
+            ,MAX(NVL(A_03,0)) AS A03, MAX(NVL(B_03,0)) AS B03, MAX(NVL(C_03,0)) AS C03                                                
+            ,MAX(NVL(A_04,0)) AS A04, MAX(NVL(B_04,0)) AS B04, MAX(NVL(C_04,0)) AS C04                                                
+            ,MAX(NVL(A_05,0)) AS A05, MAX(NVL(B_05,0)) AS B05, MAX(NVL(C_05,0)) AS C05                                                
+            ,MAX(NVL(A_06,0)) AS A06, MAX(NVL(B_06,0)) AS B06, MAX(NVL(C_06,0)) AS C06                                                
+            ,MAX(NVL(A_07,0)) AS A07, MAX(NVL(B_07,0)) AS B07, MAX(NVL(C_07,0)) AS C07                                                
+            ,MAX(NVL(A_08,0)) AS A08, MAX(NVL(B_08,0)) AS B08, MAX(NVL(C_08,0)) AS C08                                                
+            ,MAX(NVL(A_09,0)) AS A09, MAX(NVL(B_09,0)) AS B09, MAX(NVL(C_09,0)) AS C09                                               
+            ,MAX(NVL(A_10,0)) AS A10, MAX(NVL(B_10,0)) AS B10, MAX(NVL(C_10,0)) AS C10                                                
+            ,MAX(NVL(A_11,0)) AS A11, MAX(NVL(B_11,0)) AS B11, MAX(NVL(C_11,0)) AS C11                                                
+            ,MAX(NVL(A_12,0)) AS A12, MAX(NVL(B_12,0)) AS B12, MAX(NVL(C_12,0)) AS C12                   
+            FROM  
+            ( 
+                SELECT SUPV_DEPT_CD, REQ_TYPE, UNIT_WORK_CD, REQ_Y, REQ_M,
+                CASE WHEN REQ_M = '01' THEN COUNT (TEST_REQ_SEQ) END AS A_01,
+                CASE WHEN REQ_M = '02' THEN COUNT (TEST_REQ_SEQ) END AS A_02,
+                CASE WHEN REQ_M = '03' THEN COUNT (TEST_REQ_SEQ) END AS A_03,
+                CASE WHEN REQ_M = '04' THEN COUNT (TEST_REQ_SEQ) END AS A_04,
+                CASE WHEN REQ_M = '05' THEN COUNT (TEST_REQ_SEQ) END AS A_05,
+                CASE WHEN REQ_M = '06' THEN COUNT (TEST_REQ_SEQ) END AS A_06,
+                CASE WHEN REQ_M = '07' THEN COUNT (TEST_REQ_SEQ) END AS A_07,
+                CASE WHEN REQ_M = '08' THEN COUNT (TEST_REQ_SEQ) END AS A_08,
+                CASE WHEN REQ_M = '09' THEN COUNT (TEST_REQ_SEQ) END AS A_09,
+                CASE WHEN REQ_M = '10' THEN COUNT (TEST_REQ_SEQ) END AS A_10,
+                CASE WHEN REQ_M = '11' THEN COUNT (TEST_REQ_SEQ) END AS A_11,
+                CASE WHEN REQ_M = '12' THEN COUNT (TEST_REQ_SEQ) END AS A_12 
+                FROM  
+                (
+                    SELECT T.TEST_REQ_SEQ,
+					T.REQ_TYPE,
+					T.UNIT_WORK_CD,
+					T.SUPV_DEPT_CD,
+					SUBSTR(T.REQ_DATE, 0, 4) AS REQ_Y,
+					SUBSTR(T.REQ_DATE, 5, 2) AS REQ_M
+					FROM TEST_REQ T, TEST_SAMPLE S
+                    LEFT JOIN PRDLST_CL PC ON PC.PRDLST_CD = S.PRDLST_CD 
+					WHERE T.TEST_REQ_SEQ = S.TEST_REQ_SEQ
+					AND S.STATE NOT IN('A','Z')
+	                <if test="year != null and year != ''">
+	                	AND SUBSTR (T.REQ_DATE, 0, 4) = #{year}
+	                </if>
+					<if test="htrk_prdlst_cd != null and htrk_prdlst_cd != '' ">
+						AND PC.HTRK_PRDLST_CD = #{htrk_prdlst_cd}
+					</if>
+					ORDER BY TEST_REQ_SEQ 
+                ) A
+                GROUP BY SUPV_DEPT_CD, REQ_TYPE, UNIT_WORK_CD, REQ_Y, REQ_M
+            ) A                                                                                      
+            LEFT JOIN 
+            ( 
+                SELECT SUPV_DEPT_CD, REQ_TYPE, UNIT_WORK_CD, REQ_Y, REQ_M,
+                CASE WHEN REQ_M = '01' THEN COUNT (TEST_REQ_SEQ) END AS B_01,
+                CASE WHEN REQ_M = '02' THEN COUNT (TEST_REQ_SEQ) END AS B_02,
+                CASE WHEN REQ_M = '03' THEN COUNT (TEST_REQ_SEQ) END AS B_03,
+                CASE WHEN REQ_M = '04' THEN COUNT (TEST_REQ_SEQ) END AS B_04,
+                CASE WHEN REQ_M = '05' THEN COUNT (TEST_REQ_SEQ) END AS B_05,
+                CASE WHEN REQ_M = '06' THEN COUNT (TEST_REQ_SEQ) END AS B_06,
+                CASE WHEN REQ_M = '07' THEN COUNT (TEST_REQ_SEQ) END AS B_07,
+                CASE WHEN REQ_M = '08' THEN COUNT (TEST_REQ_SEQ) END AS B_08,
+                CASE WHEN REQ_M = '09' THEN COUNT (TEST_REQ_SEQ) END AS B_09,
+                CASE WHEN REQ_M = '10' THEN COUNT (TEST_REQ_SEQ) END AS B_10,
+                CASE WHEN REQ_M = '11' THEN COUNT (TEST_REQ_SEQ) END AS B_11,
+                CASE WHEN REQ_M = '12' THEN COUNT (TEST_REQ_SEQ) END AS B_12 
+                FROM  
+                (
+                    SELECT
+                    S.TEST_REQ_SEQ,
+                    T.REQ_TYPE,
+                    T.UNIT_WORK_CD,
+                    T.SUPV_DEPT_CD,
+                    S.STATE,
+                    SUBSTR(T.REQ_DATE,0,4) AS REQ_Y, 
+                    SUBSTR(T.REQ_DATE,5,2) AS REQ_M 
+                    FROM TEST_SAMPLE S
+                    LEFT JOIN TEST_REQ T ON S.TEST_REQ_SEQ = T.TEST_REQ_SEQ 
+                    LEFT JOIN PRDLST_CL PC ON PC.PRDLST_CD = S.PRDLST_CD 
+                    WHERE S.STATE <![CDATA[ >= ]]> 'B' AND S.STATE <![CDATA[ < ]]> 'Z' 
+                    <if test="year != null and year != ''">
+                        AND SUBSTR (T.REQ_DATE, 0, 4) = #{year}
+                    </if>
+					<if test="htrk_prdlst_cd != null and htrk_prdlst_cd != '' ">
+						AND PC.HTRK_PRDLST_CD = #{htrk_prdlst_cd}
+					</if>
+                    ORDER BY TEST_REQ_NO
+                ) A
+                GROUP BY SUPV_DEPT_CD, REQ_TYPE, UNIT_WORK_CD, REQ_Y, REQ_M
+            ) B
+            ON A.SUPV_DEPT_CD = B.SUPV_DEPT_CD AND A.REQ_TYPE = B.REQ_TYPE AND A.UNIT_WORK_CD = B.UNIT_WORK_CD
+            LEFT JOIN 
+            ( 
+                SELECT SUPV_DEPT_CD, REQ_TYPE, UNIT_WORK_CD, REQ_Y, REQ_M,
+                CASE WHEN REQ_M = '01' THEN COUNT (TEST_REQ_SEQ) END AS C_01,
+                CASE WHEN REQ_M = '02' THEN COUNT (TEST_REQ_SEQ) END AS C_02,
+                CASE WHEN REQ_M = '03' THEN COUNT (TEST_REQ_SEQ) END AS C_03,
+                CASE WHEN REQ_M = '04' THEN COUNT (TEST_REQ_SEQ) END AS C_04,
+                CASE WHEN REQ_M = '05' THEN COUNT (TEST_REQ_SEQ) END AS C_05,
+                CASE WHEN REQ_M = '06' THEN COUNT (TEST_REQ_SEQ) END AS C_06,
+                CASE WHEN REQ_M = '07' THEN COUNT (TEST_REQ_SEQ) END AS C_07,
+                CASE WHEN REQ_M = '08' THEN COUNT (TEST_REQ_SEQ) END AS C_08,
+                CASE WHEN REQ_M = '09' THEN COUNT (TEST_REQ_SEQ) END AS C_09,
+                CASE WHEN REQ_M = '10' THEN COUNT (TEST_REQ_SEQ) END AS C_10,
+                CASE WHEN REQ_M = '11' THEN COUNT (TEST_REQ_SEQ) END AS C_11,
+                CASE WHEN REQ_M = '12' THEN COUNT (TEST_REQ_SEQ) END AS C_12 
+                FROM  
+                (
+                    SELECT
+                    TSI.TEST_SAMPLE_SEQ,
+                    TSI.TEST_ITEM_SEQ,
+                    TSI.TEST_ITEM_CD,
+                    T.TEST_REQ_SEQ,
+                    S.STATE,
+                    T.REQ_TYPE,
+                    T.UNIT_WORK_CD,
+                    T.SUPV_DEPT_CD,
+                    SUBSTR(T.REQ_DATE,0,4) AS REQ_Y, 
+                    SUBSTR(T.REQ_DATE,5,2) AS REQ_M
+                    FROM TEST_SAMPLE_ITEM TSI
+                    LEFT JOIN TEST_SAMPLE S ON S.TEST_SAMPLE_SEQ = TSI.TEST_SAMPLE_SEQ
+                    LEFT JOIN TEST_REQ T ON T.TEST_REQ_SEQ = S.TEST_REQ_SEQ
+                    LEFT JOIN PRDLST_CL PC ON PC.PRDLST_CD = S.PRDLST_CD 
+                    WHERE S.STATE <![CDATA[ >= ]]> 'B' AND S.STATE <![CDATA[ < ]]> 'Z' 
+                    <if test="year != null and year != ''">
+                        AND SUBSTR (T.REQ_DATE, 0, 4) = #{year}
+                    </if>
+					<if test="htrk_prdlst_cd != null and htrk_prdlst_cd != '' ">
+						AND PC.HTRK_PRDLST_CD = #{htrk_prdlst_cd}
+					</if>
+                    ORDER BY T.TEST_REQ_SEQ
+                ) A
+                GROUP BY SUPV_DEPT_CD, REQ_TYPE, UNIT_WORK_CD, REQ_Y, REQ_M
+            ) C
+            ON A.SUPV_DEPT_CD = C.SUPV_DEPT_CD AND A.REQ_TYPE = C.REQ_TYPE AND A.UNIT_WORK_CD = C.UNIT_WORK_CD
+            LEFT JOIN DEPART DE ON A.SUPV_DEPT_CD = DE.DEPT_CD 
+            LEFT JOIN UNIT_WORK UNW ON A.UNIT_WORK_CD =  UNW.UNIT_WORK_CD
+            WHERE 1=1
+            <if test="supv_dept_cd != null and supv_dept_cd != ''">
+                AND A.SUPV_DEPT_CD = #{supv_dept_cd}
+            </if>
+            <if test="unit_work_cd != null and unit_work_cd != ''">
+                AND A.UNIT_WORK_CD = #{unit_work_cd}
+            </if>
+            <if test="req_type != null and req_type != ''">
+ 	    		AND A.REQ_TYPE = #{req_type}
+            </if>
+            GROUP BY A.SUPV_DEPT_CD, DE.DEPT_NM, A.REQ_TYPE, A.UNIT_WORK_CD, UNW.UNIT_WORK_NM
+            ORDER BY A.SUPV_DEPT_CD, A.REQ_TYPE, A.UNIT_WORK_CD
+        ) LAST
+        GROUP BY LAST.SUPV_DEPT_CD, LAST.DEPT_NM, LAST.REQ_TYPE, LAST.UNIT_WORK_CD, LAST.UNIT_WORK_NM, LAST.REQ_TYPE_NM,
+        LAST.A01, LAST.A02, LAST.A03, LAST.A04, LAST.A05, LAST.A06, LAST.A07, LAST.A08, LAST.A09, LAST.A10, LAST.A11, LAST.A12, 
+        LAST.B01, LAST.B02, LAST.B03, LAST.B04, LAST.B05, LAST.B06, LAST.B07, LAST.B08, LAST.B09, LAST.B10, LAST.B11, LAST.B12,
+        LAST.C01, LAST.C02, LAST.C03, LAST.C04, LAST.C05, LAST.C06, LAST.C07, LAST.C08, LAST.C09, LAST.C10, LAST.C11, LAST.C12 
+        ORDER BY LAST.SUPV_DEPT_CD, LAST.REQ_TYPE, LAST.UNIT_WORK_CD
+	</select>
+	
+	<!-- 과별단위업무(분기별) -->
+	<select id="selectDeptUnitWorkPerfQList" parameterType="ResultStatisticalVO" resultType="ResultStatisticalVO">
+		SELECT A.SUPV_DEPT_CD, DE.DEPT_NM, A.REQ_TYPE, GET_COMMON_CODE(A.REQ_TYPE, 'EX1') AS REQ_TYPE_NM, 
+		A.UNIT_WORK_CD, NVL(UNW.UNIT_WORK_NM, 'N/A') AS UNIT_WORK_NM,
+		A.QA01, A.QA02, A.QA03, A.QA04, 
+		B.QB01, B.QB02, B.QB03, B.QB04, 
+		C.QC01, C.QC02, C.QC03, C.QC04,
+		SUM(NVL(QA01,0) + NVL(QA02,0) + NVL(QA03,0) + NVL(QA04,0)) AS A_TOTAL,
+		SUM(NVL(QB01,0) + NVL(QB02,0) + NVL(QB03,0) + NVL(QB04,0)) AS B_TOTAL,
+		SUM(NVL(QC01,0) + NVL(QC02,0) + NVL(QC03,0) + NVL(QC04,0)) AS C_TOTAL
+		FROM (          
+			SELECT SUPV_DEPT_CD, REQ_TYPE, UNIT_WORK_CD, REQ_Y, 
+			SUM(NVL(A_01,0)) QA01, SUM(NVL(A_02,0)) QA02, SUM(NVL(A_03,0)) QA03, SUM(NVL(A_04,0)) QA04 
+			FROM
+			(
+				SELECT SUPV_DEPT_CD, REQ_TYPE, UNIT_WORK_CD, REQ_Y, REQ_M
+				,CASE WHEN REQ_M = '01' OR REQ_M = '02' OR REQ_M = '03' THEN COUNT(TEST_REQ_NO) END AS A_01    
+				,CASE WHEN REQ_M = '04' OR REQ_M = '05' OR REQ_M = '06' THEN COUNT(TEST_REQ_NO) END AS A_02    
+				,CASE WHEN REQ_M = '07' OR REQ_M = '08' OR REQ_M = '09' THEN COUNT(TEST_REQ_NO) END AS A_03    
+				,CASE WHEN REQ_M = '10' OR REQ_M = '11' OR REQ_M = '12' THEN COUNT(TEST_REQ_NO) END AS A_04 
+				FROM 
+				(
+					SELECT
+				    T.TEST_REQ_NO,
+				    T.REQ_TYPE,
+				    T.UNIT_WORK_CD,
+				    T.SUPV_DEPT_CD,
+				    SUBSTR(T.REQ_DATE,0,4) AS REQ_Y, 
+				    SUBSTR(T.REQ_DATE,5,2) AS REQ_M 
+					FROM TEST_REQ T, TEST_SAMPLE S
+                    LEFT JOIN PRDLST_CL PC ON PC.PRDLST_CD = S.PRDLST_CD 
+					WHERE T.TEST_REQ_SEQ = S.TEST_REQ_SEQ
+					AND S.STATE NOT IN('A','Z') 
+					<if test="year != null and year != ''">
+						AND SUBSTR (T.REQ_DATE, 0, 4) = #{year}
+	                </if>
+
+					<if test="htrk_prdlst_cd != null and htrk_prdlst_cd != '' ">
+						AND PC.HTRK_PRDLST_CD = #{htrk_prdlst_cd}
+					</if>
+					ORDER BY TEST_REQ_NO
+				) A
+				GROUP BY SUPV_DEPT_CD, REQ_TYPE, UNIT_WORK_CD, REQ_Y, REQ_M
+			) A                                                                                      
+			GROUP BY SUPV_DEPT_CD, REQ_TYPE, UNIT_WORK_CD, REQ_Y
+        ) A            
+        LEFT JOIN 
+        (         
+			SELECT SUPV_DEPT_CD, REQ_TYPE, UNIT_WORK_CD, REQ_Y,
+			SUM(NVL(B_01,0)) QB01, SUM(NVL(B_02,0)) QB02, SUM(NVL(B_03,0)) QB03, SUM(NVL(B_04,0)) QB04 
+			FROM
+			(                      
+				SELECT SUPV_DEPT_CD, REQ_TYPE, UNIT_WORK_CD, REQ_Y, REQ_M
+				,CASE WHEN REQ_M = '01' OR REQ_M = '02' OR REQ_M = '03' THEN COUNT(TEST_REQ_NO) END AS B_01    
+				,CASE WHEN REQ_M = '04' OR REQ_M = '05' OR REQ_M = '06' THEN COUNT(TEST_REQ_NO) END AS B_02    
+				,CASE WHEN REQ_M = '07' OR REQ_M = '08' OR REQ_M = '09' THEN COUNT(TEST_REQ_NO) END AS B_03    
+				,CASE WHEN REQ_M = '10' OR REQ_M = '11' OR REQ_M = '12' THEN COUNT(TEST_REQ_NO) END AS B_04 
+				FROM 
+				(
+					SELECT
+					T.TEST_REQ_NO,
+					T.REQ_TYPE,
+					T.UNIT_WORK_CD,
+					T.SUPV_DEPT_CD,
+					S.STATE,
+					SUBSTR(T.REQ_DATE,0,4) AS REQ_Y, 
+					SUBSTR(T.REQ_DATE,5,2) AS REQ_M 
+					FROM TEST_SAMPLE S
+					LEFT JOIN TEST_REQ T ON S.TEST_REQ_SEQ = T.TEST_REQ_SEQ 
+                    LEFT JOIN PRDLST_CL PC ON PC.PRDLST_CD = S.PRDLST_CD 
+					WHERE S.STATE NOT IN('A','Z') 
+					<if test="year != null and year != ''">
+						AND SUBSTR (T.REQ_DATE, 0, 4) = #{year}
+					</if>
+
+					<if test="htrk_prdlst_cd != null and htrk_prdlst_cd != '' ">
+						AND PC.HTRK_PRDLST_CD = #{htrk_prdlst_cd}
+					</if>
+					ORDER BY TEST_REQ_NO
+				) B
+				GROUP BY SUPV_DEPT_CD, REQ_TYPE, UNIT_WORK_CD, REQ_Y, REQ_M
+			) B 
+			GROUP BY SUPV_DEPT_CD, REQ_TYPE, UNIT_WORK_CD, REQ_Y
+		) B                      
+		ON A.SUPV_DEPT_CD = B.SUPV_DEPT_CD AND A.REQ_TYPE = B.REQ_TYPE AND A.UNIT_WORK_CD = B.UNIT_WORK_CD
+		LEFT JOIN 
+		(
+			SELECT SUPV_DEPT_CD, REQ_TYPE, UNIT_WORK_CD, REQ_Y,
+			SUM(NVL(C_01,0)) QC01, SUM(NVL(C_02,0)) QC02, SUM(NVL(C_03,0)) QC03, SUM(NVL(C_04,0)) QC04 
+			FROM 
+			(
+				SELECT SUPV_DEPT_CD, REQ_TYPE, UNIT_WORK_CD, REQ_Y, REQ_M
+				,CASE WHEN REQ_M = '01' OR REQ_M = '02' OR REQ_M = '03' THEN COUNT(TEST_REQ_NO) END AS C_01    
+				,CASE WHEN REQ_M = '04' OR REQ_M = '05' OR REQ_M = '06' THEN COUNT(TEST_REQ_NO) END AS C_02    
+				,CASE WHEN REQ_M = '07' OR REQ_M = '08' OR REQ_M = '09' THEN COUNT(TEST_REQ_NO) END AS C_03    
+				,CASE WHEN REQ_M = '10' OR REQ_M = '11' OR REQ_M = '12' THEN COUNT(TEST_REQ_NO) END AS C_04
+				FROM 
+				(
+                    SELECT
+                    TSI.TEST_SAMPLE_SEQ,
+                    TSI.TEST_ITEM_SEQ,
+                    TSI.TEST_ITEM_CD,
+                    T.TEST_REQ_NO,
+                    S.STATE,
+                    T.REQ_TYPE,
+                    T.UNIT_WORK_CD,
+                    T.SUPV_DEPT_CD,
+                    SUBSTR(T.REQ_DATE,0,4) AS REQ_Y, 
+                    SUBSTR(T.REQ_DATE,5,2) AS REQ_M
+                    FROM TEST_SAMPLE_ITEM TSI
+                    LEFT JOIN TEST_SAMPLE S ON S.TEST_SAMPLE_SEQ = TSI.TEST_SAMPLE_SEQ
+                    LEFT JOIN TEST_REQ T ON T.TEST_REQ_SEQ = S.TEST_REQ_SEQ
+                    LEFT JOIN PRDLST_CL PC ON PC.PRDLST_CD = S.PRDLST_CD 
+                    WHERE S.STATE NOT IN('A','Z')
+					<if test="year != null and year != ''">
+						AND SUBSTR (T.REQ_DATE, 0, 4) = #{year}
+					</if>
+
+					<if test="htrk_prdlst_cd != null and htrk_prdlst_cd != '' ">
+						AND PC.HTRK_PRDLST_CD = #{htrk_prdlst_cd}
+					</if>
+					ORDER BY T.TEST_REQ_NO
+				) C
+                GROUP BY SUPV_DEPT_CD, REQ_TYPE, UNIT_WORK_CD, REQ_Y, REQ_M
+            ) C 
+            GROUP BY SUPV_DEPT_CD, REQ_TYPE, UNIT_WORK_CD, REQ_Y
+        ) C 
+		ON A.SUPV_DEPT_CD = C.SUPV_DEPT_CD AND A.REQ_TYPE = C.REQ_TYPE AND A.UNIT_WORK_CD = C.UNIT_WORK_CD
+		LEFT JOIN DEPART DE ON A.SUPV_DEPT_CD = DE.DEPT_CD 
+		LEFT JOIN UNIT_WORK UNW ON A.UNIT_WORK_CD =  UNW.UNIT_WORK_CD
+		WHERE 1=1
+        <if test="supv_dept_cd != null and supv_dept_cd != ''">
+			AND A.SUPV_DEPT_CD = #{supv_dept_cd}
+        </if>
+        <if test="unit_work_cd != null and unit_work_cd != ''">
+			AND A.UNIT_WORK_CD = #{unit_work_cd}
+        </if>
+        <if test="req_type != null and req_type != ''">
+ 	    	AND A.REQ_TYPE = #{req_type}
+        </if>
+		GROUP BY A.SUPV_DEPT_CD, DE.DEPT_NM, A.REQ_TYPE, A.UNIT_WORK_CD, UNW.UNIT_WORK_NM, 
+		QA01, QA02, QA03, QA04, 
+		QB01, QB02, QB03, QB04, 
+		QC01, QC02, QC03, QC04
+		ORDER BY A.SUPV_DEPT_CD, A.REQ_TYPE, A.UNIT_WORK_CD		
+	</select>
+	
+	<select id="selectSampleCombo" parameterType="ResultStatisticalVO" resultType="ResultStatisticalVO">
+		SELECT 
+			SAMPLE_CD,
+			SAMPLE_NM
+		FROM SAMPLE
+		WHERE USE_FLAG = 'Y'
+	</select>	
+	
+	<select id="selectTestReultListTotCnt" parameterType="pagingVO" resultType="int">		
+		SELECT COUNT(*)			
+        FROM TEST_SAMPLE_ITEM TSI
+        INNER JOIN TEST_SAMPLE TS ON TS.TEST_SAMPLE_SEQ = TSI.TEST_SAMPLE_SEQ
+        INNER JOIN TEST_REQ T ON T.TEST_REQ_SEQ = TS.TEST_REQ_SEQ
+        INNER JOIN ANALYSIS ANAL ON ANAL.TESTITM_CD = TSI.TEST_ITEM_CD 
+        INNER JOIN PRDLST_CL PC ON PC.PRDLST_CD = TS.PRDLST_CD 
+        WHERE 1=1
+        <if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				<![CDATA[
+     				AND TO_CHAR(TO_DATE(T.REQ_DATE,'YYYYMMDD'),'YYYY-MM-DD') >= #{startDate}
+     				AND TO_CHAR(TO_DATE(T.REQ_DATE,'YYYYMMDD'),'YYYY-MM-DD') <= #{endDate}
+     			]]>
+    		</if>
+			<if test="endDate == null or endDate == ''">
+    			<![CDATA[
+     				AND TO_CHAR(TO_DATE(T.REQ_DATE,'YYYYMMDD'),'YYYY-MM-DD') >= #{startDate}
+     			]]>	 
+    		</if>
+ 	    </if>
+ 	    <if test="startDate == null or startDate == ''">
+ 	    	<if test="endDate != null and endDate != ''">
+ 	    		<![CDATA[
+     				AND TO_CHAR(TO_DATE(T.REQ_DATE,'YYYYMMDD'),'YYYY-MM-DD') <= #{endDate}
+     			]]> 
+ 	    	</if>
+ 	    </if> 
+ 	    <if test="test_item_nm != null and test_item_nm != ''">
+ 	    	AND UPPER(ANAL.TESTITM_NM) LIKE '%' || UPPER(#{test_item_nm}) || '%'
+ 	    </if>
+ 	    <if test="test_sample_seq != null and test_sample_seq != ''">
+ 	    	AND TSI.TEST_SAMPLE_SEQ LIKE '%' || #{test_sample_seq} || '%'
+ 	    </if>
+ 	    <if test="supv_dept_cd != null and supv_dept_cd != ''">
+ 	    	AND T.SUPV_DEPT_CD = #{supv_dept_cd}
+ 	    </if>
+ 	    <if test="req_type != null and req_type != ''">
+ 	    	AND T.REQ_TYPE = #{req_type}
+ 	    </if>
+ 	    <if test="sample_cd != null and sample_cd != ''">
+ 	    	AND TS.SAMPLE_CD = #{sample_cd}
+ 	    </if>
+ 	    <if test="state != null and state != ''">
+ 	    	AND TSI.STATE = #{state}
+ 	    </if>
+ 	    <if test="jdg_type != null and jdg_type != ''">
+ 	    	AND TSI.JDG_TYPE = #{jdg_type}
+ 	    </if> 	    
+ 	    <if test="dept_appr_flag != null and dept_appr_flag != ''">
+    		<if test='dept_appr_flag == "Y"'>
+  				AND TS.DEPT_APPR_FLAG = #{dept_appr_flag}
+  			</if>
+  			<if test='dept_appr_flag == "N"'>
+  				AND TS.DEPT_APPR_FLAG NOT IN ('Y')
+  			</if>
+ 	    </if>	    
+ 	    <if test="unit_work_cd != null and unit_work_cd != ''">
+ 	    	AND T.UNIT_WORK_CD = #{unit_work_cd}
+ 	    </if>
+		<if test="htrk_prdlst_cd != null and htrk_prdlst_cd != '' ">
+			AND PC.HTRK_PRDLST_CD = #{htrk_prdlst_cd}
+		</if>
+	</select>
+</mapper>

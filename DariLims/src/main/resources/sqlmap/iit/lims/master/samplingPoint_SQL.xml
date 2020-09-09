@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="samplingPoint">
+	<!-- 채수장소관리 -->
+	<select id="samplingPoint" parameterType="SamplingPointVO" resultType="SamplingPointVO">
+		SELECT LAST.*
+		FROM (
+				SELECT 
+					 ROWNUM rNum
+					 ,A.USE_FLAG
+					 ,A.SAMPLING_POINT_NO
+					 ,A.SAMPLING_POINT_NM
+					 ,C.CODE_NAME SAMPLING_OBJECT
+					 ,F.CODE_NAME WATER_SYSTEM
+					 ,A.OFFICE_CD
+					 ,D.CODE_NAME FACILITIES_TYPE
+					 ,E.CODE_NAME SUPPLY_TYPE
+					 ,A.COURSE_NM
+					 ,CASE WHEN A.ADDR1 IS NULL THEN A.ADDR2
+				          WHEN A.ADDR2 IS NULL THEN A.ADDR1
+				          WHEN A.ADDR1 IS NULL AND A.ADDR2 IS NULL THEN ''
+				          ELSE (A.ADDR1 || ' ' || A.ADDR2)
+				          END ADDR
+			          ,A.COMPANY_NM, A.ZIP
+			          ,F.ORG_NM
+		        FROM SAMPLING_POINT A
+		        LEFT JOIN COMMON_CODE_DETAIL C ON A.SAMPLING_OBJECT = C.CODE
+		        LEFT JOIN COMMON_CODE_DETAIL D ON A.FACILITIES_TYPE = D.CODE
+		        LEFT JOIN COMMON_CODE_DETAIL E ON A.SUPPLY_TYPE = E.CODE
+		        LEFT JOIN COMMON_CODE_DETAIL F ON A.WATER_SYSTEM = F.CODE
+		        LEFT JOIN REQ_ORG F ON F.REQ_ORG_NO = A.OFFICE_CD
+		        WHERE 1=1
+				<if test="org_nm != null and org_nm != '' ">
+					AND UPPER(ORG_NM) LIKE '%' || UPPER(#{org_nm}) || '%'
+				</if>
+				<if test="sampling_point_nm != null and sampling_point_nm != '' ">
+					AND UPPER(SAMPLING_POINT_NM) LIKE '%' || UPPER(#{sampling_point_nm}) || '%'
+				</if>
+				<if test="water_system != null and water_system != '' ">
+					AND UPPER(WATER_SYSTEM) LIKE '%' || UPPER(#{water_system}) || '%'
+				</if>
+				<if test="use_flag != null and use_flag != '' ">
+					AND USE_FLAG = #{use_flag}
+				</if>
+				<if test="sampling_object != null and sampling_object != '' ">
+					AND C.CODE = #{sampling_object}
+				</if>
+				<if test="sortName != null and sortName != '' ">
+					ORDER BY ${sortName} ${sortType}
+				</if>
+				<if test="sortName == null or sortName == '' ">
+					ORDER BY A.COURSE_NM
+				</if>
+				)LAST
+		WHERE rNum BETWEEN #{firstIndex} +1 AND #{firstIndex} + #{recordCountPerPage}
+		ORDER BY rNum
+	</select>
+
+	<select id="samplingPointDetail" parameterType="SamplingPointVO" resultType="SamplingPointVO">
+		SELECT 
+			SAMPLING_POINT_NO
+			, SAMPLING_POINT_NM
+			, B.CODE_NAME SAMPLING_OBJECT
+			, B.CODE CODE
+			, WATER_SYSTEM
+			, OFFICE_CD
+			, FACILITIES_TYPE
+			, SUPPLY_TYPE
+			, COURSE_NM
+			, A.ADDR1
+			, A.ADDR2
+			, COMPANY_NM, A.ZIP
+		    , C.ORG_NM
+		    , A.USE_FLAG
+		FROM SAMPLING_POINT A
+		LEFT JOIN COMMON_CODE_DETAIL B ON A.SAMPLING_OBJECT = B.CODE
+		LEFT JOIN REQ_ORG C ON C.REQ_ORG_NO = A.OFFICE_CD
+		WHERE SAMPLING_POINT_NO = #{key}
+	</select>
+
+	<insert id="insertSamplingPoint" parameterType="SamplingPointVO">
+		INSERT INTO SAMPLING_POINT(
+			SAMPLING_POINT_NO
+			,SAMPLING_POINT_NM
+			,SAMPLING_OBJECT
+			,WATER_SYSTEM
+			,OFFICE_CD
+			,SUPPLY_TYPE
+			,COURSE_NM
+			,ADDR1
+			,ADDR2
+			,COMPANY_NM
+			,FACILITIES_TYPE
+			,ZIP
+			,USE_FLAG
+		)VALUES(
+			(SELECT LPAD(NVL(MAX(SAMPLING_POINT_NO),0)+1,6,0) FROM SAMPLING_POINT)
+			, #{sampling_point_nm}
+			, #{sampling_object}
+			, #{water_system}
+			, #{office_cd}
+			, #{supply_type}
+			, #{course_nm}
+			, #{addr1}
+			, #{addr2}
+			, #{company_nm}
+			, #{facilities_type}
+			, #{zip}
+			, 'Y'
+		)
+	</insert>
+
+	<update id="updateSamplingPoint" parameterType="SamplingPointVO">
+		UPDATE SAMPLING_POINT SET
+			SAMPLING_POINT_NM = #{sampling_point_nm}
+			, SAMPLING_OBJECT = #{sampling_object}
+			, WATER_SYSTEM = #{water_system}
+			, OFFICE_CD = #{office_cd}
+			, FACILITIES_TYPE = #{facilities_type}
+			, SUPPLY_TYPE = #{supply_type}
+			, COURSE_NM = #{course_nm}
+			, COMPANY_NM = #{company_nm}
+			, ADDR1 = #{addr1}
+			, ADDR2 = #{addr2}
+			, ZIP = #{zip}
+			, USE_FLAG = #{use_flag}
+		WHERE SAMPLING_POINT_NO = #{sampling_point_no}
+	</update>
+
+	<update id="deleteSamplingPoint" parameterType="SamplingPointVO">
+		UPDATE SAMPLING_POINT SET
+			USE_FLAG = 'N'
+		WHERE SAMPLING_POINT_NO = #{sampling_point_no}
+	</update>
+
+<!-- 	<delete id="deleteSamplingPoint" parameterType="SamplingPointVO"> -->
+<!-- 		DELETE SAMPLING_POINT -->
+<!-- 		WHERE SAMPLING_POINT_NO = #{sampling_point_no} -->
+<!-- 	</delete> -->
+	
+	<!-- 사업소 리스트 조회(팝업) -->
+	<select id="selectOfficeList" parameterType="SamplingPointVO" resultType="SamplingPointVO">
+		SELECT
+	        REQ_ORG_NO
+	        , ORG_NM
+	        , HOMEPAGE
+	        , CCD.CODE_NAME ORG_TYPE
+	        , PRE_TEL_NUM
+	        , PRE_FAX_NUM
+	        , CHARGER req_nm
+	        , CHARGER_TEL req_tel
+	        , ORG_DESC
+	        , ZIP_CODE
+	        , ADDR1
+	        , ADDR2
+        FROM REQ_ORG RO
+        LEFT JOIN COMMON_CODE_DETAIL CCD ON CCD.CODE = RO.ORG_TYPE
+        WHERE 1=1
+        	AND CCD.CODE = 'C24007'
+		<if test="org_nm != null and org_nm != '' ">
+			AND UPPER(ORG_NM) like '%' || UPPER( #{org_nm} ) || '%'
+		</if>
+		<if test="pre_tel_num != null and pre_tel_num != '' ">
+			AND PRE_TEL_NUM like '%' || #{pre_tel_num}  || '%'
+		</if>
+		<if test="pre_fax_num != null and pre_fax_num != '' ">
+			AND PRE_FAX_NUM like '%' ||  #{pre_fax_num} || '%'
+		</if>
+		<if test="charger != null and charger != '' ">
+			AND UPPER(CHARGER) like '%' || UPPER( #{charger} ) || '%'
+		</if>
+		<if test="charger_tel != null and charger_tel != '' ">
+			AND CHARGER_TEL like '%' ||  #{charger_tel}  || '%'
+		</if>
+		<if test="zip_code != null and zip_code != '' ">
+			AND ZIP_CODE like '%' ||  #{zip_code} || '%'
+		</if>
+		<if test="addr1 != null and addr1 != '' ">
+			AND UPPER(ADDR1) like '%' || UPPER( #{addr1} ) || '%'
+		</if>
+		<if test="addr2 != null and addr2 != '' ">
+			AND UPPER(ADDR2) like '%' || UPPER( #{addr2} ) || '%'
+		</if>
+		<if test="org_desc != null and org_desc != '' ">
+			AND UPPER(ORG_DESC) like '%' || UPPER( #{org_desc} ) || '%'
+		</if>
+		<if test="homepage != null and homepage != '' ">
+			AND UPPER(HOMEPAGE) like '%' || UPPER( #{homepage} ) || '%'
+		</if>
+	</select>
+	
+	<!-- 페이징 -->
+	<select id="samplingPointCnt" parameterType="SamplingPointVO" resultType="int">	
+		SELECT COUNT(*)
+        FROM SAMPLING_POINT A
+        LEFT JOIN COMMON_CODE_DETAIL C ON A.SAMPLING_OBJECT = C.CODE
+        LEFT JOIN COMMON_CODE_DETAIL D ON A.FACILITIES_TYPE = D.CODE
+        LEFT JOIN COMMON_CODE_DETAIL E ON A.SUPPLY_TYPE = E.CODE
+        LEFT JOIN COMMON_CODE_DETAIL F ON A.WATER_SYSTEM = F.CODE
+        LEFT JOIN REQ_ORG F ON F.REQ_ORG_NO = A.OFFICE_CD
+        WHERE 1=1
+		<if test="org_nm != null and org_nm != '' ">
+			AND UPPER(ORG_NM) LIKE '%' || UPPER(#{org_nm}) || '%'
+		</if>
+		<if test="sampling_point_nm != null and sampling_point_nm != '' ">
+			AND UPPER(SAMPLING_POINT_NM) LIKE '%' || UPPER(#{sampling_point_nm}) || '%'
+		</if>
+		<if test="water_system != null and water_system != '' ">
+			AND UPPER(WATER_SYSTEM) LIKE '%' || UPPER(#{water_system}) || '%'
+		</if>
+		<if test="use_flag != null and use_flag != '' ">
+			AND USE_FLAG = #{use_flag}
+		</if>
+		<if test="sampling_object != null and sampling_object != '' ">
+			AND C.CODE = #{sampling_object}
+		</if>
+	</select>
+</mapper>

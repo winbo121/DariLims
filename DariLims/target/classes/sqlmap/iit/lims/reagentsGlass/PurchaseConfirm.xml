@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="reagentsGlass">
+
+	<!-- 구매정보 -->
+	<select id="purchaseInfoList" resultType="reagentsGlassVO" parameterType="reagentsGlassVO">
+		SELECT MTLR_MST_NO,
+		BUY_STS,
+		BUY_TITLE,
+		(SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = BUY_Q) BUY_Q,
+		(BUY_YEAR || '년') BUY_YEAR,
+		TO_CHAR(TO_DATE( BUY_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') BUY_DATE,
+		TO_CHAR(TO_DATE( DMD_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') DMD_DATE,
+		BUY_ETC,
+		STATE
+		FROM MTLR_MST
+		WHERE 1=1
+		AND BUY_STS IS NOT NULL
+		<if test="buy_sts != null and buy_sts != '' ">
+			AND BUY_STS = #{buy_sts}
+		</if>
+		<if test="buy_title != null and buy_title != '' ">
+			AND UPPER(BUY_TITLE) like '%' || UPPER( #{buy_title} ) || '%'
+		</if>
+		<if test="buy_year != null and buy_year != '' ">
+			AND BUY_YEAR = #{buy_year}
+		</if>
+		<if test="buy_q != null and buy_q != '' ">
+			AND BUY_Q = #{buy_q}
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY MTLR_MST_NO DESC
+		</if>
+	</select>
+
+	<!-- 구매요청 리스트 -->
+	<select id="purchaseReqList" resultType="reagentsGlassVO" parameterType="reagentsGlassVO">
+		SELECT
+		A.MTLR_REQ_NO
+		,A.MTLR_MST_NO
+		,C.ITEM_NM
+		,C.MTLR_NO
+		,DECODE(C.MASTER_YN, 'Y', '마스터', '일반') MASTER_YN
+		<!-- ,C.MASTER_YN -->
+		,C.SPEC1
+		,C.SPEC2
+		,C.SPEC_ETC
+		,F.CODE_NAME UNIT
+		,C.CONTENT
+		,C.ETC
+		,C.USE
+		,C.USE_FLAG
+		,A.REQ_QTY
+		,A.FIX_QTY
+		,B.DEPT_NM
+<!-- 		,DECODE((SELECT SUBSTR(DEPT_CD, 0, 4) FROM DEPART WHERE DEPT_CD = A.CREATE_DEPT), 'LIMS', '(사업소)' || (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = A.CREATE_DEPT) , (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = A.CREATE_DEPT)) AS CREATE_DEPT -->
+		,(SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = A.CREATE_DEPT) AS CREATE_DEPT
+		,E.USER_NM AS USER_ID
+		,A.COST
+		,(SELECT CODE_NAME FROM COMMON_CODE WHERE CODE = C.H_MTLR_INFO) H_MTLR_INFO
+		<!-- ,M_MTLR_INFO -->
+		,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = C.M_MTLR_INFO) M_MTLR_INFO
+		FROM MTLR_REQ A
+		LEFT JOIN DEPART B ON A.CREATE_DEPT = B.DEPT_CD
+		LEFT JOIN MTLR_INFO C ON A.MTLR_NO = C.MTLR_NO
+		LEFT JOIN USER_INFO E ON A.CREATER_ID = E.USER_ID
+		LEFT JOIN COMMON_CODE_DETAIL F ON C.UNIT = F.CODE
+		WHERE A.MTLR_MST_NO = #{mtlr_mst_no}
+		<if test="h_mtlr_info != null and h_mtlr_info != '' ">
+			AND C.H_MTLR_INFO = #{h_mtlr_info}
+		</if>
+		<if test="m_mtlr_info != null and m_mtlr_info != '' ">
+			AND C.M_MTLR_INFO = #{m_mtlr_info}
+		</if>
+		<if test="spec2 != null and spec2 != '' ">
+			AND C.SPEC2 LIKE '%' || #{spec2} || '%'
+		</if>
+		<if test="item_kor_nm != null and item_kor_nm != '' ">
+			AND (UPPER(C.ITEM_NM) like '%' || UPPER( #{item_kor_nm} ) || '%')
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND A.CREATE_DEPT = #{dept_cd}
+		</if>
+		<if test="office_cd != null and office_cd != '' ">
+        	AND A.CREATE_DEPT = #{office_cd}
+        </if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY C.H_MTLR_INFO, C.M_MTLR_INFO, C.ITEM_NM, MTLR_MST_NO
+		</if>
+	</select>
+
+	<!-- 구매 요청 리스트 등록 -->
+	<insert id="insertPurchaseConfirm" parameterType="java.util.HashMap">
+		INSERT INTO MTLR_REQ (
+		MTLR_REQ_NO,
+		MTLR_MST_NO,
+		MTLR_NO,
+		<if test="req_qty != null and req_qty != '' ">
+			REQ_QTY,
+		</if>
+		CREATE_DATE,
+		CREATE_DEPT,
+		CREATER_ID,
+		STATE
+		) VALUES (
+		(SELECT LPAD(NVL(MAX(MTLR_REQ_NO),0)+1,3,0) FROM MTLR_REQ),
+		#{mtlr_mst_no},
+		#{mtlr_no},
+		<if test="req_qty != null and req_qty != '' ">
+			#{req_qty},
+		</if>
+		TO_CHAR(SYSDATE, 'YYYYMMDD'),
+		<!-- REPLACE(#{create_date}, '-', ''), -->
+		#{create_dept},
+		#{creater_id},
+		'C39001' <!-- 구매요청 -->
+		)
+	</insert>
+
+	<update id="updatePurchaseConfirm" parameterType="reagentsGlassVO">
+		UPDATE MTLR_REQ
+		<set>
+			<if test="fix_qty != null and fix_qty != '' ">
+				FIX_QTY = #{fix_qty},
+			</if>
+			<if test="fix_qty == null or fix_qty == '' ">
+				FIX_QTY = NULL,
+			</if>
+			<if test="cost != null and cost != '' ">
+				COST = #{cost}
+			</if>
+			<if test="cost == null or cost == '' ">
+				COST = NULL
+			</if>
+		</set>
+		WHERE MTLR_MST_NO = #{mtlr_mst_no}
+		AND MTLR_REQ_NO = #{mtlr_req_no}
+	</update>
+
+	<!-- 구매정보 -> 구매확정 수정 -->
+	<update id="updatePurchaseInfoConfirm" parameterType="reagentsGlassVO">
+		UPDATE MTLR_MST SET
+		BUY_STS = 'C39004',
+		CHECK_DATE = SYSDATE
+		WHERE MTLR_MST_NO = #{mtlr_mst_no}
+	</update>
+
+	<!-- 구매확정 진행상태 -> '구매확정' 변경 -->
+	<update id="updateStatePurchaseConfirm" parameterType="reagentsGlassVO">
+		UPDATE MTLR_REQ SET
+		STATE = 'C39004'
+		WHERE MTLR_MST_NO = #{mtlr_mst_no}
+		AND FIX_QTY IS NOT NULL
+		AND COST IS NOT NULL
+	</update>
+
+	<select id="checkPurchaseConfirmValue" parameterType="reagentsGlassVO" resultType="reagentsGlassVO">
+		SELECT MI.ITEM_NM , FIX_QTY , COST, MTLR_REQ_NO
+		FROM MTLR_REQ MR
+		INNER JOIN MTLR_INFO MI ON MR.MTLR_NO = MI.MTLR_NO
+		WHERE MTLR_MST_NO = #{mtlr_mst_no}
+		AND (
+		( FIX_QTY IS NOT NULL AND COST IS NULL )
+		OR ( FIX_QTY IS NULL AND COST IS NOT NULL )
+		)
+		AND ROWNUM = 1
+	</select>
+
+	<update id="updatePurchaseConfirmExcel" parameterType="list">
+		BEGIN
+		<foreach collection="list" item="item" index="idx">
+			UPDATE MTLR_REQ
+			<set>
+				<if test="item.fix_qty != null and item.fix_qty != '' ">
+					FIX_QTY = #{item.fix_qty},
+				</if>
+				<if test="item.fix_qty == null or item.fix_qty == '' ">
+					FIX_QTY = NULL,
+				</if>
+				<if test="item.cost != null and item.cost != '' ">
+					COST = #{item.cost}
+				</if>
+				<if test="item.cost == null or item.cost == '' ">
+					COST = NULL
+				</if>
+			</set>
+			<where>
+				MTLR_MST_NO = #{item.mtlr_mst_no}
+				AND MTLR_REQ_NO = #{item.mtlr_req_no}
+			</where>
+			;
+		</foreach>
+		END;
+	</update>
+
+	<select id="checkPurchaseInfo" parameterType="reagentsGlassVO" resultType="String"> 
+		SELECT
+		CASE WHEN BUY_STS != 'C39001' THEN 'F'
+		ELSE 'T' END
+		FROM MTLR_MST
+		<where>
+			MTLR_MST_NO = #{mtlr_mst_no}
+		</where>
+	</select>
+</mapper>	

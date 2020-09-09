@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="resultModify">
+
+	<select id="selectModifyReqList" parameterType="ResultInputVO" resultType="ResultInputVO">
+		SELECT
+			DISTINCT R.TEST_REQ_SEQ
+			, R.TEST_REQ_NO
+			, TO_CHAR(TO_DATE(R.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') SAMPLE_ARRIVAL_DATE
+			, TO_CHAR(TO_DATE(R.DEADLINE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') DEADLINE_DATE
+			, GET_COMMON_CODE(R.REQ_TYPE, 'EX1') REQ_TYPE
+			, R.REQ_NM
+			, R.DEPT_CD
+			, R.SUPV_DEPT_CD
+			, D.DEPT_NM
+			, R.REQ_MESSAGE
+			, R.TITLE
+			, NVL2(RO.ORG_NM , RO.ORG_NM, RD.DEPT_NM ) REQ_ORG_NM
+			, C1.CODE_NAME TEST_GOAL
+			, UW.UNIT_WORK_NM UNIT_WORK_CD
+			, U.USER_NM
+			, U2.USER_NM CREATER_NM
+			, R.STOP_FLAG
+			, R.STATE
+			, R.BACKUP_STATE
+			, R.STOP_REASON
+		FROM TEST_SAMPLE TS
+		INNER JOIN TEST_REQ R ON R.TEST_REQ_SEQ = TS.TEST_REQ_SEQ
+		LEFT OUTER JOIN DEPART D ON D.DEPT_CD = R.DEPT_CD
+		LEFT OUTER JOIN COMMON_CODE_DETAIL C1 ON C1.CODE = R.TEST_GOAL
+		LEFT OUTER JOIN UNIT_WORK UW ON UW.UNIT_WORK_CD = R.UNIT_WORK_CD
+		LEFT OUTER JOIN USER_INFO U ON U.USER_ID = R.ACT_USER_ID
+		LEFT OUTER JOIN USER_INFO U2 ON U2.USER_ID = R.CREATER_ID
+		LEFT OUTER JOIN DEPART RD ON RD.DEPT_CD = R.REQ_ORG_NO
+		LEFT OUTER JOIN REQ_ORG RO ON RO.REQ_ORG_NO = R.REQ_ORG_NO
+		WHERE TS.TEST_SAMPLE_SEQ IN
+		(
+				SELECT DISTINCT
+				TEST_SAMPLE_SEQ
+				FROM TEST_SAMPLE_ITEM				
+				WHERE R.STATE NOT IN ('A','O','P',
+				<if test="stop_flag == 'N'.toString() ">
+				'S',
+				</if>
+				'Z')
+		)
+		<if test="stop_flag != null and stop_flag != '' ">
+			AND R.STOP_FLAG = #{stop_flag}
+		</if>
+		<if test="test_req_seq != null and test_req_seq != '' ">
+			AND TS.TEST_REQ_SEQ like '%' || #{test_req_seq} || '%'
+		</if>
+		<if test="test_req_no != null and test_req_no != '' ">
+			AND UPPER(R.TEST_REQ_NO) like '%' || UPPER(#{test_req_no}) || '%'
+		</if>
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				AND TO_CHAR(TO_DATE(R.SAMPLE_ARRIVAL_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') BETWEEN #{startDate} AND #{endDate}
+			</if>
+		</if>
+		<if test="req_nm != null and req_nm != '' ">
+			AND UPPER(R.REQ_NM) LIKE '%' || UPPER(#{req_nm}) || '%'
+		</if>
+		<if test="req_type != null and req_type != '' ">
+			AND R.REQ_TYPE = #{req_type}
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND R.DEPT_CD = #{dept_cd}
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY R.TEST_REQ_NO DESC
+		</if>
+	</select>
+	
+	<!-- 결과 수정 리스트 -->
+	<select id="selectModifyResultList" parameterType="ResultInputVO" resultType="ResultInputVO">
+		SELECT
+			DECODE(SI.STATE, 'B', P.EXT_PRC_NM, P.SIMPLE_PRC_NM) STATE,
+			SI.TEST_SAMPLE_SEQ ,
+			SI.TEST_ITEM_SEQ ,
+			SI.TEST_ITEM_CD ,
+			ANAL.TESTITM_NM AS TEST_ITEM_NM ,
+			SI.DISP_ORDER,
+			ANAL.L_KOR_NM AS TEST_ITEM_TYPE ,
+<!-- 			C1.CODE_NAME TEST_ITEM_TYPE , -->
+			SI.COLLA_FLAG ,
+			SI.RESULT_TYPE ,
+			SI.UNIT,
+			SI.VALID_POSITION ,
+			SI.STD_HVAL ,
+			SI.LVAL_TYPE ,
+			SI.STD_LVAL ,
+			SI.HVAL_TYPE ,
+			SI.LOQ_HVAL ,
+			SI.STD_VAL ,
+			SI.STD_FIT STD_FIT_VAL ,
+			SI.STD_UNFIT STD_UNFIT_VAL ,
+			SI.JDG_TYPE ,
+			SI.TEST_END_DATE ,
+			SI.STD_TYPE ,
+			SI.TEST_METHOD TEST_METHOD_NO,
+			M.TEST_METHOD_NM,
+			SI.TEST_INST INST_NO,
+			I.INST_KOR_NM,
+			SI.REPORT_DISP_VAL,
+			TRA.FILE_NM,
+			TRA.ATT_SEQ,
+			SI.RESULT_CD,
+			SI.RESULT_VAL,
+			SI.RETURN_FLAG
+		FROM TEST_SAMPLE_ITEM SI
+		LEFT OUTER JOIN ANALYSIS ANAL ON ANAL.TESTITM_CD = SI.TEST_ITEM_CD
+<!-- 		LEFT OUTER JOIN COMMON_CODE_DETAIL C1 ON C1.CODE = TI.TEST_ITEM_TYPE -->
+		LEFT OUTER JOIN TEST_METHOD M ON SI.TEST_METHOD = M.TEST_METHOD_NO
+		LEFT OUTER JOIN INSTRUMENT I ON SI.TEST_INST = I.INST_NO
+		LEFT OUTER JOIN TEST_REPORT_ATTACH TRA ON TRA.TEST_SAMPLE_SEQ = #{test_sample_seq} AND SI.TEST_ITEM_CD = TRA.TEST_ITEM_CD
+		INNER JOIN PROCESS P ON P.PRC_CD = SI.STATE
+		WHERE SI.TEST_SAMPLE_SEQ = #{test_sample_seq}
+		ORDER BY SI.DISP_ORDER
+	</select>
+</mapper>

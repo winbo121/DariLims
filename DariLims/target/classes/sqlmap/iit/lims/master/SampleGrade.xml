@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="sampleGrade">
+
+	<!-- 항목별 검사기준 조회 -->
+	<select id="selectSampleGradeList" parameterType="SampleGradeVO" resultType="SampleGradeVO">
+		SELECT
+			ANL.TESTITM_CD,
+			ANL.TESTITM_NM,
+			ANL.ENG_NM AS TEST_ITEM_ENG_NM,
+			NVL(GET_COMMON_CODE(TESTITM_LCLAS_CD, ''),'') AS TESTITM_LCLAS_NM,
+			NVL(GET_COMMON_CODE(TESTITM_MLSFC_CD, ''),'') AS TESTITM_MLSFC_NM,
+			NCKNM,
+			ABRV,
+			REMN_MTTR_DFN,
+			KFDA_YN,
+			DECODE(USE_YN, 'Y', '예', '아니오') USE_FLAG,
+			TO_CHAR(LAST_UPDT_DTM, 'YYYY-mm-dd') LAST_UPDT_DTM,
+            SG.GRADE1,
+            SG.GRADE2,
+            SG.GRADE3,
+            SG.GRADE4,
+            SG.GRADE1_RANGE,
+            SG.GRADE2_RANGE,
+            SG.GRADE3_RANGE,
+            SG.GRADE4_RANGE,
+            SG.GRADE_SEQ,
+            SG.DELETE_AT,
+            SG.PRDLST_CD,
+            SG.UNIT_CD,
+		    SG.TEST_METHOD_NO,
+	        (SELECT TEST_METHOD_NM FROM TEST_METHOD WHERE USE_FLAG = 'Y' AND TEST_METHOD_NO = SG.TEST_METHOD_NO) AS TEST_METHOD_NM,
+	        SG.OXIDE_CD,
+	        NVL(SG.GRADE_AT,'N') AS GRADE_AT,
+	        SG.ITEM_ORDER,
+	        SG.LOQ_HVAL,
+	        SG.LOQ_HVAL_MARK,
+	        SG.LOQ_LVAL,
+	        SG.LOQ_LVAL_MARK,
+	        SG.ACCOUNT_NO AS FORMULA_NO,
+			B.FORMULA_DISP AS FORMULA_NM,
+			SG.VALD_MANLI,
+			SG.REPORT_FLAG
+		FROM ANALYSIS ANL
+		LEFT OUTER JOIN SAMPLE_GRADE SG ON SG.TESTITM_CD = ANL.TESTITM_CD
+		LEFT JOIN FORMULA B ON SG.ACCOUNT_NO = B.FORMULA_NO
+		WHERE SG.PRDLST_CD = #{prdlst_cd}
+		AND DELETE_AT = 'N'
+	ORDER BY SG.ITEM_ORDER
+	</select>
+	
+	<!-- 팝업 품목별 항목 조회 -->
+	<select id="selectSampleGradePList" parameterType="SampleGradeVO" resultType="SampleGradeVO">
+		SELECT * FROM 
+		(
+			SELECT 
+				VW_LIST.*, 
+				ROWNUM AS ROW_NUM, 
+				FLOOR((ROWNUM -1) / #{pageSize} + 1) AS PAGENUM,
+				COUNT(*) OVER() AS TOTALCOUNT, 
+				COUNT(*) OVER() AS TOTAL, 
+				CEIL(COUNT(*) OVER() / #{pageSize}) AS TOTALPAGE
+			FROM 
+			(
+				SELECT
+					ANL.TESTITM_CD AS TEST_ITEM_CD,
+					ANL.TESTITM_NM AS TEST_ITEM_NM,
+					ANL.ENG_NM AS TEST_ITEM_ENG_NM,
+					NVL(GET_COMMON_CODE(TESTITM_LCLAS_CD, ''),'') AS TESTITM_LCLAS_NM,
+					NVL(GET_COMMON_CODE(TESTITM_MLSFC_CD, ''),'') AS TESTITM_MLSFC_NM,
+					NCKNM,
+					ABRV,
+					REMN_MTTR_DFN,
+					KFDA_YN,
+					DECODE(USE_YN, 'Y', '예', '아니오') USE_FLAG,
+					TO_CHAR(LAST_UPDT_DTM, 'YYYY-mm-dd') LAST_UPDT_DTM,
+                    SG.GRADE1,
+                    SG.GRADE2,
+                    SG.GRADE3,
+                    SG.GRADE4,
+                    SG.GRADE1_RANGE,
+                    SG.GRADE2_RANGE,
+                    SG.GRADE3_RANGE,
+                    SG.GRADE4_RANGE,
+                    SG.GRADE_SEQ,
+                    SG.DELETE_AT,
+                    SG.PRDLST_CD
+				FROM ANALYSIS ANL
+				LEFT OUTER JOIN SAMPLE_GRADE SG ON SG.TESTITM_CD = ANL.TESTITM_CD  AND SG.PRDLST_CD = #{prdlst_cd}
+				AND DELETE_AT = 'N'
+				WHERE 1=1
+				<if test="test_item_nm != null and test_item_nm != '' ">
+					AND (UPPER(ANL.TESTITM_NM) LIKE '%' || UPPER(#{test_item_nm}) || '%' OR UPPER(ANL.ENG_NM) LIKE '%' || UPPER(#{test_item_nm}) || '%')
+				</if>
+				<if test="testitm_lclas_cd != null and testitm_lclas_cd != '' ">
+					AND ANL.TESTITM_LCLAS_CD = #{testitm_lclas_cd}
+				</if>
+				<if test="testitm_mlsfc_cd != null and testitm_mlsfc_cd != '' ">
+					AND ANL.TESTITM_MLSFC_CD = #{testitm_mlsfc_cd}
+				</if>
+				<if test="use_flag != null and use_flag != '' ">
+					AND USE_YN = #{use_flag} 
+				</if>
+				<if test="kfda_yn != null and kfda_yn != '' ">
+					AND KFDA_YN = #{kfda_yn} 
+				</if>
+				<if test="sortName != null and sortName != '' ">
+					ORDER BY ${sortName} ${sortType}
+				</if>
+				<if test="sortName == null or sortName == '' ">
+					ORDER BY ANL.TESTITM_LCLAS_CD, ANL.TESTITM_MLSFC_CD
+				</if>
+			) VW_LIST
+	    )  
+		WHERE PAGENUM = #{pageNum}
+	</select>
+	
+	<!-- 항목 등급 등록 -->
+	<insert id="insertGradeItem" parameterType="SampleGradeVO">
+		INSERT INTO SAMPLE_GRADE(
+			GRADE_SEQ
+			, GRADE1
+			, GRADE2
+			, GRADE3
+			, GRADE4
+			, GRADE1_RANGE
+			, GRADE2_RANGE
+			, GRADE3_RANGE
+			, GRADE4_RANGE
+			, PRDLST_CD
+			, TESTITM_CD
+			, DELETE_AT
+			, GRADE_AT
+			, LOQ_HVAL
+	        , LOQ_HVAL_MARK
+	        , LOQ_LVAL
+	        , LOQ_LVAL_MARK
+	        , ACCOUNT_NO 
+	        , VALD_MANLI
+	        , REPORT_FLAG
+		) VALUES (
+			(SELECT LPAD(NVL(MAX(GRADE_SEQ),0)+1, 5, 0) FROM SAMPLE_GRADE)
+			, #{grade1}
+			, #{grade2}
+			, #{grade3}
+			, #{grade4}
+			, #{grade1_range}
+			, #{grade2_range}
+			, #{grade3_range}
+			, #{grade4_range}
+			, #{prdlst_cd}
+			, #{test_item_cd}
+			, 'N'
+			, 'N'
+			, #{loq_hval}
+	        , #{loq_hval_mark}
+	        , #{loq_lval}
+	        , #{loq_lval_mark}
+	        , #{formula_no}
+	        , #{vald_manli}
+	        , 'Y'
+		)
+	</insert>
+	
+	<!-- 항목 등급 수정 -->
+	<update id="updateGradeItem" parameterType="SampleGradeVO" >
+		UPDATE SAMPLE_GRADE 
+		SET 
+			 GRADE1 = #{grade1}
+			,GRADE2 = #{grade2}
+			,GRADE3 = #{grade3}
+			,GRADE4 = #{grade4}
+			,GRADE1_RANGE = #{grade1_range}
+			,GRADE2_RANGE = #{grade2_range}
+			,GRADE3_RANGE = #{grade3_range}
+			,GRADE4_RANGE = #{grade4_range}
+			,UNIT_CD = #{unit_cd}
+		    ,TEST_METHOD_NO = #{test_method_no}
+		    ,OXIDE_CD = #{oxide_cd}
+		    ,GRADE_AT = #{grade_at}
+		    ,ITEM_ORDER = #{item_order}
+		    ,LOQ_HVAL = #{loq_hval}
+	        ,LOQ_HVAL_MARK = #{loq_hval_mark}
+	        ,LOQ_LVAL = #{loq_lval}
+	        ,LOQ_LVAL_MARK = #{loq_lval_mark}
+	        ,ACCOUNT_NO = #{formula_no}
+	        ,VALD_MANLI = #{vald_manli}
+	        ,REPORT_FLAG = #{report_flag}
+		WHERE GRADE_SEQ = #{grade_seq}
+		
+		
+	</update>
+	
+	<!-- 항목 등급 삭제 -->
+	<update id="deleteSampleGradeTestItem" parameterType="SampleGradeVO">
+		DELETE FROM SAMPLE_GRADE 
+		WHERE GRADE_SEQ = #{grade_seq}
+	</update>
+	
+	<!-- 품목 최대 등급 업데이트 -->
+	<update id="updateSampleMaxGrde" parameterType="PrdLstVO">
+		UPDATE PRDLST_CL SET MAX_GRADE = #{max_grade} WHERE PRDLST_CD = #{prdlst_cd}
+	</update>
+	
+	<!-- 프로토콜 항목 불러오기 -->
+	<insert id="copyGradeItem" parameterType="SampleGradeVO">
+		INSERT INTO SAMPLE_GRADE
+		(
+			 GRADE_SEQ
+			,PRDLST_CD
+			,TESTITM_CD
+			,DELETE_AT
+			,UNIT_CD
+		    ,TEST_METHOD_NO
+	        ,OXIDE_CD
+	        ,GRADE_AT
+	        ,ITEM_ORDER
+		)
+		SELECT
+			 LPAD((SELECT NVL(MAX(GRADE_SEQ),0) FROM SAMPLE_GRADE)+ROWNUM, 5, 0)
+			,PRDLST_CD
+			,TESTITM_CD
+			,'N'
+			,UNIT_CD
+		    ,TEST_METHOD_NO
+	        ,OXIDE_CD
+	        ,'N'
+	        ,ITEM_ORDER
+		FROM INDV_SPEC
+		WHERE PRDLST_CD = #{prdlst_cd}
+	</insert>
+		
+	<!-- 항목별 검사기준 조회 -->
+	<select id="selectSampleGradeListPop" parameterType="SampleGradeVO" resultType="SampleGradeVO">
+		SELECT
+			ANL.TESTITM_CD,
+			ANL.TESTITM_NM,
+			ANL.ENG_NM AS TEST_ITEM_ENG_NM,
+			NVL(GET_COMMON_CODE(TESTITM_LCLAS_CD, ''),'') AS TESTITM_LCLAS_NM,
+			NVL(GET_COMMON_CODE(TESTITM_MLSFC_CD, ''),'') AS TESTITM_MLSFC_NM,
+			NCKNM,
+			ABRV,
+			REMN_MTTR_DFN,
+			KFDA_YN,
+			DECODE(USE_YN, 'Y', '예', '아니오') USE_FLAG,
+			TO_CHAR(LAST_UPDT_DTM, 'YYYY-mm-dd') LAST_UPDT_DTM,
+			SG.GRADE_SEQ,
+            SG.DELETE_AT,
+            SG.PRDLST_CD,
+            SG.GRADE1,
+            SG.GRADE2,
+            SG.GRADE3,
+            SG.GRADE4,
+            SG.GRADE1_RANGE,
+            GET_COMMON_CODE(SG.GRADE1_RANGE,'C81') AS GRADE1_NM,
+            SG.GRADE2_RANGE,
+            GET_COMMON_CODE(SG.GRADE2_RANGE,'C81') AS GRADE2_NM,
+            SG.GRADE3_RANGE,
+            GET_COMMON_CODE(SG.GRADE3_RANGE,'C81') AS GRADE3_NM,
+            SG.GRADE4_RANGE,
+            GET_COMMON_CODE(SG.GRADE4_RANGE,'C81') AS GRADE4_NM,
+            SG.GRADE_SEQ,
+            SG.DELETE_AT,
+            SG.PRDLST_CD,
+            SG.UNIT_CD,
+            NVL(GET_COMMON_CODE(SG.UNIT_CD, ''),'') AS UNIT_NM,
+            SG.TEST_METHOD_NO,
+            (SELECT TEST_METHOD_NM FROM TEST_METHOD WHERE USE_FLAG = 'Y' AND TEST_METHOD_NO = SG.TEST_METHOD_NO) AS TEST_METHOD_NM,
+	        SG.OXIDE_CD,
+	        (SELECT OXIDE_CONTENT FROM OXIDE_MARK OM WHERE SG.OXIDE_CD = OXIDE_CD) AS OXIDE_CONTENT,
+	        NVL(SG.GRADE_AT,'N') AS GRADE_AT,
+	        SG.ITEM_ORDER,
+	        SG.LOQ_HVAL,
+	        SG.LOQ_HVAL_MARK,
+	        SG.LOQ_LVAL,
+	        SG.LOQ_LVAL_MARK,
+			SG.ACCOUNT_NO AS FORMULA_NO,
+			B.FORMULA_DISP AS FORMULA_NM,
+			SG.VALD_MANLI,
+			SG.REPORT_FLAG
+		FROM ANALYSIS ANL
+		LEFT OUTER JOIN SAMPLE_GRADE SG ON SG.TESTITM_CD = ANL.TESTITM_CD
+		LEFT JOIN FORMULA B ON SG.ACCOUNT_NO = B.FORMULA_NO
+		WHERE SG.PRDLST_CD = #{prdlst_cd}
+		AND DELETE_AT = 'N'
+	ORDER BY SG.ITEM_ORDER, ANL.TESTITM_NM
+	</select>
+		
+</mapper>

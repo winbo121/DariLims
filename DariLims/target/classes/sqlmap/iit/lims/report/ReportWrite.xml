@@ -1,0 +1,760 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="reportWrite">
+	<!-- 성적서 작성 리스트 -->
+	<select id="selectReportReqList" parameterType="ReportVO" resultType="ReportVO">
+		
+		
+			SELECT
+				R.TEST_REQ_NO
+				, R.TEST_REQ_SEQ
+				, R.TITLE
+				, GET_COMMON_CODE(R.REQ_TYPE, 'EX1') REQ_TYPE
+				, C2.CODE_NAME TEST_GOAL
+				, UW.UNIT_WORK_NM UNIT_WORK_CD
+				, TO_CHAR(TO_DATE(R.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') SAMPLE_ARRIVAL_DATE
+				, R.REQ_TEL
+				, R.REQ_NM
+				, D1.DEPT_NM DEPT_NM
+				, U.USER_NM USER_NM
+				, NVL2(O1.ORG_NM, O1.ORG_NM, O2.DEPT_NM) REQ_ORG_NM
+				, SP.PICK_NO
+				, NVL(R.RETURN_FLAG,'N') AS RETURN_FLAG
+				<if test="report_flag == 'Y'.toString() ">
+					, R.RETURN_COMMENT
+				</if>
+			FROM TEST_REQ R
+			LEFT OUTER JOIN DEPART D1 ON D1.DEPT_CD = R.DEPT_CD
+			LEFT OUTER JOIN USER_INFO U ON U.USER_ID = R.CREATER_ID
+			LEFT OUTER JOIN REQ_ORG O1 ON O1.REQ_ORG_NO = R.REQ_ORG_NO
+			LEFT OUTER JOIN DEPART O2 ON O2.DEPT_CD = R.REQ_ORG_NO
+			LEFT OUTER JOIN UNIT_WORK UW ON UW.UNIT_WORK_CD = R.UNIT_WORK_CD
+			LEFT OUTER JOIN COMMON_CODE_DETAIL C2 ON C2.CODE = R.TEST_GOAL
+			LEFT OUTER JOIN ORG_COMMISSION_DEPOSIT OCD ON OCD.REQ_ORG_NO = R.REQ_ORG_NO AND OCD.TEST_REQ_SEQ = R.TEST_REQ_SEQ
+			LEFT OUTER JOIN SPLORE_PICK SP ON R.TEST_REQ_SEQ = SP.TEST_REQ_SEQ
+			WHERE  R.STATE IN (#{state}, 'G', 'H')		
+			AND REGEXP_LIKE( R.TEST_REQ_NO, REPLACE(#{report_class_code}, ',', '|'))
+			
+		
+		<if test="supv_dept_cd != null and supv_dept_cd != '' ">
+			AND R.SUPV_DEPT_CD = #{supv_dept_cd}
+		</if>
+		<if test="test_req_no != null and test_req_no != '' ">
+			AND UPPER(R.TEST_REQ_NO) like '%' || UPPER( #{test_req_no} ) || '%'
+		</if>
+		<if test="title != null and title != '' ">
+			AND UPPER(R.TITLE) like '%' || UPPER( #{title} ) || '%'
+		</if>
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				AND TO_CHAR(TO_DATE(R.DEADLINE_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') BETWEEN #{startDate} AND #{endDate}
+			</if>
+		</if>
+		<if test="req_org_nm != null and req_org_nm != '' ">
+			AND (UPPER(O1.ORG_NM) like '%' || UPPER( #{req_org_nm} ) || '%' OR UPPER(O2.DEPT_NM) like '%' || UPPER( #{req_org_nm} ) || '%' )
+		</if>
+		<if test="req_nm != null and req_nm != '' ">
+			AND UPPER(R.REQ_NM) LIKE '%' || UPPER(#{req_nm}) || '%'
+		</if>
+		<if test="test_goal != null and test_goal != '' ">
+			AND R.TEST_GOAL = #{test_goal}
+		</if>
+		<if test="unit_work_cd != null and unit_work_cd != '' ">
+			AND R.UNIT_WORK_CD = #{unit_work_cd}
+		</if>
+		<if test="req_type != null and req_type != '' ">
+			AND R.REQ_TYPE = #{req_type}
+		</if>
+		<if test="user_nm != null and user_nm != '' ">
+			AND U.USER_NM =	#{user_nm}	
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND R.DEPT_CD = #{dept_cd}
+		</if>
+		<if test="report_flag != null and report_flag != '' ">
+			AND R.REPORT_FLAG = #{report_flag}
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY R.TEST_REQ_NO DESC
+		</if>
+	</select>
+
+	<!-- 성적서 작성 검체 리스트 -->
+	<select id="selectReportSampleList" parameterType="ReportVO" resultType="ReportVO">
+		SELECT
+			TS.TEST_SAMPLE_SEQ
+			, TO_CHAR(TO_DATE(TS.SAMPLING_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') SAMPLING_DATE
+			, LPAD(TS.SAMPLING_HOUR, 2, '0') SAMPLING_HOUR
+			, LPAD(TS.SAMPLING_MIN, 2, '0') SAMPLING_MIN
+			, TO_CHAR(TO_DATE(R.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') REQ_DATE
+			, TO_CHAR(TO_DATE(R.DEADLINE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') DEADLINE_DATE
+			, R.TEST_END
+			, TS.SAMPLE_REG_NM
+			, S.SAMPLE_NM SAMPLE_NM
+			, TS.SAMPLING_ID
+			, SP.SAMPLING_POINT_NM SAMPLING_POINT_NM
+			, C1.CODE_NAME SAMPLING_METHOD
+			, C2.CODE_NAME TEST_SAMPLE_RESULT
+			, TS.ETC_DESC
+			, STD.TEST_STD_NM TEST_STD_NM
+			, R.TEST_REQ_SEQ
+		FROM TEST_SAMPLE TS
+		INNER JOIN TEST_REQ R ON R.TEST_REQ_SEQ = TS.TEST_REQ_SEQ
+		LEFT OUTER JOIN COMMON_CODE_DETAIL C1 ON C1.CODE = TS.SAMPLING_METHOD
+		LEFT OUTER JOIN COMMON_CODE_DETAIL C2 ON C2.CODE = TS.TEST_SAMPLE_RESULT
+		LEFT OUTER JOIN SAMPLE S ON S.SAMPLE_CD = TS.SAMPLE_CD
+		LEFT OUTER JOIN SAMPLING_POINT SP ON SP.SAMPLING_POINT_NO = TS.SAMPLING_POINT_NO
+		LEFT OUTER JOIN TEST_STD STD ON
+		STD.TEST_STD_NO = TS.TEST_STD_NO
+		WHERE TS.TEST_REQ_SEQ = #{test_req_seq}
+		<!-- AND  EXISTS(
+			SELECT *
+			FROM REPORT_SAMPLE RS 
+			WHERE RS.TEST_SAMPLE_SEQ = TS.TEST_SAMPLE_SEQ
+		) -->
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY TS.TEST_SAMPLE_SEQ
+		</if>
+	</select>
+
+	<select id="selectReportSampleItemList" parameterType="ReportVO" resultType="ReportVO">
+		SELECT 
+			RD.REPORT_DOC_SEQ
+			,TS.TEST_SAMPLE_SEQ
+			,TS.SAMPLE_REG_NM
+			,TSI.TEST_ITEM_CD
+			,TSI.STD_VAL
+			,TSI.RESULT_VAL
+			,TSI.REPORT_DISP_VAL
+			,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = TSI.JDG_TYPE) AS JDG_TYPE
+			,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = TSI.UNIT) AS UNIT
+			,ANAL.TESTITM_NM AS TEST_ITEM_NM
+		FROM REPORT_DOC RD
+		INNER JOIN REPORT_SAMPLE RS ON RS.REPORT_DOC_SEQ = RD.REPORT_DOC_SEQ
+		INNER JOIN TEST_SAMPLE TS ON TS.TEST_SAMPLE_SEQ = RS.TEST_SAMPLE_SEQ
+		INNER JOIN TEST_SAMPLE_ITEM TSI ON TSI.TEST_SAMPLE_SEQ = TS.TEST_SAMPLE_SEQ 
+		INNER JOIN ANALYSIS ANAL ON TSI.TEST_ITEM_CD = ANAL.TESTITM_CD
+		WHERE RD.REPORT_DOC_SEQ = #{report_doc_seq}
+		AND TS.TEST_SAMPLE_SEQ = #{test_sample_seq}
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY TS.TEST_SAMPLE_SEQ, TSI.TEST_ITEM_CD
+		</if>
+	</select>
+
+
+	<select id="selectReportDocSeq" resultType="String">
+		SELECT LPAD(NVL(MAX(REPORT_DOC_SEQ), 0)+1, 7, 0) REPORT_SEQ FROM REPORT_DOC
+	</select>
+
+	
+	<select id="selectReportNo" resultType="String">
+		SELECT TO_NUMBER(TO_CHAR(SYSDATE,'YYYY')) || '-'  || LPAD(NVL(SUBSTR(MAX(REPORT_NO),6),0)+1,7,0) FROM REPORT_DOC
+		WHERE NVL(SUBSTR(REPORT_NO,1,4),TO_CHAR(SYSDATE,'YYYY')) = TO_CHAR(SYSDATE,'YYYY')
+	</select>
+	
+	<insert id="insertReportDocWrite" parameterType="ReportVO">
+		BEGIN
+	
+			INSERT INTO REPORT_DOC 
+			(
+				  TEST_REQ_SEQ
+				, TEST_REQ_NO
+				, TITLE
+				, REQ_TYPE
+				, REQ_ID
+				, REQ_DATE
+				, SUPV_DEPT_CD
+				, UNIT_WORK_CD
+				, TEST_GOAL
+				, REQ_BASIS
+				, REQ_TEL
+				, REQ_NM
+				, ZIP_CODE
+				, ADDR1
+				, ADDR2
+				, REPORT_TYPE
+                , ADDR_REPORT
+                , TEL_REPORT
+                , FAX_REPORT
+				, REQ_MESSAGE
+				, FEE_TOT
+				, TRAVEL_EXP
+				, DEPT_APPR_DATE
+				, DEPT_APPR_ID
+				, STATE
+				, DEPT_CD
+				, CREATE_DATE
+				, CREATER_ID
+				, UPDATE_DATE
+				, UPDATER_ID
+				, ACT_USER_ID
+				, REQ_ORG_NO
+				, REQ_ORG_NO2
+				, REQ_ORG_NO3
+				, REQ_ORG_NO4
+				, ACT_DATE
+				, REQ_ACT_USER_ID
+				, REQ_ACT_DATE
+				, DEADLINE_DATE
+				, TEST_END
+				, UMS_FLAG
+				, REPORT_FLAG
+				, DISCOUNT_RATE
+				, DISCOUNT_FLAG
+				, RETURN_FLAG
+				, FEE_AUTO_FLAG
+				, EST_NO
+				, COMMISSION_TYPE
+				, SAMPLE_ARRIVAL_DATE
+				, REC_REQ_NO
+				, BACKUP_STATE
+				, STOP_FLAG
+				, STOP_REASON
+				, TEST_STD_NO
+				, SENSORY_TEST
+				, MEMBER_FLAG
+				, REQ_ACT_USER_NM
+				, ACT_USER_NM
+				, FEE_TOT_EST
+				, FEE_TOT_ITEM
+				, RAWDATA_FLAG
+				, PRE_TEST_REQ_NO
+				, RETURN_COMMENT
+				, TEST_TYPE
+				, SALES_USER_ID
+				, SALES_DEPT_CD
+				, REQ_CLASS
+				, EXPRESS_FLAG
+				, SMS_FLAG
+				, SMS_TARGET
+				, SMS_TYPE
+				, REPORT_LAST_DATE
+				, TEST_COUNT
+				, TEST_PLACE
+				, WARE_CLERK
+				, WARE_TEL
+				, SHIP_PORT
+				, UNSHIP_PORT
+				, QUALITY_DEPT_CD1
+				, QUALITY_DEPT_CD2
+				, QUALITY_USER_ID1
+				, QUALITY_USER_ID2
+				, SAMPLE_NUM
+	     		, SAMPLING_NO
+				, BARCODE_DESC
+				, REQ_PLANT_NM
+				, REQ_PLANT_ADDR
+				, REQ_PLANT_TEL
+				, QR_NM
+				, QR_FILE
+				<!-- , TB_COL_LINE 위는 의뢰정보 아래는 성적서정보 -->
+				, REPORT_DOC_SEQ
+				, REPORT_NO
+				, FORM_SEQ
+				, DOC_SEQ
+				, VERIFY_ID
+				, REPORT_MAKE_ID
+				, DEGREE
+				, REPORT_APPR_YN	
+				, EST_CHECK
+				, CALCULATION
+				, ADDR1_ENG
+				, ADDR2_ENG 
+				, REQ_ETC
+			)
+			SELECT
+				  TEST_REQ_SEQ
+				, TEST_REQ_NO
+				, TITLE
+				, REQ_TYPE
+				, REQ_ID
+				, REQ_DATE
+				, SUPV_DEPT_CD
+				, UNIT_WORK_CD
+				, TEST_GOAL
+				, REQ_BASIS
+				, REQ_TEL
+				, REQ_NM
+				, ZIP_CODE
+				, ADDR1
+				, ADDR2
+				, REPORT_TYPE
+                , ADDR_REPORT
+                , TEL_REPORT
+                , FAX_REPORT
+				, REQ_MESSAGE
+				, FEE_TOT
+				, TRAVEL_EXP
+				, DEPT_APPR_DATE
+				, DEPT_APPR_ID
+				, 'X'
+				, DEPT_CD
+				, SYSDATE
+				, #{user_id}
+				, SYSDATE
+				, #{user_id}
+				, ACT_USER_ID
+				, REQ_ORG_NO
+				, REQ_ORG_NO2
+				, REQ_ORG_NO3
+				, REQ_ORG_NO4
+				, ACT_DATE
+				, REQ_ACT_USER_ID
+				, REQ_ACT_DATE
+				, DEADLINE_DATE
+				, TEST_END
+				, UMS_FLAG
+				, REPORT_FLAG
+				, DISCOUNT_RATE
+				, DISCOUNT_FLAG
+				, RETURN_FLAG
+				, FEE_AUTO_FLAG
+				, EST_NO
+				, COMMISSION_TYPE
+				, SAMPLE_ARRIVAL_DATE
+				, REC_REQ_NO
+				, BACKUP_STATE
+				, STOP_FLAG
+				, STOP_REASON
+				, TEST_STD_NO
+				, SENSORY_TEST
+				, MEMBER_FLAG
+				, REQ_ACT_USER_NM
+				, ACT_USER_NM
+				, FEE_TOT_EST
+				, FEE_TOT_ITEM
+				, RAWDATA_FLAG
+				, PRE_TEST_REQ_NO
+				, RETURN_COMMENT
+				, TEST_TYPE
+				, SALES_USER_ID
+				, SALES_DEPT_CD
+				, REQ_CLASS
+				, EXPRESS_FLAG
+				, SMS_FLAG
+				, SMS_TARGET
+				, SMS_TYPE
+				, REPORT_LAST_DATE
+				, TEST_COUNT
+				, TEST_PLACE
+				, WARE_CLERK
+				, WARE_TEL
+				, SHIP_PORT
+				, UNSHIP_PORT
+				, QUALITY_DEPT_CD1
+				, QUALITY_DEPT_CD2
+				, QUALITY_USER_ID1
+				, QUALITY_USER_ID2
+				, SAMPLE_NUM
+	      		, SAMPLING_NO
+				, BARCODE_DESC
+				, REQ_PLANT_NM
+				, REQ_PLANT_ADDR
+				, REQ_PLANT_TEL
+				, QR_NM
+				, QR_FILE
+				<!-- , #{tb_col_line} 위는 의뢰정보 아래는 성적서정보 -->
+				, #{report_doc_seq}
+				, #{report_no}
+				, #{form_seq}
+				, (SELECT MAX(DOC_SEQ) FROM DOCUMENT WHERE SUBSTR(DOC_SEQ, 1, 6) = #{form_seq} AND USE_YN = 'Y')
+				, #{verify_id}
+				, #{user_id}
+				, (SELECT NVL(MAX(DEGREE),0)+1 REPORT_SEQ FROM REPORT_DOC WHERE TEST_REQ_SEQ = #{test_req_seq})
+				, 'N'
+				, EST_CHECK
+				, CALCULATION
+				, ADDR1_ENG
+				, ADDR2_ENG 
+				, REQ_ETC
+			FROM TEST_REQ WHERE TEST_REQ_SEQ = #{test_req_seq}
+			;
+		
+			UPDATE TEST_REQ 
+			SET STATE = 'G' 
+			WHERE TEST_REQ_SEQ = #{test_req_seq}
+			;
+		END;
+	</insert>
+
+	<!-- 검사의뢰 성적서 작성여부 업데이트, 샘플 모두 작성되었는지 확인 -->
+	<update id="updateReqState" parameterType="ReportVO">
+		<selectKey resultType="string" keyProperty="state" order="BEFORE">
+			SELECT DECODE(COUNT(*),0,'Y','N') AS STATE
+			FROM TEST_SAMPLE TS
+			WHERE TS.TEST_REQ_SEQ = #{test_req_seq}
+			AND NOT EXISTS
+			(
+				SELECT *
+				FROM REPORT_SAMPLE RS 
+				WHERE RS.TEST_SAMPLE_SEQ = TS.TEST_SAMPLE_SEQ
+			)
+		</selectKey>
+		
+		BEGIN
+
+		UPDATE TEST_REQ SET
+			 REPORT_FLAG = #{state}
+			,REPORT_LAST_DATE = NVL(REPORT_LAST_DATE, SYSDATE)
+			,RETURN_FLAG = 'N'
+			,RETURN_COMMENT = NULL
+		WHERE TEST_REQ_SEQ = #{test_req_seq};
+		
+		END;
+	</update>
+
+	<insert id="insertReportSampleWrite" parameterType="ReportVO">
+		DECLARE
+			V_REPORT_SEQ VARCHAR2(9);
+		BEGIN
+		<foreach collection="test_sample_arr" item="item">
+			SELECT LPAD(NVL(MAX(REPORT_SEQ), 0)+1, 9, 0) INTO V_REPORT_SEQ
+			FROM REPORT_SAMPLE;
+			
+			INSERT INTO REPORT_SAMPLE 
+			(
+				 REPORT_SEQ		
+				,REPORT_DOC_SEQ
+				,TEST_SAMPLE_SEQ
+				,TEST_REQ_SEQ
+				,SAMPLING_DATE
+				,SAMPLING_POINT_NO
+				,SAMPLING_METHOD
+				,SAMPLING_ID
+				,STATE
+				,TEST_SAMPLE_RESULT
+				,ETC_DESC
+				,TOT_ITEM_COUNT
+				,DEPT_APPR_FLAG
+				,SAMPLE_CD
+				,TEST_STD_NO
+				,SAMPLE_REG_NM
+				,SAMPLING_HOUR
+				,DISUSE_FLAG
+				,SAMPLING_MIN
+				,REPORT_FLAG
+				,TEST_SAMPLE_RESULT_REASON
+				,KFDA_YN
+				,PRDLST_CD
+				,TEST_SAMPLE_NO
+				,SAMPLE_FEE
+				,JDG_ETC
+				,PRODUCE_DATE
+				,PRODUCE_NO
+				,PRODUCER_NM
+				,PRODUCE_PLACE
+				,SAMPLE_ETC_NM
+				,EXPIRY_DATE
+				,SAMPLE_WEIGHT
+				,KEEP_METHOD
+				,ORDERER_NM
+				,BUILDER_NM
+				,JOINER_NM
+				,COLLECTOR_NM
+				,COLLECT_DATE
+				,COLLECT_PLACE
+				,SM_CODE
+				,RESULT_INPUT_TYPE
+				,TEST_REQ_NO
+			)
+			SELECT
+				 V_REPORT_SEQ			
+				,#{report_doc_seq}
+				,TEST_SAMPLE_SEQ
+				,TEST_REQ_SEQ
+				,SAMPLING_DATE
+				,SAMPLING_POINT_NO
+				,SAMPLING_METHOD
+				,SAMPLING_ID
+				,STATE
+				,TEST_SAMPLE_RESULT
+				,ETC_DESC
+				,TOT_ITEM_COUNT
+				,DEPT_APPR_FLAG
+				,SAMPLE_CD
+				,TEST_STD_NO
+				,SAMPLE_REG_NM
+				,SAMPLING_HOUR
+				,DISUSE_FLAG
+				,SAMPLING_MIN
+				,REPORT_FLAG
+				,TEST_SAMPLE_RESULT_REASON
+				,KFDA_YN
+				,PRDLST_CD
+				,TEST_SAMPLE_NO
+				,SAMPLE_FEE
+				,JDG_ETC
+				,PRODUCE_DATE
+				,PRODUCE_NO
+				,PRODUCER_NM
+				,PRODUCE_PLACE
+				,SAMPLE_ETC_NM
+				,EXPIRY_DATE
+				,SAMPLE_WEIGHT
+				,KEEP_METHOD
+				,ORDERER_NM
+				,BUILDER_NM
+				,JOINER_NM
+				,COLLECTOR_NM
+				,COLLECT_DATE
+				,COLLECT_PLACE
+				,SM_CODE
+				,RESULT_INPUT_TYPE
+				,TEST_REQ_NO
+			FROM TEST_SAMPLE WHERE TEST_SAMPLE_SEQ = #{item}
+			;
+			
+			INSERT INTO REPORT_SAMPLE_ITEM
+			(
+				 REPORT_DOC_SEQ
+				,REPORT_SEQ
+				,TEST_SAMPLE_SEQ
+				,TEST_ITEM_SEQ
+				,TESTER_ID
+				,TEST_END_DATE
+				,DISP_ORDER
+				,SECT_APPR_FLAG
+				,RESULT_TYPE
+				,STD_HVAL
+				,STD_LVAL
+				,REPORT_ITEM_NM
+				,REPORT_ITEM_ENG_NM
+				,CREATER_ID
+				,CREATE_DATE
+				,UPDATE_DATE
+				,UPDATER_ID
+				,FEE
+				,UNIT
+				,FEE_GROUP_NO
+				,VALID_POSITION
+				,JDG_TYPE
+				,STATE
+				,TEST_ITEM_DIARY
+				,TEST_ITEM_CD
+				,COLLA_FLAG
+				,RESULT_VAL
+				,STD_FIT
+				,STD_UNFIT
+				,TEST_ITEM_GROUP_NO
+				,HVAL_TYPE
+				,LVAL_TYPE
+				,STD_VAL
+				,STD_TYPE
+				,REPORT_DISP_VAL
+				,TEST_INST
+				,TEST_METHOD
+				,TEST_DEPT_CD
+				,LOQ_HVAL
+				,RESULT_CD
+				,TEST_UNCERTAINTY
+				,RETURN_FLAG
+				,RETURN_COMMENT
+				,DEPT_CD
+				,TEAM_CD
+				,REPORT_FLAG
+				,ACCOUNT_NO
+				,ACCOUNT_TOT_CAL_DISP
+				,ACCOUNT_VAL_DESC_TOT
+				,PRDLST_CD
+				,TEST_REQ_SEQ
+				,ASSIGNMENT_FLAG
+				,STD_DEPT_CD
+				,STD_DEPT_NM
+				,REPRESENT_CD
+				,PRDLST_FEE
+				,DEPT_FEE
+				,EXCEED_REASON
+				,REPORT_ORDER
+				,TEST_REQ_NO
+				,OXIDE_CD
+				,OXIDE_NM
+				,BASE
+				,LOQ_LVAL
+				,GRADE1
+				,GRADE1_RANGE
+				,GRADE2
+				,GRADE2_RANGE
+				,GRADE3
+				,GRADE3_RANGE
+				,GRADE4
+				,GRADE4_RANGE
+			) 
+			SELECT 
+				 #{report_doc_seq} 
+				,V_REPORT_SEQ
+				,TEST_SAMPLE_SEQ
+				,TEST_ITEM_SEQ
+				,TESTER_ID
+				,TEST_END_DATE
+				,DISP_ORDER
+				,SECT_APPR_FLAG
+				,RESULT_TYPE
+				,STD_HVAL
+				,STD_LVAL
+				,REPORT_ITEM_NM
+				,REPORT_ITEM_ENG_NM
+				,CREATER_ID
+				,CREATE_DATE
+				,UPDATE_DATE
+				,UPDATER_ID
+				,FEE
+				,UNIT
+				,FEE_GROUP_NO
+				,VALID_POSITION
+				,JDG_TYPE
+				,STATE
+				,TEST_ITEM_DIARY
+				,TEST_ITEM_CD
+				,COLLA_FLAG
+				,RESULT_VAL
+				,STD_FIT
+				,STD_UNFIT
+				,TEST_ITEM_GROUP_NO
+				,HVAL_TYPE
+				,LVAL_TYPE
+				,STD_VAL
+				,STD_TYPE
+				,REPORT_DISP_VAL
+				,TEST_INST
+				,TEST_METHOD
+				,TEST_DEPT_CD
+				,LOQ_HVAL
+				,RESULT_CD
+				,TEST_UNCERTAINTY
+				,RETURN_FLAG
+				,RETURN_COMMENT
+				,DEPT_CD
+				,TEAM_CD
+				,REPORT_FLAG
+				,ACCOUNT_NO
+				,ACCOUNT_TOT_CAL_DISP
+				,ACCOUNT_VAL_DESC_TOT
+				,PRDLST_CD
+				,TEST_REQ_SEQ
+				,ASSIGNMENT_FLAG
+				,STD_DEPT_CD
+				,STD_DEPT_NM
+				,REPRESENT_CD
+				,PRDLST_FEE
+				,DEPT_FEE
+				,EXCEED_REASON
+				,REPORT_ORDER
+				,TEST_REQ_NO
+				,OXIDE_CD
+				,OXIDE_NM
+				,BASE
+				,LOQ_LVAL
+				,GRADE1
+				,GRADE1_RANGE
+				,GRADE2
+				,GRADE2_RANGE
+				,GRADE3
+				,GRADE3_RANGE
+				,GRADE4
+				,GRADE4_RANGE
+			FROM TEST_SAMPLE_ITEM
+			WHERE TEST_SAMPLE_SEQ = #{item};
+		</foreach>
+		END;
+	</insert>
+	<update id="updateReportDocWrite" parameterType="ReportVO">
+		BEGIN
+		UPDATE REPORT_DOC SET
+		TITLE = #{title}
+		, REQ_BASIS = #{req_basis}
+		, DESTINATION_NM = #{destination_nm}
+		, ZIP_CODE = REPLACE(#{zip_code}, '-', '')
+		, ADDR1 = #{addr1}
+		, ADDR2 = #{addr2}
+		, REPORT_TYPE = #{report_type}
+<!-- 		, REPORT_TYPE = SUBSTR(#{report_type}, 0, INSTR(#{report_type},'$%', 1)-1) -->
+		, REPORT_MAKE_ID = #{user_id}
+		, STATE = #{state}
+		, ONNARA_LINK_YN = #{onnara_link_yn}
+		<if test="onnara_link_yn == 'Y'.toString() ">
+			<if test="onnara_appv_state != null and onnara_appv_state != '' ">
+				, ONNARA_APPV_STATE = #{onnara_appv_state}
+			</if>
+			, ONNARA_FILE_FLAG = 'N'
+		</if>
+		, TEST_REQ_NO = #{test_req_no}
+		<if test="kolas_info != null and kolas_info != '' ">
+			, KOLAS_INFO= #{kolas_info}
+		</if>
+		<if test="kolas_rpt_use != null and kolas_rpt_use != '' ">
+			, KOLAS_RPT_USE= #{kolas_rpt_use}
+		</if>
+		<if test="kolas_smp_desc != null and kolas_smp_desc != '' ">
+			, KOLAS_SMP_DESC= #{kolas_smp_desc}
+		</if>
+		<if test="kolas_test_env != null and kolas_test_env != '' ">
+			, KOLAS_TEST_ENV= #{kolas_test_env}
+		</if>
+		<if test="onnara_title != null and onnara_title != '' ">
+			, ONNARA_TITLE = #{onnara_title}
+		</if>
+		<if test="onnara_con != null and onnara_con != '' ">
+			, ONNARA_CON = #{onnara_con}
+		</if>
+		WHERE REPORT_DOC_SEQ = #{report_doc_seq};
+		END;
+	</update>
+	<delete id="deleteReportWrite" parameterType="ReportVO">
+		BEGIN
+		
+		DELETE FROM REPORT_SAMPLE_ITEM
+		WHERE REPORT_DOC_SEQ = #{report_doc_seq};
+		
+		DELETE FROM REPORT_SAMPLE
+		WHERE REPORT_DOC_SEQ = #{report_doc_seq};
+
+		UPDATE TEST_REQ SET
+		REPORT_FLAG = 'N'
+		WHERE TEST_REQ_SEQ = 
+		(
+			SELECT TEST_REQ_SEQ FROM REPORT_DOC
+			WHERE REPORT_DOC_SEQ = #{report_doc_seq}
+		);
+		
+		DELETE FROM REPORT_DOC
+		WHERE REPORT_DOC_SEQ = #{report_doc_seq};
+
+		DELETE FROM REPORT_PUBLISH_LOG
+		WHERE REPORT_DOC_SEQ = #{report_doc_seq};
+		
+		END;
+	</delete>
+
+	<select id="selectVerifyCnt" parameterType="String" resultType="int">
+		SELECT COUNT(*) AS CNT
+		FROM REPORT_DOC
+		WHERE VERIFY_ID = #{verify_id}
+	</select>
+	
+	<!-- 성적서 발행 구분   추가 -->
+	<update id="updateSeparation" parameterType="AcceptVO">
+		UPDATE REPORT_DOC
+			SET SEPARATION = 'Y'
+		WHERE REPORT_DOC_SEQ = #{report_doc_seq}
+	</update>
+
+	<!-- 성적서 비고 저장   추가 -->
+	<update id="updateReqEtc" parameterType="AcceptVO">
+			UPDATE TEST_REQ
+				SET REQ_ETC = #{req_etc}
+			WHERE TEST_REQ_SEQ = #{test_req_seq}
+	</update>
+	
+	<select id="selectReportMake" parameterType="ReportVO" resultType="ReportVO">
+		SELECT REPORT_CLASS_CODE,USER_NM FROM USER_INFO WHERE USER_ID= #{user_id}	
+	</select>
+</mapper>

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="commissionPrd">
+
+	<!-- 기준 & 품목별 항목 수수료관리 리스트  -->
+	<select id="stdPrdItemCommissionList" parameterType="TestPrdStdVO" resultType="TestPrdStdVO">
+		SELECT
+			TSF.TEST_STD_NO,
+		    TSF.PRDLST_CD,
+		    P.KOR_NM AS PRDLST_NM,
+		    TSF.TESTITM_CD AS TEST_ITEM_CD,
+		    ANAL.TESTITM_NM AS TEST_ITEM_NM,
+		    ANAL.ENG_NM AS TEST_ITEM_ENG_NM,		    
+		    TSF.DEPT_CD,
+		    TSF.FEE
+		FROM TEST_STD_FEE TSF
+		INNER JOIN ANALYSIS ANAL ON TSF.TESTITM_CD = ANAL.TESTITM_CD
+		INNER JOIN PRDLST_CL P ON TSF.PRDLST_CD = P.PRDLST_CD
+		WHERE 1=1
+		<if test="htrk_prdlst_cd != null and htrk_prdlst_cd != '' ">
+			AND P.HTRK_PRDLST_CD = #{htrk_prdlst_cd}
+		</if>
+		<if test="kor_nm != null and kor_nm != '' ">
+			AND P.KOR_NM like '%'|| #{kor_nm} ||'%'
+		</if>
+		
+		<if test="test_std_no != null and test_std_no != '' ">
+			AND TSF.TEST_STD_NO = #{test_std_no}
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND TSF.DEPT_CD = #{dept_cd}
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY TEST_ITEM_CD
+		</if>	
+	</select>
+		
+	<!-- 기준 & 품목별 항목 수수료관리 리스트 저장 -->
+	<insert id="insertStdItemCommissionPrd" parameterType="java.util.HashMap">
+		INSERT INTO STD_TEST_ITEM
+			(TEST_STD_NO,
+			REV_NO,
+			TEST_ITEM_CD,
+			FEE,
+			FEE_GROUP_NO,
+			CREATER_ID,
+			CREATE_DATE
+		) VALUES (
+			#{test_std_no},
+			#{rev_no},
+			#{test_item_cd},
+			#{fee},
+			#{fee_group_no},
+			#{user_id},
+			SYSDATE
+		)
+	</insert>
+	
+	<!-- 기준 & 품목별 항목 수수료관리 리스트 수정 -->
+ 	<update id="updateStdPrdItemCommission" parameterType="java.util.HashMap">
+		UPDATE TEST_STD_FEE SET
+			FEE = #{fee},
+			UPDATER_ID = #{user_id},
+			UPDATE_DATE = SYSDATE
+		WHERE 1=1
+			AND TEST_STD_NO = #{test_std_no}
+			AND PRDLST_CD = #{prdlst_cd}
+			AND TESTITM_CD = #{test_item_cd}
+	</update> 
+	
+	<!-- 기준 & 품목별 항목 수수료관리 리스트 삭제 -->
+	<delete id="deleteStdPrdItemCommission" parameterType="java.util.HashMap">
+		DELETE TEST_STD_FEE
+		WHERE TEST_STD_NO = #{test_std_no} 
+		AND PRDLST_CD = #{prdlst_cd}
+		AND TESTITM_CD = #{test_item_cd}
+	</delete>	
+</mapper>

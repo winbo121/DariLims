@@ -1,0 +1,529 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="commissionCheck">
+
+	<!-- 업체 목록 조회 -->
+	<select id="selectCommissionCheckList" parameterType="CommissionCheckVO" resultType="CommissionCheckVO">
+		SELECT * FROM 
+		(
+			SELECT 
+				VW_LIST.*, 
+				ROWNUM AS ROW_NUM, 
+				FLOOR((ROWNUM -1) / #{pageSize} + 1) AS PAGENUM,
+				COUNT(*) OVER() AS TOTALCOUNT, 
+				COUNT(*) OVER() AS TOTAL, 
+				CEIL(COUNT(*) OVER() / #{pageSize}) AS TOTALPAGE
+			FROM 
+			(
+				SELECT A.REQ_ORG_NO , 
+				      (SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = A.ORG_TYPE) ORG_TYPE ,
+				      B.ORG_NM AS TAX_REQ_ORG_NM, 
+				      A.ORG_NM AS ORG_NM,         
+				      NVL( SUM(TR.FEE_TOT)- SUM( NVL2( TR.DISCOUNT_RATE, 
+				      (
+				          CASE 
+				              WHEN TR.DISCOUNT_FLAG = 'Y' 
+				              THEN TR.FEE_TOT * (TR.DISCOUNT_RATE * 0.01) 
+				              ELSE 0 
+				          END
+				      )
+				      , 0 ) ), 0 ) AS COMMISSION_AMT_TOT ,
+				      SUM(NVL(OCD.DEPOSIT_AMT,0)) AS DEPOSIT_AMT_TOT,
+				      SUM(NVL( NVL2( TR.DISCOUNT_RATE, FEE_TOT - 
+				    ( 
+				        CASE 
+				            WHEN A.DISCOUNT_FLAG = 'Y' 
+				            THEN FEE_TOT * (TR.DISCOUNT_RATE * 0.01) 
+				            ELSE 0 
+				        END 
+				    )
+				    , FEE_TOT ) - NVL(OCD.DEPOSIT_AMT,0),0)) AS DEFAULT_AMT_TOT,
+				    A.ORG_DESC,        
+				      A.PRE_TEL_NUM , 
+				      A.CHARGER REQ_NM , 
+				      A.CHARGER_TEL REQ_TEL ,
+				      TR.REQ_ORG_NO3,
+				      A.BIZ_NO1 || '-' || A.BIZ_NO2  || '-' || A.BIZ_NO3 AS REQ_BIZ_NO,
+				      B.BIZ_NO1 || '-' || B.BIZ_NO2  || '-' || B.BIZ_NO3 AS TAX_BIZ_NO	   
+				FROM REQ_ORG A 
+				INNER JOIN TEST_REQ TR ON TR.REQ_ORG_NO = A.REQ_ORG_NO
+				LEFT OUTER JOIN ORG_COMMISSION_DEPOSIT OCD ON TR.REQ_ORG_NO = OCD.REQ_ORG_NO AND TR.TEST_REQ_SEQ = OCD.TEST_REQ_SEQ
+				LEFT OUTER JOIN REQ_ORG B ON TR.REQ_ORG_NO3 = B.REQ_ORG_NO         
+				WHERE 1=1
+				AND TR.STATE NOT IN ('S')
+				
+				<if test="org_nm != null and org_nm != '' ">
+					<if test="org_cls != null and org_cls != '' ">
+						<if test="org_cls == 'TAX' ">
+							AND UPPER(B.ORG_NM) like '%' || UPPER( #{org_nm} ) || '%'
+						</if>
+						
+						<if test="org_cls == 'REQ' ">
+							AND UPPER(A.ORG_NM) like '%' || UPPER( #{org_nm} ) || '%'
+						</if>
+					</if>
+					
+					<if test="org_cls == null or org_cls == ''">
+						AND (UPPER(B.ORG_NM) like '%' || UPPER( #{org_nm} ) || '%' OR UPPER(A.ORG_NM) like '%' || UPPER( #{org_nm} ) || '%')
+					</if>
+				</if>
+				
+				GROUP BY A.REQ_ORG_NO, A.ORG_TYPE, A.ORG_NM, TR.REQ_ORG_NO3, B.ORG_NM, A.PRE_TEL_NUM, A.CHARGER, A.CHARGER_TEL, A.ORG_DESC,
+						A.BIZ_NO1 || '-' || A.BIZ_NO2  || '-' || A.BIZ_NO3, B.BIZ_NO1 || '-' || B.BIZ_NO2  || '-' || B.BIZ_NO3
+				
+				<if test="sortName != null and sortName != '' ">
+					ORDER BY ${sortName} ${sortType}
+				</if>
+				<if test="sortName == null or sortName == '' ">
+					ORDER BY TR.REQ_ORG_NO3, A.REQ_ORG_NO
+				</if>
+				
+			) VW_LIST
+	    )  
+		WHERE PAGENUM = #{pageNum}
+	</select>
+	
+	<!-- 업체 상세 목록 조회 -->
+	<select id="selectCommissionDetailList" parameterType="CommissionCheckVO" resultType="CommissionCheckVO">
+		SELECT 
+         A.TEST_REQ_NO
+        ,A.TEST_REQ_SEQ
+        ,A.TITLE
+        ,TO_CHAR(A.REPORT_LAST_DATE, 'YYYY-MM-DD') AS LAST_REPORT_DATE
+        , B.SAMPLE_REG_NM
+        , B.PRDLST_NM
+        ,TO_CHAR(TO_DATE(A.SAMPLE_ARRIVAL_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS SAMPLE_ARRIVAL_DATE
+        ,(SELECT SIMPLE_PRC_NM FROM PROCESS WHERE PRC_CD = A.STATE) AS STATE
+		,TO_CHAR(DEPOSIT_DATE,'yyyy-mm-dd') AS DEPOSIT_DATE
+        ,NVL(
+        	NVL2(
+        		DISCOUNT_RATE, 
+        		FEE_TOT - (
+        			CASE WHEN DISCOUNT_FLAG = 'Y' THEN FEE_TOT * (DISCOUNT_RATE * 0.01) ELSE 0 END
+        		), 
+        	FEE_TOT),0
+        ) AS COMMISSION_AMT_DET
+        ,NVL(OCD.DEPOSIT_AMT,0) AS DEPOSIT_AMT
+        ,NVL(
+        	NVL2(
+        		DISCOUNT_RATE, FEE_TOT - 
+        		(
+        			CASE WHEN DISCOUNT_FLAG = 'Y' THEN FEE_TOT * (DISCOUNT_RATE * 0.01) ELSE 0 END
+        		), FEE_TOT
+        	) - 
+        	NVL(
+        		(
+        			SELECT SUM(DEPOSIT_AMT) 
+        			FROM ORG_COMMISSION_DEPOSIT 
+        			WHERE REQ_ORG_NO = A.REQ_ORG_NO AND TEST_REQ_SEQ = A.TEST_REQ_SEQ
+        		),0
+        	),0
+        ) AS DEFAULT_AMT
+        ,CASE WHEN 
+        NVL(
+        	NVL2(
+        		DISCOUNT_RATE, FEE_TOT - 
+        		(FEE_TOT * (DISCOUNT_RATE * 0.01)), FEE_TOT
+        	),0
+        ) - NVL(OCD.DEPOSIT_AMT, 0) <![CDATA[  <=  ]]> 0 THEN 'Y' ELSE 'N' END AS COMMISSION_AMT_FLAG
+        ,OCD.PAYMENT_METHOD
+		,OCD.TAX_INVOICE_FLAG
+		,TO_CHAR(TO_DATE(OCD.TAX_INVOICE_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') AS TAX_INVOICE_DATE
+		,A.REQ_NM
+        FROM TEST_REQ A
+        LEFT JOIN ORG_COMMISSION_DEPOSIT OCD ON OCD.REQ_ORG_NO = A.REQ_ORG_NO AND OCD.TEST_REQ_SEQ = A.TEST_REQ_SEQ        
+		JOIN
+		 (
+			SELECT IA.TEST_REQ_SEQ AS TEST_REQ_SEQ,
+			CASE WHEN COUNT(SAMPLE_REG_NM) = 1 THEN
+				MAX(SAMPLE_REG_NM)
+			ELSE
+				MAX(SAMPLE_REG_NM) || ' 외 ' || TO_CHAR(COUNT(SAMPLE_REG_NM) -1) || ' 건'
+			END AS SAMPLE_REG_NM, 
+			CASE WHEN COUNT(SAMPLE_REG_NM) = 1 THEN
+				MAX(IB.KOR_NM)
+			ELSE
+				MAX(IB.KOR_NM) || ' 외 ' || TO_CHAR(COUNT(SAMPLE_REG_NM) -1) || ' 건'
+			END  AS PRDLST_NM
+			FROM TEST_SAMPLE IA
+			JOIN PRDLST_CL IB ON IA.PRDLST_CD = IB.PRDLST_CD
+			GROUP BY IA.TEST_REQ_SEQ
+		 ) B ON A.TEST_REQ_SEQ = B.TEST_REQ_SEQ
+        WHERE 1=1
+        <if test="org_cls == 'TAX'">
+        AND A.REQ_ORG_NO3 = #{req_org_no}
+        </if>
+        <if test="org_cls == 'REQ'">
+        AND A.REQ_ORG_NO = #{req_org_no}
+        </if>
+        AND A.STATE NOT IN ('S')   
+		<if test="test_req_no != null and test_req_no != ''">
+			AND UPPER(A.TEST_REQ_NO) LIKE '%' || UPPER(#{test_req_no}) || '%'
+		</if>
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				AND TO_CHAR(TO_DATE(A.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate}
+			</if>
+		</if>
+		<if test="depositSdate != null and depositSdate != ''">
+			<if test="depositEdate != null and depositEdate != ''">
+				AND TO_CHAR(OCD.DEPOSIT_DATE, 'YYYY-MM-DD') BETWEEN #{depositSdate} AND #{depositEdate}
+			</if>
+		</if>
+		<if test="taxSdate != null and taxSdate != ''">
+			<if test="taxEdate != null and taxEdate != ''">
+				AND TO_CHAR(TO_DATE(OCD.TAX_INVOICE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') BETWEEN #{taxSdate} AND #{taxEdate}
+			</if>
+		</if>
+		<if test="state != null and state != ''">
+			AND A.STATE = #{state}
+		</if>
+		<if test="commission_amt_flag != null and commission_amt_flag != ''">
+			AND OCD.COMMISSION_AMT_FLAG = #{commission_amt_flag}
+		</if>
+		<if test="tax_invoice_flag != null and tax_invoice_flag != ''">
+			AND OCD.TAX_INVOICE_FLAG = #{tax_invoice_flag}
+		</if>
+		<if test="req_nm != null and req_nm != ''">
+			AND UPPER(A.REQ_NM) like '%' || UPPER( #{req_nm} ) || '%'
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY A.REQ_ORG_NO DESC
+		</if>
+	</select>
+	
+	<!-- 의뢰 납부 중복 조회 -->
+	<select id="selectCommissionDepositCount" parameterType="AcceptVO" resultType="int">
+		SELECT 
+			COUNT(*) 
+		FROM ORG_COMMISSION_DEPOSIT
+		WHERE TEST_REQ_SEQ = #{test_req_seq}
+	</select>
+	
+	<!-- 입금 저장 처리 -->
+	<insert id="insertCommissionDeposit" parameterType="java.util.HashMap">
+		INSERT INTO ORG_COMMISSION_DEPOSIT(
+			 DEPOSIT_NO
+			,REQ_ORG_NO
+			,TEST_REQ_NO
+			,DEPOSIT_AMT
+			,DEPOSIT_DATE
+			,COMMISSION_AMT_FLAG
+		)VALUES(
+			(SELECT NVL(MAX(DEPOSIT_NO)+1,1) FROM ORG_COMMISSION_DEPOSIT)
+			,#{req_org_no}
+			,#{test_req_no}
+			,#{deposit_amt}
+			,TO_DATE(#{deposit_date},'yyyy-mm-dd')
+			,(
+				SELECT 
+				CASE WHEN NVL2(DISCOUNT_RATE, FEE_TOT - (FEE_TOT * (DISCOUNT_RATE * 0.01)), FEE_TOT) - #{deposit_amt} = 0 THEN 'Y' ELSE 'N' END
+				FROM TEST_REQ A WHERE TEST_REQ_NO = #{test_req_no} AND REQ_ORG_NO = #{req_org_no} 
+			)
+		)
+	</insert>
+	
+	<!-- 입금 수정 처리 -->
+	<update id="saveCommissionDeposit" parameterType="java.util.HashMap">
+		UPDATE ORG_COMMISSION_DEPOSIT SET
+			DEPOSIT_AMT = #{deposit_amt},
+			DEPOSIT_DATE = TO_DATE(#{deposit_date},'yyyy-mm-dd'),
+			COMMISSION_AMT_FLAG = (
+				SELECT 
+				CASE WHEN NVL2(DISCOUNT_RATE, FEE_TOT - (FEE_TOT * (DISCOUNT_RATE * 0.01)), FEE_TOT) - #{deposit_amt} = 0 THEN 'Y' ELSE 'N' END
+				FROM TEST_REQ A 
+				WHERE TEST_REQ_SEQ = #{test_req_seq} AND REQ_ORG_NO = #{req_org_no} 
+			)
+			<if test="tax_invoice_flag != null and tax_invoice_flag != '' ">
+				, TAX_INVOICE_FLAG = #{tax_invoice_flag}
+			</if>
+			, TAX_INVOICE_DATE = REPLACE(#{tax_invoice_date}, '-', '')
+			<if test="payment_method != null and payment_method != '' ">
+				, PAYMENT_METHOD = #{payment_method}
+			</if>			
+		WHERE REQ_ORG_NO = #{req_org_no}
+		AND TEST_REQ_SEQ = #{test_req_seq}  
+	</update>
+	
+	<!--  삭제 -->
+	<delete id="deleteCommissionDeposit" parameterType="AcceptVO">
+		DELETE FROM ORG_COMMISSION_DEPOSIT
+		WHERE TEST_REQ_NO = #{test_req_no}
+	</delete>	
+	
+	<select id="selectTaxInvoiceList" parameterType="CommissionCheckVO" resultType="CommissionCheckVO">
+		SELECT 
+		  A.TEST_REQ_NO,
+		  A.TEST_REQ_SEQ,
+		  A.TITLE,
+		  TO_CHAR(A.REPORT_LAST_DATE, 'YYYY-MM-DD') AS LAST_REPORT_DATE,
+	 	  (
+	          SELECT 
+	            CASE 
+	               WHEN COUNT(XA.TEST_SAMPLE_SEQ) > 1 
+	               THEN MAX(XA.SAMPLE_REG_NM) || ' 외 ' || TO_CHAR(COUNT(XA.TEST_SAMPLE_SEQ) - 1) || ' 건' 
+	               ELSE MAX(XA.SAMPLE_REG_NM) 
+	            END AS PRDLST_NM 
+	          FROM TEST_SAMPLE XA
+	          WHERE XA.TEST_REQ_SEQ = A.TEST_REQ_SEQ
+	          GROUP BY XA.TEST_REQ_SEQ 
+	       ) AS SAMPLE_REG_NM, 
+		  DECODE(A.EXPRESS_FLAG,'Y','특급','일반') AS EXPRESS_FLAG,
+		  TO_CHAR(TO_DATE(A.SAMPLE_ARRIVAL_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS SAMPLE_ARRIVAL_DATE,
+		  (SELECT SIMPLE_PRC_NM FROM PROCESS WHERE PRC_CD = A.STATE) AS STATE,
+		  GET_COMMON_CODE(A.REQ_CLASS,'') AS REQ_CLASS,
+		  RO2.ORG_NM AS TAX_REQ_ORG_NM,
+		  RO2.BIZ_NO1 || '-' || RO2.BIZ_NO2 || '-' || RO2.BIZ_NO3 AS TAX_BIZ_NO,
+		  RO.ORG_NM,
+		  A.FEE_TOT AS COMMISSION_AMT_TOT,
+		  CASE WHEN A.FEE_AUTO_FLAG = 'Y' THEN NVL(A.FEE_TOT_ITEM,0) ELSE NVL(A.FEE_TOT_EST,0) END AS COMMISSION_AMT_DET,
+		  NVL(OCD.DEPOSIT_AMT,0) AS DEPOSIT_AMT,
+		  TO_CHAR(OCD.DEPOSIT_DATE,'YYYY-MM-DD') AS DEPOSIT_DATE,
+		  DECODE(OCD.TAX_INVOICE_FLAG,'Y','발행','미발행') AS TAX_INVOICE_FLAG,
+		  TO_CHAR(TO_DATE(OCD.TAX_INVOICE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') AS TAX_INVOICE_DATE,
+		  GET_DEPT_NM(A.SALES_DEPT_CD) AS SALES_DEPT_CD, 
+		  GET_USER_NM(A.SALES_USER_ID) AS SALES_USER_ID
+		  ,RO2.ADDR1 || ' ' || RO2.ADDR2 AS ADDR                                
+		  ,RO2.ITEM AS BIZ_TYPE
+		  ,RO2.BSNSC AS BIZ_CLASS
+		  ,RO2.EMAIL AS EMAIL
+		  ,RO2.CHARGER_TEL
+		  ,RO2.PRE_MAN
+		  ,RO2.PAY_NM
+		  ,RO2.PAY_TEL
+		  ,RO2.PAY_EMAIL
+		  ,NVL(A.FEE_TOT_EST,0) AS FEE_TOT_EST
+		  ,NVL(A.FEE_TOT_ITEM,0) AS FEE_TOT_ITEM
+		  ,(SELECT MAX(TAX_INVOICE_SEQ) FROM TAX_INVOICE_HIS WHERE TEST_REQ_NO = A.TEST_REQ_NO AND TAX_INVOICE_RESULT_CODE = '1') AS TAX_INVOICE_SEQ
+		  ,A.REQ_NM
+		FROM TEST_REQ A
+		INNER JOIN REQ_ORG RO ON RO.REQ_ORG_NO = A.REQ_ORG_NO
+		INNER JOIN REQ_ORG RO2 ON RO2.REQ_ORG_NO = A.REQ_ORG_NO3
+		INNER JOIN ORG_COMMISSION_DEPOSIT OCD ON OCD.REQ_ORG_NO = A.REQ_ORG_NO AND OCD.TEST_REQ_SEQ = A.TEST_REQ_SEQ
+        WHERE 1=1
+		<if test="req_class != null and req_class != '' ">
+			AND A.REQ_CLASS = #{req_class}
+		</if>
+		<if test="req_nm != null and req_nm != ''">
+			AND UPPER(A.REQ_NM) like '%' || UPPER( #{req_nm} ) || '%'
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND EXISTS (SELECT * FROM TEST_SAMPLE_ITEM I WHERE I.TEST_REQ_SEQ = A.TEST_REQ_SEQ AND I.DEPT_CD = #{dept_cd})
+		</if>
+		<if test="sales_dept_cd != null and sales_dept_cd != '' ">
+			AND A.SALES_DEPT_CD = #{sales_dept_cd}
+		</if>
+		<if test="sales_user_id != null and sales_user_id != '' ">
+			AND A.SALES_USER_ID = #{sales_user_id}
+		</if>
+		<if test="test_req_no != null and test_req_no != ''">
+			AND UPPER(A.TEST_REQ_NO) LIKE '%' || UPPER(#{test_req_no}) || '%'
+		</if>
+		<if test="tax_invoice_flag != null and tax_invoice_flag != ''">
+			AND OCD.TAX_INVOICE_FLAG = #{tax_invoice_flag}
+		</if>
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				AND TO_CHAR(TO_DATE(A.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate}
+			</if>
+		</if>
+		<if test="taxSdate != null and taxSdate != ''">
+			<if test="taxEdate != null and taxEdate != ''">
+				AND TO_CHAR(TO_DATE(OCD.TAX_INVOICE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') BETWEEN #{taxSdate} AND #{taxEdate}
+			</if>
+		</if>		
+		<if test="depositSdate != null and depositSdate != ''">
+			<if test="depositEdate != null and depositEdate != ''">
+				AND TO_CHAR(OCD.DEPOSIT_DATE, 'YYYY-MM-DD') BETWEEN #{depositSdate} AND #{depositEdate}
+			</if>
+		</if>
+		<if test="state != null and state != ''">
+			AND A.STATE = #{state}
+		</if>
+		<!-- 제목 -->
+		<if test="title != null and title != ''">
+			AND  A.TITLE LIKE '%' || #{title} || '%'
+		</if>
+		<!-- 품목명 -->
+		<if test="prdlst_nm != null and prdlst_nm != ''">
+			AND (	SELECT 
+	            	CASE 
+		               	WHEN COUNT(XB.TEST_SAMPLE_SEQ) > 1 
+		               	THEN MAX(XC.KOR_NM) || ' 외 ' || TO_CHAR(COUNT(XB.TEST_SAMPLE_SEQ) - 1) || ' 건' 
+		               	ELSE MAX(XC.KOR_NM) 
+		            	END AS PRDLST_NM 
+		          	FROM TEST_SAMPLE XB
+		          	INNER JOIN PRDLST_CL XC ON XB.PRDLST_CD = XC.PRDLST_CD
+		          	WHERE XB.TEST_REQ_SEQ = A.TEST_REQ_SEQ
+		          	GROUP BY XB.TEST_REQ_SEQ ) LIKE '%' || #{prdlst_nm} || '%'
+		</if>
+		<!-- 업체조회 -->
+		<if test="org_nm != null and org_nm != ''">
+			<if test="org_cls == 'TAX'">
+				AND UPPER(RO2.ORG_NM) LIKE '%' || UPPER(#{org_nm}) || '%'
+			</if>
+			<if test="org_cls == 'REQ'">
+				AND UPPER(RO.ORG_NM) LIKE '%' || UPPER(#{org_nm}) || '%'
+			</if>
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY A.TEST_REQ_SEQ DESC
+		</if>
+	</select>
+	
+	<select id="selectTaxInvoiceSeq" resultType="String">
+		SELECT SQ_TAX_INVOICE_HIS.NEXTVAL FROM DUAL
+	</select>
+	
+	<!-- 전자세금계산서발행결과 저장 -->
+	<insert id="saveCommissionTaxInvoiceResult" parameterType="HashMap">
+		INSERT INTO TAX_INVOICE_HIS (
+		     TAX_INVOICE_SEQ
+			,WRITE_DATE
+			,TEST_REQ_NO
+			,PURPOSE_TYPE
+			,INVOICER_MGT_KEY
+			,ORIGINAL_INVOICE_KEY
+			,INVOICEE_ADDR
+			,INVOICEE_BIZ_CLASS
+			,INVOICEE_BIZ_TYPE
+			,INVOICEE_CEO_NAME
+			,INVOICEE_CONTACT_NAME
+			,INVOICEE_CORP_NAME
+			,INVOICEE_CORP_NUM
+			,INVOICEE_EMAIL
+			,INVOICEE_HP
+			,INVOICEE_TEL
+			,PRD_ITEM_NAME
+			,PRD_PURCHASE_DT
+			,PRD_REMARK
+			,PRD_SUPPLY_COST
+			,PRD_TAX
+			,SUPPLY_COST_TOTAL
+			,TAX_TOTAL
+			,TOTAL_AMOUNT
+			,REMARK
+			,RGST_DT
+			,TAX_INVOICE_FLAG
+			,TAX_INVOICE_NUM
+			,TAX_INVOICE_RESULT_CODE
+			,TAX_INVOICE_RESULT_MSG
+		)
+		VALUES (
+		     #{taxInvoiceSeq}
+			,#{writeDate}
+			,#{testReqNo}
+			,#{purposeType}
+			,#{invoicerMgtKey}
+			,#{originalInvoiceKey}
+			,#{invoiceeAddr}
+			,#{invoiceeBizClass}
+			,#{invoiceeBizType}
+			,#{invoiceeCeoName}
+			,#{invoiceeContactName}
+			,#{invoiceeCorpName}
+			,#{invoiceeCorpNum}
+			,#{invoiceeEmail}
+			,#{invoiceeHp}
+			,#{invoiceeTel}
+			,#{prdItemName}
+			,#{prdPurchaseDt}
+			,#{prdRemark}
+			,#{prdSupplyCost}
+			,#{prdTax}
+			,#{supplyCostTotal}
+			,#{taxTotal}
+			,#{totalAmount}
+			,#{remark}
+			,SYSDATE
+			,#{taxInvoiceFlag}
+			,#{taxInvoiceNum}
+			,#{taxInvoiceResultCode}
+			,#{taxInvoiceResultMsg}
+		)
+	</insert>
+	
+	
+	<!-- 세금계산서발행이력조회 -->
+	<select id="selectTaxInvoiceHisList" parameterType="CommissionTaxInvoiceVO" resultType="CamelListMap">
+		SELECT
+			 TAX_INVOICE_SEQ
+			,TEST_REQ_NO
+			,WRITE_DATE
+			,DECODE(TAX_INVOICE_FLAG,1,'최초발행',2,'수정발행') AS TAX_INVOICE_FLAG
+			,TAX_INVOICE_NUM
+			,DECODE(TAX_INVOICE_RESULT_CODE,0,'실패',1,'성공','') AS TAX_INVOICE_RESULT
+			,TAX_INVOICE_RESULT_MSG
+			,INVOICEE_ADDR
+			,INVOICEE_BIZ_CLASS
+			,INVOICEE_BIZ_TYPE
+			,INVOICEE_CEO_NAME
+			,INVOICEE_CONTACT_NAME
+			,INVOICEE_CORP_NAME
+			,INVOICEE_CORP_NUM
+			,INVOICEE_EMAIL
+			,INVOICEE_HP
+			,INVOICEE_TEL
+			,INVOICER_MGT_KEY
+			,ORIGINAL_INVOICE_KEY
+			,PRD_ITEM_NAME
+			,PRD_PURCHASE_DT
+			,PRD_REMARK
+			,PRD_SUPPLY_COST
+			,PRD_TAX
+			,PURPOSE_TYPE
+			,REMARK
+			,RGST_DT
+			,SUPPLY_COST_TOTAL
+			,TAX_TOTAL
+			,TOTAL_AMOUNT
+		FROM TAX_INVOICE_HIS 
+		WHERE 1=1
+		<!-- 접수번호 -->
+		<if test="testReqNo != null and testReqNo != ''">
+			AND UPPER(TEST_REQ_NO) LIKE '%' || UPPER(#{testReqNo}) || '%'
+		</if>
+		<!-- 품목명 -->
+		<if test="prdItem != null and prdItem != ''">
+			AND PRD_ITEM_NAME LIKE '%' || #{prdItem} || '%'
+		</if>
+		<!-- 업체명 -->
+		<if test="invoicerCorpName != null and invoicerCorpName != ''">
+			AND INVOICEE_CORP_NAME LIKE '%' || #{invoicerCorpName} || '%'
+		</if>
+		<!-- 발행일자 -->
+		<if test="invoiceSDate != null and invoiceSDate != ''">
+			<if test="invoiceEDate != null and invoiceEDate != ''">
+				<!-- 작성일자 -->
+				<if test="invoiceDate == 'WRITE'">
+					AND TO_CHAR(TO_DATE(WRITE_DATE, 'YYYY-MM-DD'), 'YYYY-MM-DD') BETWEEN #{invoiceSDate} AND #{invoiceEDate}
+				</if>
+				<!-- 거래일자 -->
+				<if test="invoiceDate == 'PURCHASE'">
+					AND TO_CHAR(TO_DATE(PRD_PURCHASE_DT, 'YYYY-MM-DD'), 'YYYY-MM-DD') BETWEEN #{invoiceSDate} AND #{invoiceEDate}
+				</if>
+				<!-- 발행일자 -->
+				<if test="invoiceDate == 'PUBLISH'">
+					AND TO_CHAR(TO_DATE(RGST_DT, 'YYYY/MM/DD HH:MI:SS'), 'YYYY-MM-DD') BETWEEN #{invoiceSDate} AND #{invoiceEDate}
+				</if>
+			</if>
+		</if>
+	</select>
+	
+	<!-- 수수료 입금테이블 세금계산서 발행정보 업데이트 -->
+	<update id="updateCommissionDeposit" parameterType="CommissionCheckVO">
+		UPDATE ORG_COMMISSION_DEPOSIT SET 
+			 TAX_INVOICE_NUM = #{taxInvoiceNum}
+			,TAX_INVOICE_AMT = #{taxInvoiceAmt}
+			,TAX_INVOICE_FLAG = #{taxInvoiceFlag}
+			,TAX_INVOICE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+		WHERE TEST_REQ_SEQ = #{testReqSeq}
+	</update>
+	
+</mapper>

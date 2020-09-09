@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="system">
+
+	<!-- 메뉴관리 목록 조회 -->
+	<select id="system.selectMenuGroupList" parameterType="MenuVO" resultType="MenuVO">
+		SELECT MENU_CD
+		       ,MENU_NM
+		       ,MENU_DESC
+		       ,DISP_ORDER
+		       ,CASE WHEN USE_FLAG = 'Y' THEN '사용'
+               	 ELSE '미사용' 
+             	END AS USE_FLAG
+		  FROM MENU
+		 WHERE SUBSTR(MENU_CD, 3, 6) = '0000' 
+		 <if test="menu_nm != null and menu_nm != '' ">
+         	AND MENU_NM like '%'|| #{menu_nm} ||'%'
+         </if>
+         <if test="use_flag != null and use_flag != '' ">
+         	AND USE_FLAG = #{use_flag}
+         </if> 
+         <if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY DISP_ORDER 
+		</if>  
+	</select>
+	
+	<!-- 메뉴관리 저장 -->
+	<insert id="system.insertMenuGroup" parameterType="MenuVO">
+		INSERT INTO MENU ( MENU_CD
+						   ,MENU_NM
+						   ,MENU_DESC
+						   ,DISP_ORDER
+						   ,USE_FLAG
+						   ,CREATER_ID
+						   ,CREATE_DATE
+				  )VALUES( #{menu_cd}
+						   ,#{menu_nm}
+						   ,#{menu_desc}
+						   ,#{disp_order}
+						   ,#{use_flag}
+						   ,#{creater_id}
+						   ,SYSDATE
+						 )
+	</insert>
+	
+	<!-- 메뉴관리 수정 -->
+	<update id="system.updateMenuGroup" parameterType="MenuVO">
+		UPDATE MENU 
+		   SET MENU_NM 		= #{menu_nm}
+		   	   ,MENU_DESC 	= #{menu_desc}
+		       ,DISP_ORDER 	= #{disp_order}
+		       ,USE_FLAG 	= #{use_flag}
+		       ,UPDATER_ID	= #{creater_id}
+		       ,UPDATE_DATE	= SYSDATE
+		 WHERE MENU_CD = #{menu_cd}				  
+	</update>
+	
+	<!-- 메뉴관리 삭제 -->
+	<delete id="system.deleteMenu" parameterType="MenuVO">
+		DELETE MENU WHERE MENU_CD = #{menu_cd}				  
+	</delete>
+	
+	<!-- 메뉴관리 목록 조회 -->
+	<select id="system.selectMenuDetailList" parameterType="MenuVO" resultType="MenuVO">
+		SELECT MENU_CD
+			   ,MENU_NM
+			   ,MENU_DESC
+			   ,MENU_URL
+			   ,DISP_ORDER
+			   ,CASE WHEN USE_FLAG = 'Y' THEN '사용'
+               	 ELSE '미사용' 
+             	END AS USE_FLAG
+	      FROM MENU
+	     WHERE PRE_MENU_CD = #{pre_menu_cd}
+	     <if test="menu_nm != null and menu_nm != '' ">
+         	AND MENU_NM like '%'|| #{menu_nm} ||'%'
+         </if>
+         <if test="use_flag != null and use_flag != '' ">
+         	AND USE_FLAG = #{use_flag}
+         </if>  	
+	     <if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY DISP_ORDER 
+		</if> 
+	</select>
+	
+	<!-- 메뉴관리 저장 -->
+	<insert id="system.insertMenuDetail" parameterType="MenuVO">
+		INSERT INTO MENU ( MENU_CD
+						   ,MENU_NM
+						   ,MENU_DESC
+						   ,MENU_URL
+						   ,DISP_ORDER
+						   ,USE_FLAG
+						   ,PRE_MENU_CD
+				  )VALUES( #{menu_cd}
+						   ,#{menu_nm}
+						   ,#{menu_desc}
+						   ,#{menu_url}
+						   ,#{disp_order}
+						   ,#{use_flag}
+						   ,#{pre_menu_cd}
+						 )
+	</insert>
+	
+	<!-- 메뉴관리 수정 -->
+	<update id="system.updateMenuDetail" parameterType="MenuVO">
+		UPDATE MENU 
+		   SET MENU_NM = #{menu_nm}
+		   	   ,MENU_DESC = #{menu_desc}
+		       ,MENU_URL = #{menu_url}
+		       ,DISP_ORDER = #{disp_order}
+		       ,USE_FLAG = #{use_flag}
+		 WHERE MENU_CD = #{menu_cd}				  
+	</update>
+</mapper>

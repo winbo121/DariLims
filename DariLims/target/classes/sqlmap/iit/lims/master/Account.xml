@@ -1,0 +1,569 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="account">
+
+	<!-- 계산식관리 리스트 -->
+	<select id="selectAccountList" resultType="AccountVO" parameterType="AccountVO">		
+		SELECT 
+		    ACCOUNT_NO
+		    ,ACCOUNT_NM
+		    ,ACCOUNT_TOT_DISP
+		    ,ACCOUNT_VAL_DESC
+		    ,ACCOUNT_DESC
+		    ,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = UNIT) UNIT
+		    ,DECODE(USE_FLAG, 'Y', '사용', '미사용') USE_FLAG
+		FROM ACCOUNT AC
+		WHERE 1 = 1 
+		<if test="use_flag != null and use_flag != '' ">
+			AND USE_FLAG = #{use_flag} 
+		</if>
+		<if test="account_nm != null and account_nm != '' ">
+			AND ACCOUNT_NM LIKE '%' || #{account_nm} || '%'
+		</if>
+		ORDER BY ACCOUNT_NO DESC
+	</select>
+
+	<!-- 계산식관리 상세 조회 -->
+	<select id="selectAccountDetail" resultType="AccountVO" parameterType="AccountVO">		
+		SELECT 
+		    ACCOUNT_NO
+		    ,ACCOUNT_NM
+		    ,ACCOUNT_TOT_DISP
+		    ,ACCOUNT_VAL_DESC
+		    ,ACCOUNT_DESC
+		    ,UNIT
+		    ,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = UNIT) UNIT_NM
+		    ,USE_FLAG
+		    ,DECODE(USE_FLAG, 'Y', '사용', '미사용') USE_FLAG_NM
+		FROM ACCOUNT AC
+		WHERE ACCOUNT_NO = #{account_no} 
+	</select>
+	
+	<!-- 계산식관리 상세 조회 -->
+	<select id="selectAccountDetailList" resultType="AccountVO" parameterType="AccountVO">		
+		SELECT 
+		    ACCOUNT_NO
+		    ,ACCOUNT_DETAIL_NO
+		    ,ACCOUNT_TYPE
+		    ,ACCOUNT_DISP
+		    ,ACCOUNT_S_OPER
+		    ,ACCOUNT_E_OPER
+		    ,X1
+		    ,X1_CD
+		    ,X1_NM
+		    ,X2
+		    ,X2_CD
+		    ,X2_NM
+		    ,X3
+		    ,X3_CD
+		    ,X3_NM
+		    ,X4
+		    ,X4_CD
+		    ,X4_NM
+		    ,X5
+		    ,X5_CD
+		    ,X5_NM
+		    ,X6
+		    ,X6_NM
+		    ,X7
+		    ,X7_NM
+		    ,X8
+		    ,X8_NM
+		    ,X9
+		    ,X9_NM
+		    ,X10
+		    ,X10_NM
+		    ,x1_VAL
+		    ,x2_VAL
+		    ,x3_VAL
+		    ,x4_VAL
+		    ,x5_VAL
+		    ,x6_VAL
+		    ,x7_VAL
+		    ,x8_VAL
+		    ,x9_VAL
+		    ,x10_VAL
+		    ,ACCOUNT_VALID_POSITION
+		    ,ACCOUNT_CAL_DISP
+		    ,ACCOUNT_RESULT
+		FROM ACCOUNT_DETAIL AD
+		WHERE ACCOUNT_NO = #{account_no} 
+		ORDER BY ACCOUNT_DETAIL_NO
+	
+	</select>
+	
+		<!-- 계산식적용 조회 -->
+	<select id="selectAccountApplyList" resultType="AccountVO" parameterType="AccountVO">		
+		SELECT 
+  		 AD.ACCOUNT_NO
+       ,AD.ACCOUNT_DETAIL_NO
+       ,AD.ACCOUNT_TYPE
+       ,AD.ACCOUNT_DISP
+       ,AD.ACCOUNT_S_OPER
+       ,AD.ACCOUNT_E_OPER
+       ,AD.X1
+       ,AD.X1_CD
+       ,AD.X1_NM
+       ,AD.X2
+       ,AD.X2_CD
+       ,AD.X2_NM
+       ,AD.X3
+       ,AD.X3_CD
+       ,AD.X3_NM
+       ,AD.X4
+       ,AD.X4_CD
+       ,AD.X4_NM
+       ,AD.X5
+       ,AD.X5_CD
+       ,AD.X5_NM
+       ,AD.X6
+       ,AD.X6_NM
+       ,AD.X7
+       ,AD.X7_NM
+       ,AD.X8
+       ,AD.X8_NM
+       ,AD.X9
+       ,AD.X9_NM
+       ,AD.X10
+       ,AD.X10_NM
+       ,AD.ACCOUNT_VALID_POSITION
+       ,NVL(
+       (
+         SELECT
+           RESULT_VAL
+         FROM TEST_SAMPLE TS
+         JOIN TEST_SAMPLE_ITEM TSI ON TS.TEST_REQ_SEQ = TSI.TEST_REQ_SEQ
+         WHERE TS.TEST_SAMPLE_SEQ = #{test_sample_seq} AND TSI.TEST_ITEM_CD = AD.X1_CD
+    	 ), AA.x1_VAL ) AS X1_VAL
+       ,NVL(
+       (
+         SELECT
+           RESULT_VAL
+         FROM TEST_SAMPLE TS
+         JOIN TEST_SAMPLE_ITEM TSI ON TS.TEST_REQ_SEQ = TSI.TEST_REQ_SEQ
+         WHERE TS.TEST_SAMPLE_SEQ = #{test_sample_seq} AND TSI.TEST_ITEM_CD = AD.X2_CD
+    	 ), AA.x2_VAL ) AS X2_VAL
+       ,NVL(
+       (
+         SELECT
+           RESULT_VAL
+         FROM TEST_SAMPLE TS
+         JOIN TEST_SAMPLE_ITEM TSI ON TS.TEST_REQ_SEQ = TSI.TEST_REQ_SEQ
+         WHERE TS.TEST_SAMPLE_SEQ = #{test_sample_seq} AND TSI.TEST_ITEM_CD = AD.X3_CD
+    	 ), AA.x3_VAL ) AS X3_VAL
+       ,NVL(
+       (
+         SELECT
+           RESULT_VAL
+         FROM TEST_SAMPLE TS
+         JOIN TEST_SAMPLE_ITEM TSI ON TS.TEST_REQ_SEQ = TSI.TEST_REQ_SEQ
+         WHERE TS.TEST_SAMPLE_SEQ = #{test_sample_seq} AND TSI.TEST_ITEM_CD = AD.X4_CD
+    	 ), AA.x4_VAL ) AS X4_VAL
+     	 ,NVL(
+     	 (
+         SELECT
+           RESULT_VAL
+         FROM TEST_SAMPLE TS
+         JOIN TEST_SAMPLE_ITEM TSI ON TS.TEST_REQ_SEQ = TSI.TEST_REQ_SEQ
+         WHERE TS.TEST_SAMPLE_SEQ = #{test_sample_seq} AND TSI.TEST_ITEM_CD = AD.X5_CD
+    	 ), AA.x5_VAL ) AS X5_VAL
+       ,AA.x6_VAL
+       ,AA.x7_VAL
+       ,AA.x8_VAL
+       ,AA.x9_VAL
+       ,AA.x10_VAL 
+       ,AA.ACCOUNT_CAL_DISP
+       ,AA.ACCOUNT_RESULT
+       ,AA.TEST_SAMPLE_SEQ
+       ,AA.TEST_ITEM_CD
+     FROM ACCOUNT_DETAIL AD 
+     LEFT OUTER JOIN ACCOUNT_APPLY AA 
+	     	ON AD.ACCOUNT_NO = AA.ACCOUNT_NO 
+	     	AND AD.ACCOUNT_DETAIL_NO = AA.ACCOUNT_DETAIL_NO 
+	     	AND AA.TEST_SAMPLE_SEQ = #{test_sample_seq} 
+	     	AND AA.TEST_ITEM_CD = #{test_item_cd}
+		WHERE AD.ACCOUNT_NO = #{account_no}
+		ORDER BY ACCOUNT_DETAIL_NO
+	
+	</select>
+	
+	<select id="checkAccount" parameterType="AccountVO" resultType="String">
+		SELECT 
+		 COUNT(ACCOUNT_NO)
+		 FROM ACCOUNT
+		 WHERE TEST_METHOD_NO = #{test_method_no}
+	</select>
+
+	<!-- 계산식관리 등록 -->
+	<insert id="insertAccount" parameterType="AccountVO">
+		INSERT INTO ACCOUNT(
+		    ACCOUNT_NO
+		    ,ACCOUNT_NM
+		    ,ACCOUNT_TOT_DISP
+		    ,ACCOUNT_VAL_DESC
+		    ,ACCOUNT_DESC
+		    ,USE_FLAG
+		    ,UNIT
+		    )VALUES(
+		    (SELECT LPAD(NVL(MAX(ACCOUNT_NO),0) +1, 3, 0) FROM ACCOUNT )
+		    ,#{account_nm}
+		    ,#{account_tot_disp}
+		    ,#{account_val_desc}
+		    ,#{account_desc}
+		    ,#{use_flag}
+		    ,#{unit}
+	    )
+			
+	</insert>
+
+	<!-- 계산식관리 수정 -->
+	<update id="updateAccount" parameterType="AccountVO">		
+		UPDATE ACCOUNT SET
+		    ACCOUNT_NM = #{account_nm}
+		    ,ACCOUNT_TOT_DISP = #{account_tot_disp}
+		    ,ACCOUNT_VAL_DESC = #{account_val_desc}
+		    ,ACCOUNT_DESC = #{account_desc}
+		    ,USE_FLAG = #{use_flag}
+		    ,UNIT = #{unit}
+		WHERE ACCOUNT_NO = #{account_no} 
+	</update>
+
+	<!-- 계산식관리 삭제 -->
+	<delete id="deleteAccount" parameterType="AccountVO">
+		DELETE FROM ACCOUNT
+		WHERE ACCOUNT_NO = #{account_no}			
+	</delete>
+	
+	<insert id="insertAccountDetail" parameterType="AccountVO">
+		INSERT INTO ACCOUNT_DETAIL(
+			ACCOUNT_NO
+			,ACCOUNT_DETAIL_NO
+			,ACCOUNT_TYPE
+			,ACCOUNT_DISP
+			,ACCOUNT_S_OPER
+			,ACCOUNT_E_OPER
+			,X1
+			,X1_CD
+	    ,X1_NM
+	    ,X2
+	    ,X2_CD
+	    ,X2_NM
+	    ,X3
+	    ,X3_CD
+	    ,X3_NM
+	    ,X4
+	    ,X4_CD
+	    ,X4_NM
+	    ,X5
+	    ,X5_CD
+	    ,X5_NM
+	    ,X6
+	    ,X6_NM
+	    ,X7
+	    ,X7_NM
+	    ,X8
+	    ,X8_NM
+	    ,X9
+	    ,X9_NM
+	    ,X10
+	    ,X10_NM
+	    ,x1_VAL
+	    ,x2_VAL
+	    ,x3_VAL
+	    ,x4_VAL
+	    ,x5_VAL
+	    ,x6_VAL
+	    ,x7_VAL
+	    ,x8_VAL
+	    ,x9_VAL
+	    ,x10_VAL
+	    ,ACCOUNT_VALID_POSITION
+	    ,ACCOUNT_RESULT
+	    ,ACCOUNT_CAL_DISP
+		)VALUES(
+			#{account_no}
+			,(SELECT LPAD(NVL(MAX(ACCOUNT_DETAIL_NO),0) +1, 3, 0) FROM ACCOUNT_DETAIL WHERE ACCOUNT_NO = #{account_no})
+			,#{account_type}
+			,#{account_disp}
+			,#{account_s_oper}
+			,#{account_e_oper}
+			,#{x1}
+			,#{x1_cd}
+	    ,#{x1_nm}
+	    ,#{x2}
+	    ,#{x2_cd}
+	    ,#{x2_nm}
+	    ,#{x3}
+	    ,#{x3_cd}
+	    ,#{x3_nm}
+	    ,#{x4}
+	    ,#{x4_cd}
+	    ,#{x4_nm}
+	    ,#{x5}
+	    ,#{x5_cd}
+	    ,#{x5_nm}
+	    ,#{x6}
+	    ,#{x6_nm}
+	    ,#{x7}
+	    ,#{x7_nm}
+	    ,#{x8}
+	    ,#{x8_nm}
+	    ,#{x9}
+	    ,#{x9_nm}
+	    ,#{x10}
+	    ,#{x10_nm}
+	    ,#{x1_val}
+	    ,#{x2_val}
+	    ,#{x3_val}
+	    ,#{x4_val}
+	    ,#{x5_val}
+	    ,#{x6_val}
+	    ,#{x7_val}
+	    ,#{x8_val}
+	    ,#{x9_val}
+	    ,#{x10_val}
+	    ,#{account_valid_position}
+	    ,#{account_result}
+	    ,#{account_cal_disp}
+		)
+		
+	</insert>
+
+	<update id="updateAccountDetail" parameterType="AccountVO">
+		UPDATE ACCOUNT_DETAIL SET
+			ACCOUNT_TYPE	= #{account_type}
+			,ACCOUNT_DISP	= #{account_disp}
+			,ACCOUNT_S_OPER	= #{account_s_oper}
+			,ACCOUNT_E_OPER	= #{account_e_oper}
+			,X1	= #{x1}
+			,X1_CD = #{x1_cd}
+	    ,X1_NM	= #{x1_nm}
+	    ,X2	= #{x2}
+	    ,X2_CD = #{x2_cd}
+	    ,X2_NM	= #{x2_nm}
+	    ,X3	= #{x3}
+	    ,X3_CD	= #{x3_cd}
+	    ,X3_NM	= #{x3_nm}
+	    ,X4	= #{x4}
+	    ,X4_CD	= #{x4_cd}
+	    ,X4_NM	= #{x4_nm}
+	    ,X5	= #{x5}
+	    ,X5_CD	= #{x5_cd}
+	    ,X5_NM	= #{x5_nm}
+	    ,X6	= #{x6}
+	    ,X6_NM	= #{x6_nm}
+	    ,X7	= #{x7}
+	    ,X7_NM	= #{x7_nm}
+	    ,X8	= #{x8}
+	    ,X8_NM	= #{x8_nm}
+	    ,X9	= #{x9}
+	    ,X9_NM	= #{x9_nm}
+	    ,X10= #{x10}
+	    ,X10_NM	= #{x10_nm}
+	    ,x1_VAL = #{x1_val}
+	    ,x2_VAL = #{x2_val}
+	    ,x3_VAL = #{x3_val}
+	    ,x4_VAL = #{x4_val}
+	    ,x5_VAL = #{x5_val}
+	    ,x6_VAL = #{x6_val}
+	    ,x7_VAL = #{x7_val}
+	    ,x8_VAL = #{x8_val}
+	    ,x9_VAL = #{x9_val}
+	    ,x10_VAL = #{x10_val}
+	    ,ACCOUNT_RESULT = #{account_result}
+	    ,ACCOUNT_VALID_POSITION	= #{account_valid_position}
+	    ,ACCOUNT_CAL_DISP = #{account_cal_disp}
+		 WHERE ACCOUNT_NO =  #{account_no}
+		 AND ACCOUNT_DETAIL_NO = #{account_detail_no}
+	</update>
+	
+	<delete id="deleteAccountDetail" parameterType="AccountVO">
+		DELETE ACCOUNT_DETAIL
+		WHERE ACCOUNT_NO =  #{account_no}
+		 AND ACCOUNT_DETAIL_NO = #{account_detail_no}
+	
+	</delete>
+	
+	<insert id="insertAccountApply" parameterType="AccountVO">
+	</insert>
+
+	<update id="updateAccountApply" parameterType="AccountVO">
+		MERGE INTO ACCOUNT_APPLY
+		USING DUAL ON (
+			TEST_SAMPLE_SEQ = #{test_sample_seq}
+			AND TEST_ITEM_CD = #{test_item_cd} 
+			AND ACCOUNT_NO = #{account_no}
+			AND ACCOUNT_DETAIL_NO = #{account_detail_no}
+		)
+		WHEN MATCHED THEN
+		UPDATE SET
+			ACCOUNT_TYPE	= #{account_type}
+			,ACCOUNT_DISP	= #{account_disp}
+			,ACCOUNT_S_OPER	= #{account_s_oper}
+			,ACCOUNT_E_OPER	= #{account_e_oper}
+			,X1	= #{x1}
+			,X1_CD = #{x1_cd}
+	    ,X1_NM	= #{x1_nm}
+	    ,X2	= #{x2}
+	    ,X2_CD = #{x2_cd}
+	    ,X2_NM	= #{x2_nm}
+	    ,X3	= #{x3}
+	    ,X3_CD = #{x3_cd}
+	    ,X3_NM	= #{x3_nm}
+	    ,X4	= #{x4}
+	    ,X4_CD = #{x4_cd}
+	    ,X4_NM	= #{x4_nm}
+	    ,X5	= #{x5}
+	    ,X5_CD = #{x5_cd}
+	    ,X5_NM	= #{x5_nm}
+	    ,X6	= #{x6}
+	    ,X6_NM	= #{x6_nm}
+	    ,X7	= #{x7}
+	    ,X7_NM	= #{x7_nm}
+	    ,X8	= #{x8}
+	    ,X8_NM	= #{x8_nm}
+	    ,X9	= #{x9}
+	    ,X9_NM	= #{x9_nm}
+	    ,X10= #{x10}
+	    ,X10_NM	= #{x10_nm}
+	    ,X1_VAL = #{x1_val}
+	    ,X2_VAL = #{x2_val}
+	    ,X3_VAL = #{x3_val}
+	    ,X4_VAL = #{x4_val}
+	    ,X5_VAL = #{x5_val}
+	    ,X6_VAL = #{x6_val}
+	    ,X7_VAL = #{x7_val}
+	    ,X8_VAL = #{x8_val}
+	    ,X9_VAL = #{x9_val}
+	    ,X10_VAL = #{x10_val}
+	    ,ACCOUNT_RESULT = #{account_result}
+	    ,ACCOUNT_VALID_POSITION	= #{account_valid_position}
+	    ,ACCOUNT_CAL_DISP = #{account_cal_disp}
+		WHEN NOT MATCHED THEN
+		INSERT (
+			TEST_SAMPLE_SEQ
+			,TEST_ITEM_CD 
+			,ACCOUNT_NO
+			,ACCOUNT_DETAIL_NO
+			,ACCOUNT_TYPE
+			,ACCOUNT_DISP
+			,ACCOUNT_S_OPER
+			,ACCOUNT_E_OPER
+			,X1
+			,X1_CD
+		    ,X1_NM
+		    ,X2
+		    ,X2_CD
+		    ,X2_NM
+		    ,X3
+		    ,X3_CD
+		    ,X3_NM
+		    ,X4
+		    ,X4_CD
+		    ,X4_NM
+		    ,X5
+		    ,X5_CD
+		    ,X5_NM
+		    ,X6
+		    ,X6_NM
+		    ,X7
+		    ,X7_NM
+		    ,X8
+		    ,X8_NM
+		    ,X9
+		    ,X9_NM
+		    ,X10
+		    ,X10_NM
+		    ,X1_VAL
+		    ,X2_VAL
+		    ,X3_VAL
+		    ,X4_VAL
+		    ,X5_VAL
+		    ,X6_VAL
+		    ,X7_VAL
+		    ,X8_VAL
+		    ,X9_VAL
+		    ,X10_VAL
+		    ,ACCOUNT_VALID_POSITION
+		    ,ACCOUNT_RESULT
+		    ,ACCOUNT_CAL_DISP
+		)VALUES(
+			#{test_sample_seq}
+			,#{test_item_cd} 
+			,#{account_no}
+			,#{account_detail_no}
+			,#{account_type}
+			,#{account_disp}
+			,#{account_s_oper}
+			,#{account_e_oper}
+			,#{x1}
+			,#{x1_cd}
+		    ,#{x1_nm}
+		    ,#{x2}
+		    ,#{x2_cd}
+		    ,#{x2_nm}
+		    ,#{x3}
+		    ,#{x3_cd}
+		    ,#{x3_nm}
+		    ,#{x4}
+		    ,#{x4_cd}
+		    ,#{x4_nm}
+		    ,#{x5}
+		    ,#{x5_cd}
+		    ,#{x5_nm}
+		    ,#{x6}
+		    ,#{x6_nm}
+		    ,#{x7}
+		    ,#{x7_nm}
+		    ,#{x8}
+		    ,#{x8_nm}
+		    ,#{x9}
+		    ,#{x9_nm}
+		    ,#{x10}
+		    ,#{x10_nm}
+		    ,#{x1_val}
+		    ,#{x2_val}
+		    ,#{x3_val}
+		    ,#{x4_val}
+		    ,#{x5_val}
+		    ,#{x6_val}
+		    ,#{x7_val}
+		    ,#{x8_val}
+		    ,#{x9_val}
+		    ,#{x10_val}
+		    ,#{account_valid_position}
+		    ,#{account_result}
+		    ,#{account_cal_disp}
+		)
+	</update>
+	
+	<delete id="deleteAccountApply" parameterType="AccountVO">
+		
+		
+	
+	</delete>
+	
+	<select id="selectMasterList" resultType="TestItemVO" parameterType="TestItemVO">
+	SELECT 
+		TESTITM_CD, 
+		TESTITM_NM, 
+		NCKNM, 
+		ENG_NM,  
+		KOR_NM, 
+		L_KOR_NM 
+	FROM 
+		analysis 
+	WHERE 
+		USE_YN = 'Y'
+	<if test="testitm_nm != null and testitm_nm != '' ">
+	AND UPPER(TESTITM_NM) LIKE '%'||UPPER(#{testitm_nm})||'%'
+	</if>
+	<if test="ncknm != null and ncknm != '' ">
+	AND UPPER(NCKNM) LIKE '%'||UPPER(#{ncknm})||'%'
+	</if>
+	<if test="eng_nm != null and eng_nm != '' ">
+	AND UPPER(ENG_NM) LIKE '%'||UPPER(#{eng_nm})||'%'
+	</if>
+	</select>
+	
+</mapper>

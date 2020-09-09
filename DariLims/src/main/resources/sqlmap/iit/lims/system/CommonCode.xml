@@ -1,0 +1,314 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="commonCode">
+	<!-- 공통코드 콤보 조회 -->
+	<select id="commonCode.selectCommonCodeCombo" parameterType="CommonCodeVO" resultType="CommonCodeVO">
+		SELECT 
+			CODE,
+			CODE_NAME
+		FROM COMMON_CODE_DETAIL
+		WHERE PRE_CODE = #{code}
+			AND USE_FLAG ='Y'
+		ORDER BY DISP_ORDER, CODE
+	</select>
+
+	<select id="commonCode.selectCommonCodeDepth" parameterType="CommonCodeVO" resultType="CommonCodeVO">
+		SELECT 
+			CODE,
+			CODE_NAME
+		FROM COMMON_CODE_DETAIL
+		WHERE EX_CODE1 = #{code} AND USE_FLAG ='Y'
+		ORDER BY DISP_ORDER, CODE
+	</select>	
+
+	<!-- 공통코드 콤보 조회 - 부서 -->
+	<select id="commonCode.selectCommonCodeDept" resultType="CommonCodeVO">
+		SELECT DEPT_CD AS CODE
+		,DEPT_NM AS CODE_NAME
+		FROM DEPART
+		WHERE USE_FLAG = 'Y' 
+		AND BASE_FLAG != 'Y'
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY DEPT_CD
+		</if>
+	</select>
+	
+	<!-- 견적 항목수수료 구분 -->
+<!-- 	<select id="commonCode.selectEstFeeGubun" resultType="CommonCodeVO">
+		SELECT EST_FEE_CD AS CODE
+		,EST_FEE_NM AS CODE_NAME
+		FROM ESTIMATE_FEE_GUBUN
+		WHERE USE_FLAG = 'Y' 
+		ORDER BY EST_FEE_CD
+	</select> -->
+	
+	<!-- 공통코드 콤보 조회 - 모든부서 -->
+	<select id="commonCode.selectCommonCodePreDept" resultType="CommonCodeVO">
+		SELECT DEPT_CD AS CODE
+		,DEPT_NM AS CODE_NAME
+		FROM DEPART
+	</select>
+
+	<!-- 공통코드 콤보 조회 - 기준 -->
+	<select id="commonCode.selectCommonCodeStd" resultType="CommonCodeVO">
+		SELECT 
+		TEST_STD_NO CODE
+		,TEST_STD_NM CODE_NAME
+		FROM TEST_STD
+		ORDER BY CODE_NAME
+	</select>
+
+	<!-- 공통코드 콤보 조회 - 단위업무 -->
+	<select id="commonCode.selectCommonCodeUnitWork" parameterType="CommonCodeVO" resultType="CommonCodeVO">
+		SELECT DISTINCT UW.UNIT_WORK_CD CODE,
+		UW.UNIT_WORK_NM CODE_NAME
+		FROM UNIT_WORK UW
+		INNER JOIN DEPT_UNIT_WORK DUW ON UW.UNIT_WORK_CD = DUW.UNIT_WORK_CD
+		WHERE UW.USE_FLAG = 'Y'
+		<if test="code != null and code !='' ">
+			AND DUW.DEPT_CD = #{code}
+		</if>
+	</select>
+	
+	<!-- 공통코드 콤보 조회 - 진행상태 -->
+	<select id="commonCode.selectCommonCodeState" parameterType="String" resultType="CommonCodeVO">
+		SELECT
+			PRC_CD CODE
+			,SIMPLE_PRC_NM AS CODE_NAME
+		FROM PROCESS
+		WHERE PRC_CD NOT IN ('Z', 'Y', 'C', 'E', 'Q', 'O', 'P', 'X')
+		ORDER BY DISP_ORDER
+	</select>
+	
+	<!-- 공통코드 콤보 조회 - 통계에서 사용하는 진행상태 -->
+	<select id="commonCode.selectCommonCodeStatusState" parameterType="String" resultType="CommonCodeVO">
+		SELECT
+			PRC_CD CODE
+			,SIMPLE_PRC_NM AS CODE_NAME
+		FROM PROCESS
+		WHERE PRC_CD NOT IN ('Z', 'Y', 'C', 'D', 'E', 'Q', 'O', 'P', 'S')
+		ORDER BY DISP_ORDER
+	</select>
+
+	<!-- 공통코드 콤보 조회 - 성적서 -->
+	<select id="commonCode.selectCommonCodeReport" resultType="CommonCodeVO">
+		SELECT REPORT_NM CODE_NAME
+		, REPORT_SEQ || '$%' || REPORT_FILE_NM CODE
+		FROM REPORT_NAME
+		WHERE SUBSTR( REPORT_SEQ , 1, 1) ='R'
+		ORDER BY DISP_ORDER
+	</select>
+	<!-- 공통코드 콤보 조회 - 보고서 -->
+	<select id="selectCommonCodePaper" resultType="CommonCodeVO">
+		SELECT Q.REPORT_NM CODE_NAME
+		, Q.REPORT_SEQ || '$%' || Q.REPORT_FILE_NM || '$%' || UW.UNIT_WORK_NM AS CODE
+		FROM REPORT_NAME Q
+		LEFT OUTER JOIN UNIT_WORK UW ON Q.UNIT_WORK_CD = UW.UNIT_WORK_CD
+		WHERE SUBSTR( Q.REPORT_SEQ , 1, 1) ='Q'
+		ORDER BY Q.DISP_ORDER
+	</select>
+
+	<select id="selectCommonCodeSample" parameterType="CommonCodeVO" resultType="CommonCodeVO">
+		SELECT DISTINCT 
+			TS.TEST_SAMPLE_SEQ CODE
+			, TS.TEST_SAMPLE_SEQ || ' : ' || TS.SAMPLE_REG_NM CODE_NAME
+		FROM TEST_SAMPLE TS
+		INNER JOIN TEST_SAMPLE_ITEM TSI ON TSI.TEST_SAMPLE_SEQ = TS.TEST_SAMPLE_SEQ
+		LEFT OUTER JOIN DEPART PD ON PD.DEPT_CD = TSI.TEST_DEPT_CD
+		WHERE TS.TEST_REQ_SEQ = #{test_req_seq}
+		<if test="pageType == 'user' ">	
+			AND 
+			(
+			    <!-- 시험자-->
+			    TSI.TESTER_ID  = #{user_id}
+			    OR
+			    <!-- 시험자가 부재자거나,-->
+			    TSI.TESTER_ID IN (
+			        SELECT USER_ID
+			        FROM ABSENCE
+			        WHERE
+			            START_DATE   <![CDATA[ <= ]]> SYSDATE
+			        AND END_DATE     <![CDATA[ >= ]]> SYSDATE
+			        AND SUBSTITUTE_ID = #{user_id}
+			    )
+				OR
+				<!-- 팀 -->                
+				TEAM_CD IN (
+				    SELECT TEAM_CD
+				    FROM DEPT_TEAM_USER
+				    WHERE USER_ID = #{user_id}
+				)
+			)
+		</if>
+		<if test="pageType == 'sect' ">
+			AND ( TSI.TEST_DEPT_CD = #{dept_cd} OR PD.PRE_DEPT_CD = #{dept_cd} )
+		</if>
+		ORDER BY TS.TEST_SAMPLE_SEQ
+	</select>
+
+	<!-- 상담경로 콤보 조회 -->
+	<select id="selectCommonCodeCounselPath" resultType="CommonCodeVO">
+		SELECT CODE
+        ,CODE_NAME
+        FROM COMMON_CODE_DETAIL
+        WHERE PRE_CODE = 'C56'
+        ORDER BY DISP_ORDER
+	</select>
+	
+	<!-- 상담구분 콤보 조회 -->
+	<select id="selectCommonCodeCounselDiv" resultType="CommonCodeVO">
+		SELECT CODE
+        ,CODE_NAME
+        FROM COMMON_CODE_DETAIL
+        WHERE PRE_CODE = 'C70'
+        AND USE_FLAG = 'Y'
+        ORDER BY DISP_ORDER
+	</select>
+	
+	<!-- 상담진행상태 콤보 조회 -->
+	<select id="selectCommonCodeCounselprogressSts" resultType="CommonCodeVO">
+		SELECT CODE
+        ,CODE_NAME
+        FROM COMMON_CODE_DETAIL
+        WHERE PRE_CODE = 'C63'
+        ORDER BY DISP_ORDER
+	</select>
+	
+	<!-- 공통코드 콤보 조회 - 양식종류 -->
+	<select id="commonCode.selectCommonFormType" resultType="CommonCodeVO">
+		SELECT 
+			CODE,
+	        CODE_NAME
+        FROM COMMON_CODE_DETAIL
+        WHERE PRE_CODE = 'C60'
+        <if test="code != null and code != '' ">
+        	AND CODE = #{code} 
+        </if>
+        ORDER BY DISP_ORDER
+	</select>
+	
+	<!-- 공통코드 콤보 조회 - 품목대분류(1레벨) -->
+	<select id="selectCommonCodePrdlst_gubun" parameterType="CommonCodeVO" resultType="CommonCodeVO">
+		SELECT 
+			 PRDLST_CD AS CODE
+			 ,KOR_NM AS CODE_NAME
+			 FROM PRDLST_CL
+		 WHERE 1 = 1
+		 AND LV = '1'
+		 AND USE_YN = 'Y'
+		 <if test="code != null and code != '' ">
+			AND KFDA_YN = #{code} 
+		 </if>
+		 ORDER BY PRDLST_CD
+	</select>
+	
+	<!-- 공통코드 콤보 조회 - 항목 대분류 콤보 -->
+	<select id="commonCode.selectCommonTestItemL" resultType="CommonCodeVO">
+		SELECT 
+		    DISTINCT TESTITM_LCLAS_CD CODE,
+		    L_KOR_NM CODE_NAME
+		FROM ANALYSIS
+		ORDER BY TESTITM_LCLAS_CD
+	</select>
+	
+	<!-- 공통코드 콤보 조회 - 항목 중분류 콤보 -->
+	<select id="commonCode.selectCommonTestItemM" parameterType="CommonCodeVO"  resultType="CommonCodeVO">
+	</select>	
+	
+	<!-- 공통코드 콤보 조회 - 업체 리스트 콤보 -->
+	<select id="commonCode.selectCommonOrgList" resultType="CommonCodeVO">
+		SELECT 
+		    REQ_ORG_NO CODE,
+		    ORG_NM CODE_NAME
+		FROM REQ_ORG
+	</select>
+	
+	<!-- 공통코드 콤보 조회 - 여분 콤보 -->
+	<select id="selectCommonCodeEX1Combo" parameterType="CommonCodeVO"  resultType="CommonCodeVO">
+		SELECT 
+			EX_CODE1 AS CODE,
+			CODE_NAME
+		FROM COMMON_CODE_DETAIL
+		WHERE PRE_CODE = #{code}
+			AND USE_FLAG ='Y'
+		ORDER BY DISP_ORDER, CODE
+	</select>	
+	
+	<!-- 공통코드 콤보 조회 - 여분 콤보 -->
+	<select id="selectCommonCodeEX2Combo" parameterType="CommonCodeVO"  resultType="CommonCodeVO">
+		SELECT 
+			EX_CODE2 AS CODE,
+			CODE_NAME
+		FROM COMMON_CODE_DETAIL
+		WHERE PRE_CODE = #{code}
+			AND USE_FLAG ='Y'
+		ORDER BY DISP_ORDER, CODE
+	</select>
+	
+	<select id="commonCode.selectCommonCodeUser" resultType="CommonCodeVO">
+		SELECT
+			USER_ID AS CODE, 
+			USER_NM AS CODE_NAME
+		FROM USER_INFO
+		WHERE USE_FLAG = 'Y' AND DEPT_CD = #{code}
+		ORDER BY USER_NM
+	</select>
+	
+	<!-- 공통코드 콤보 조회 - 양식종류 -->
+	<select id="commonCode.selectFormComboList" resultType="CommonCodeVO">
+		SELECT
+			FORM_SEQ AS CODE,
+			FORM_TITLE AS CODE_NAME
+		FROM FORM
+		WHERE USE_YN = 'Y'
+		AND FORM_TYPE = #{code}
+		ORDER BY ETC
+	</select>
+	
+	<!-- 공통코드 콤보 조회 - 개정문서 -->
+	<select id="commonCode.selectCommonFormTypeDetail" parameterType="CommonCodeVO" resultType="CommonCodeVO">
+		<!-- SELECT 
+		    DOC_SEQ AS CODE
+		    ,FORM_TITLE AS CODE_NAME
+		FROM FORM FRM 
+		JOIN(
+		    SELECT MAX(DOC_SEQ) AS DOC_SEQ FROM DOCUMENT
+		    WHERE TO_CHAR(SYSDATE,'yyyymmdd') >= DOC_REVISION_DATE   
+		    GROUP BY SUBSTR(DOC_SEQ, 1, 6)
+			) DOC 
+		ON FRM.FORM_SEQ = SUBSTR(DOC.DOC_SEQ, 1, 6)
+		AND FORM_TYPE = #{code}
+		ORDER BY CODE -->
+	
+		SELECT 
+		     B.FORM_NAME AS CODE
+		    ,A.DOC_REVISION_SEQ AS CODE_NAME
+		FROM DOCUMENT A
+		JOIN FORM B ON SUBSTR(A.DOC_SEQ, 1, 6) = B.FORM_SEQ
+		WHERE SUBSTR(A.DOC_SEQ, 1, 6) = #{code}
+		AND A.USE_YN = 'Y'
+		ORDER BY DOC_REVISION_SEQ DESC
+	</select>
+	
+	<!-- 산화물 표기 등록 -->
+	<select id="selectItemOxideMarkList" parameterType="CommonCodeVO" resultType="CommonCodeVO">
+		SELECT 
+			OXIDE_CD AS CODE
+			,OXIDE_CONTENT AS CODE_NAME
+		FROM OXIDE_MARK
+		WHERE USED_FLAG = 'Y'
+		ORDER BY OXIDE_CD
+	</select> 
+	
+	<!-- 프로토콜 등록 -->
+	<select id="selectProtocolList" parameterType="CommonCodeVO" resultType="CommonCodeVO">
+		SELECT 
+			 PRDLST_CD AS CODE
+			,KOR_NM AS CODE_NAME
+	    FROM PRDLST_CL PL
+	    ORDER BY HTRK_PRDLST_CD ,PRDLST_CD
+	</select> 
+</mapper>
