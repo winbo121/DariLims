@@ -497,7 +497,7 @@
 		<if test="testitm_nm != null and testitm_nm != '' ">
 			AND (UPPER(S.TESTITM_NM) LIKE '%' || UPPER(#{testitm_nm}) || '%' OR UPPER(A.ENG_NM) LIKE '%' || UPPER(#{testitm_nm}) || '%')
 		</if>
-		ORDER BY CONVERT (A.ENG_NM, 'UTFE')
+		ORDER BY A.ENG_NM
 	</select>
 	
 	<!-- 스탠다드 복사 -->

@@ -5,11 +5,11 @@
 	<entry key="base.driver">core.log.jdbc.driver.OracleDriver</entry>
 	
 	<!-- 개발 --> 	
- 	<entry key="base.url">jdbc:oracle:thin:@203.229.218.187:22221/iit</entry> 
+ 	<entry key="base.url">jdbc:oracle:thin:@localhost:1521:XE</entry> 
 	<!-- 운영 --> 	
 	<!-- <entry key="base.url">jdbc:oracle:thin:@localhost:1521/lims</entry>  -->
 
-	<entry key="base.username">DARI_USER</entry>
-	<entry key="base.password">DARI_USER</entry>
+	<entry key="base.username">SYSTEM</entry>
+	<entry key="base.password">123456</entry>
 
 </properties>
