@@ -53,7 +53,7 @@
 
 	</select>
 
-	<select id="selectSampleList" parameterType="searchVO" resultType="egovMap">
+	<select id="selectSampleList" parameterType="searchVO">
 
 			SELECT
 				ID, NAME, DESCRIPTION, USE_YN, REG_USER
