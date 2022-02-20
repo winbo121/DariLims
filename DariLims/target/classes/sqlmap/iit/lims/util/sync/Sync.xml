@@ -1,0 +1,544 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="sync">
+	<select id="selectLastSyncLog" parameterType="HashMap" resultType="String">
+		SELECT MAX(SYNC_KEY)
+		FROM SYNC_LOG
+		WHERE SYNC_CODE = #{sync_code} AND SYNC_YN = 'Y'
+	</select>
+	
+	<insert id="insertSyncLog" parameterType="HashMap">
+		DECLARE
+		    V_CNT NUMBER;
+		BEGIN
+			SELECT COUNT(*) INTO V_CNT FROM SYNC_LOG
+			WHERE SYNC_KEY = #{sync_key} AND SYNC_CODE = #{sync_code};	
+			
+			IF V_CNT > 0 THEN
+				UPDATE SYNC_LOG SET
+				SYNC_RANGE = #{sync_range},
+				START_DATE = SYSDATE
+				WHERE SYNC_KEY = #{sync_key} AND SYNC_CODE = #{sync_code};
+			ELSE
+				INSERT INTO SYNC_LOG(
+				SYNC_KEY, 
+				SYNC_CODE,
+				SYNC_RANGE,
+				SYNC_YN,
+				SYNC_CNT,
+				START_DATE)
+				VALUES(
+				#{sync_key},
+				#{sync_code},
+				#{sync_range},
+				'N',
+				0,
+				SYSDATE);
+			END IF;
+		END;
+	</insert>
+	
+	<update id="updateSyncLog" parameterType="HashMap">
+		UPDATE SYNC_LOG SET 
+		END_DATE = SYSDATE,
+		SYNC_YN = 'Y',
+		SYNC_CNT = #{sync_cnt}
+		WHERE SYNC_KEY = #{sync_key} AND SYNC_CODE = #{sync_code}
+	</update>
+
+
+
+
+	<select id="selectPrdlstCl" parameterType="HashMap" resultType="int">
+		SELECT COUNT(*)
+		FROM PRDLST_CL
+		WHERE PRDLST_CD = #{prdlst_cd}
+	</select>
+
+	<insert id="insertPrdlstCl" parameterType="HashMap">
+		INSERT INTO PRDLST_CL(
+		PRDLST_CD, 
+		KOR_NM,		
+		LV,
+		USE_YN,
+		ENG_NM,
+		VALD_END_DT,
+		VALD_BEGN_DT,
+		RM,
+		PRDLST_YN,
+		DFN,
+		ATTRB_SEQ,
+		UPDT_PRVNS,
+		LAST_UPDT_DTM,
+		PIAM_KOR_NM,
+		HTRK_PRDLST_CD,
+		HRNK_PRDLST_CD,
+		MXTR_PRDLST_YN,		
+		KFDA_YN)
+		VALUES(
+		#{prdlst_cd},
+		#{kor_nm},
+		#{lv},
+		#{use_yn},
+		#{eng_nm},
+		#{vald_end_dt},
+		#{vald_begn_dt},
+		#{rm},
+		#{prdlst_yn},
+		#{dfn},
+		#{attrb_seq},
+		#{updt_prvns},
+		TO_TIMESTAMP(#{last_updt_dtm},'yyyy-mm-dd hh24:mi:ss.ff9'),
+		#{piam_kor_nm},
+		#{htrk_prdlst_cd},
+		#{hrnk_prdlst_cd},
+		#{mxtr_prdlst_yn},
+		'Y')
+	</insert>
+	
+	<update id="updatePrdlstCl" parameterType="HashMap">
+		UPDATE PRDLST_CL SET 
+		KOR_NM = #{kor_nm},
+		LV			  = #{lv},
+		USE_YN		  = #{use_yn},
+		ENG_NM		  = #{eng_nm},
+		VALD_END_DT	  = #{vald_end_dt},
+		VALD_BEGN_DT  = #{vald_begn_dt},
+		RM			  = #{rm},
+		PRDLST_YN	  = #{prdlst_yn},
+		DFN			  = #{dfn},
+		ATTRB_SEQ	  = #{attrb_seq},
+		UPDT_PRVNS	  = #{updt_prvns},
+		LAST_UPDT_DTM = TO_TIMESTAMP(#{last_updt_dtm},'yyyy-mm-dd hh24:mi:ss.ff9'),
+		PIAM_KOR_NM	  = #{piam_kor_nm},
+		HTRK_PRDLST_CD= #{htrk_prdlst_cd},
+		HRNK_PRDLST_CD= #{hrnk_prdlst_cd},
+		MXTR_PRDLST_YN= #{mxtr_prdlst_yn},
+		KFDA_YN = 'Y'
+		WHERE PRDLST_CD = #{prdlst_cd}
+	</update>
+
+
+
+
+	<select id="selectCmmnSpecKind" parameterType="HashMap" resultType="int">
+		SELECT COUNT(*)
+		FROM CMMN_SPEC_KIND
+		WHERE CMMN_SPEC_CD = #{cmmn_spec_cd}
+	</select>
+
+	<insert id="insertCmmnSpecKind" parameterType="HashMap">
+		INSERT INTO CMMN_SPEC_KIND(
+		CMMN_SPEC_CD,
+		LV,
+		USE_YN,
+		LAST_UPDT_DTM,
+		DFN,
+		HRNK_CMMN_SPEC_CD,
+		SPEC_NM)
+		VALUES(
+		#{cmmn_spec_cd},
+		#{lv},
+		#{use_yn},
+		TO_TIMESTAMP(#{last_updt_dtm},'yyyy-mm-dd hh24:mi:ss.ff9'),
+		#{dfn},
+		#{hrnk_cmmn_spec_cd},
+		#{spec_nm})
+	</insert>
+	
+	<update id="updateCmmnSpecKind" parameterType="HashMap">
+		UPDATE CMMN_SPEC_KIND SET 
+		LV = #{lv},
+		USE_YN = #{use_yn},
+		LAST_UPDT_DTM = TO_TIMESTAMP(#{last_updt_dtm},'yyyy-mm-dd hh24:mi:ss.ff9'),
+		DFN = #{dfn},
+		HRNK_CMMN_SPEC_CD = #{hrnk_cmmn_spec_cd},
+		SPEC_NM = #{spec_nm}
+		WHERE CMMN_SPEC_CD = #{cmmn_spec_cd}
+	</update>
+
+
+
+	<select id="selectCmmnSpec" parameterType="HashMap" resultType="int">
+		SELECT COUNT(*)
+		FROM CMMN_SPEC
+		WHERE CMMN_SPEC_SEQ = #{cmmn_spec_seq}
+	</select>
+
+	<insert id="insertCmmnSpec" parameterType="HashMap">
+		INSERT INTO CMMN_SPEC(
+		CMMN_SPEC_SEQ,
+		TESTITM_CD,
+		PRDLST_CD,
+		SORC,
+		VALD_END_DT,
+		MXMM_VAL,
+		FNPRT_ITM_NM,
+		PRDLST_CD_NM,
+		MXMM_VAL_DVS_CD,
+		ATTRB_SEQ,
+		UPDT_PRVNS,
+		LAST_UPDT_DTM,
+		MCRRGNSM_2N,
+		CMMN_SPEC_CD,
+		MCRRGNSM_2M,
+		SPEC_VAL,
+		MCRRGNSM_2C,
+		A082_CF_FNPRT_CD_NM,
+		VALD_MANLI,
+		TESTITM_NM,
+		CHOIC_IMPROPT,
+		A082_CI_FNPRT_CD_NM,
+		SPEC_VAL_SUMUP,
+		VALD_BEGN_DT,
+		INJRY_YN,
+		A080_FNPRT_CD_NM,
+		FNPRT_ITM_INCLS_YN,
+		MIMM_VAL_DVS_CD,
+		NTR_PRSEC_ITM_YN,
+		MONTRNG_TESTITM_YN,
+		UNIT_CD,
+		CHOIC_FIT,
+		PIAM_KOR_NM,
+		EMPHS_PRSEC_TESTITM_YN,
+		JDGMNT_FOM_CD,
+		MIMM_VAL,
+		UNIT_NM,
+		RVLV_ELSE_TESTITM_YN,
+		MCRRGNSM_3M,
+		A081_FNPRT_CD_NM,
+		SPEC_NM,
+		A079_FNPRT_CD_NM)
+		VALUES(
+		#{cmmn_spec_seq},
+		#{testitm_cd},
+		#{prdlst_cd},
+		#{sorc},
+		#{vald_end_dt},
+		#{mxmm_val},
+		#{fnprt_itm_nm},
+		#{prdlst_cd_nm},
+		#{mxmm_val_dvs_cd},
+		#{attrb_seq},
+		#{updt_prvns},
+		TO_TIMESTAMP(#{last_updt_dtm},'yyyy-mm-dd hh24:mi:ss.ff9'),
+		#{mcrrgnsm_2n},
+		#{cmmn_spec_cd},
+		#{mcrrgnsm_2m},
+		#{spec_val},
+		#{mcrrgnsm_2c},
+		#{a082_cf_fnprt_cd_nm},
+		#{vald_manli},
+		#{testitm_nm},
+		#{choic_impropt},
+		#{a082_ci_fnprt_cd_nm},
+		#{spec_val_sumup},
+		#{vald_begn_dt},
+		#{injry_yn},
+		#{a080_fnprt_cd_nm},
+		#{fnprt_itm_incls_yn},
+		#{mimm_val_dvs_cd},
+		#{ntr_prsec_itm_yn},
+		#{montrng_testitm_yn},
+		#{unit_cd},
+		#{choic_fit},
+		#{piam_kor_nm},
+		#{emphs_prsec_testitm_yn},
+		#{jdgmnt_fom_cd},
+		#{mimm_val},
+		#{unit_nm},
+		#{rvlv_else_testitm_yn},
+		#{mcrrgnsm_3m},
+		#{a081_fnprt_cd_nm},
+		#{spec_nm},
+		#{a079_fnprt_cd_nm}
+		)
+	</insert>
+	
+	<update id="updateCmmnSpec" parameterType="HashMap">
+		UPDATE CMMN_SPEC SET 
+		TESTITM_CD				 = #{testitm_cd},
+		PRDLST_CD				 = #{prdlst_cd},
+		SORC					 = #{sorc},
+		VALD_END_DT				 = #{vald_end_dt},
+		MXMM_VAL				 = #{mxmm_val},
+		FNPRT_ITM_NM			 = #{fnprt_itm_nm},
+		PRDLST_CD_NM			 = #{prdlst_cd_nm},
+		MXMM_VAL_DVS_CD			 = #{mxmm_val_dvs_cd},
+		ATTRB_SEQ				 = #{attrb_seq},
+		UPDT_PRVNS				 = #{updt_prvns},
+		LAST_UPDT_DTM = TO_TIMESTAMP(#{last_updt_dtm},'yyyy-mm-dd hh24:mi:ss.ff9'),
+		MCRRGNSM_2N				 = #{mcrrgnsm_2n},
+		CMMN_SPEC_CD			 = #{cmmn_spec_cd},
+		MCRRGNSM_2M				 = #{mcrrgnsm_2m},
+		SPEC_VAL				 = #{spec_val},
+		MCRRGNSM_2C				 = #{mcrrgnsm_2c},
+		A082_CF_FNPRT_CD_NM		 = #{a082_cf_fnprt_cd_nm},
+		VALD_MANLI				 = #{vald_manli},
+		TESTITM_NM				 = #{testitm_nm},
+		CHOIC_IMPROPT			 = #{choic_impropt},
+		A082_CI_FNPRT_CD_NM		 = #{a082_ci_fnprt_cd_nm},
+		SPEC_VAL_SUMUP			 = #{spec_val_sumup},
+		VALD_BEGN_DT			 = #{vald_begn_dt},
+		INJRY_YN				 = #{injry_yn},
+		A080_FNPRT_CD_NM		 = #{a080_fnprt_cd_nm},
+		FNPRT_ITM_INCLS_YN		 = #{fnprt_itm_incls_yn},
+		MIMM_VAL_DVS_CD			 = #{mimm_val_dvs_cd},
+		NTR_PRSEC_ITM_YN		 = #{ntr_prsec_itm_yn},
+		MONTRNG_TESTITM_YN		 = #{montrng_testitm_yn},
+		UNIT_CD					 = #{unit_cd},
+		CHOIC_FIT				 = #{choic_fit},
+		PIAM_KOR_NM				 = #{piam_kor_nm},
+		EMPHS_PRSEC_TESTITM_YN	 = #{emphs_prsec_testitm_yn}, 
+		JDGMNT_FOM_CD			 = #{jdgmnt_fom_cd},
+		MIMM_VAL				 = #{mimm_val},
+		UNIT_NM					 = #{unit_nm},
+		RVLV_ELSE_TESTITM_YN	 = #{rvlv_else_testitm_yn},
+		MCRRGNSM_3M				 = #{mcrrgnsm_3m},
+		A081_FNPRT_CD_NM		 = #{a081_fnprt_cd_nm},
+		SPEC_NM					 = #{spec_nm},
+		A079_FNPRT_CD_NM		 = #{a079_fnprt_cd_nm}
+		WHERE CMMN_SPEC_SEQ = #{cmmn_spec_seq}
+	</update>
+
+
+
+	<select id="selectCmmnSpecKindExptPrdlst" parameterType="HashMap" resultType="int">
+		SELECT COUNT(*)
+		FROM CMMN_SPEC_KIND_EXPT_PRDLST
+		WHERE CMMN_SPEC_CD = #{cmmn_spec_cd}
+		AND TESTITM_CD = #{testitm_cd}
+		AND PRDLST_CD = #{prdlst_cd}
+	</select>
+
+	<insert id="insertCmmnSpecKindExptPrdlst" parameterType="HashMap">
+		INSERT INTO CMMN_SPEC_KIND_EXPT_PRDLST(
+		CMMN_SPEC_CD,
+		TESTITM_CD,
+		PRDLST_CD,
+		LAST_UPDT_DTM,
+		KOR_NM,
+		SPEC_NM)
+		VALUES(
+		#{cmmn_spec_cd},
+		#{testitm_cd},
+		#{prdlst_cd},
+		TO_TIMESTAMP(#{last_updt_dtm},'yyyy-mm-dd hh24:mi:ss.ff9'),
+		#{kor_nm},
+		#{spec_nm})
+	</insert>
+	
+	<update id="updateCmmnSpecKindExptPrdlst" parameterType="HashMap">
+		UPDATE CMMN_SPEC_KIND_EXPT_PRDLST SET 
+		LAST_UPDT_DTM = TO_TIMESTAMP(#{last_updt_dtm},'yyyy-mm-dd hh24:mi:ss.ff9'),
+		KOR_NM = #{kor_nm},
+		SPEC_NM = #{spec_nm}
+		WHERE CMMN_SPEC_CD = #{cmmn_spec_cd}
+		AND TESTITM_CD = #{testitm_cd}
+		AND PRDLST_CD = #{prdlst_cd}
+	</update>
+
+
+
+	<select id="selectAnalysis" parameterType="HashMap" resultType="int">
+		SELECT COUNT(*)
+		FROM ANALYSIS
+		WHERE TESTITM_CD = #{testitm_cd}
+	</select>
+
+	<insert id="insertAnalysis" parameterType="HashMap">
+		INSERT INTO ANALYSIS(
+		TESTITM_CD,
+		ENG_NM,
+		TESTITM_NM,
+		USE_YN,
+		NCKNM,
+		ABRV,
+		L_KOR_NM,
+		LAST_UPDT_DTM,
+		TESTITM_LCLAS_CD,
+		REMN_MTTR_DFN,
+		M_KOR_NM,
+		KOR_NM,
+		TESTITM_MLSFC_CD,
+		KFDA_YN)
+		VALUES(		
+		#{testitm_cd},
+		#{eng_nm},
+		#{testitm_nm},
+		#{use_yn},
+		#{ncknm},
+		#{abrv},
+		#{l_kor_nm},
+		TO_TIMESTAMP(#{last_updt_dtm},'yyyy-mm-dd hh24:mi:ss.ff9'),
+		#{testitm_lclas_cd},
+		#{remn_mttr_dfn},
+		#{m_kor_nm},
+		#{kor_nm},
+		#{testitm_mlsfc_cd},
+		'Y')
+	</insert>
+	
+	<update id="updateAnalysis" parameterType="HashMap">
+		UPDATE ANALYSIS SET 
+		ENG_NM			  = #{eng_nm},
+		TESTITM_NM		  = #{testitm_nm},
+		USE_YN			  = #{use_yn},
+		NCKNM			  = #{ncknm},
+		ABRV			  = #{abrv},
+		L_KOR_NM		  = #{l_kor_nm},
+		LAST_UPDT_DTM = TO_TIMESTAMP(#{last_updt_dtm},'yyyy-mm-dd hh24:mi:ss.ff9'),
+		TESTITM_LCLAS_CD  = #{testitm_lclas_cd}, 
+		REMN_MTTR_DFN	  = #{remn_mttr_dfn},
+		M_KOR_NM		  = #{m_kor_nm},
+		KOR_NM			  = #{kor_nm},
+		TESTITM_MLSFC_CD  = #{testitm_mlsfc_cd}, 
+		KFDA_YN = 'Y'
+		WHERE TESTITM_CD = #{testitm_cd}
+	</update>
+
+
+
+	<select id="selectIndvSpec" parameterType="HashMap" resultType="int">
+		SELECT COUNT(*)
+		FROM INDV_SPEC
+		WHERE INDV_SPEC_SEQ = #{indv_spec_seq}
+		AND TESTITM_CD = #{testitm_cd}
+		AND PRDLST_CD = #{prdlst_cd}
+	</select>
+
+	<insert id="insertIndvSpec" parameterType="HashMap">
+		INSERT INTO INDV_SPEC(
+		INDV_SPEC_SEQ,
+		TESTITM_CD,
+		PRDLST_CD,
+		SORC,
+		VALD_END_DT,
+		MXMM_VAL,
+		FNPRT_ITM_NM,
+		PRDLST_CD_NM,
+		MXMM_VAL_DVS_CD,
+		ATTRB_SEQ,
+		UPDT_PRVNS,
+		LAST_UPDT_DTM,
+		MCRRGNSM_2N,
+		MCRRGNSM_2M,
+		SPEC_VAL,
+		MCRRGNSM_2C,
+		VALD_MANLI,
+		A082_CF_FNPRT_CD_NM,
+		TESTITM_NM,
+		CHOIC_IMPROPT,
+		A082_CI_FNPRT_CD_NM,
+		SPEC_VAL_SUMUP,
+		VALD_BEGN_DT,
+		INJRY_YN,
+		A080_FNPRT_CD_NM,
+		FNPRT_ITM_INCLS_YN,
+		MIMM_VAL_DVS_CD,
+		NTR_PRSEC_ITM_YN,
+		MONTRNG_TESTITM_YN,
+		UNIT_CD,
+		CHOIC_FIT,
+		PIAM_KOR_NM,
+		EMPHS_PRSEC_TESTITM_YN,
+		JDGMNT_FOM_CD,
+		MIMM_VAL,
+		UNIT_NM,
+		RVLV_ELSE_TESTITM_YN,
+		MCRRGNSM_3M,
+		A081_FNPRT_CD_NM,
+		A079_FNPRT_CD_NM,
+		KFDA_YN)
+		VALUES(
+		#{indv_spec_seq},
+		#{testitm_cd},
+		#{prdlst_cd},
+		#{sorc},
+		#{vald_end_dt},
+		#{mxmm_val},
+		#{fnprt_itm_nm},
+		#{prdlst_cd_nm},
+		#{mxmm_val_dvs_cd},
+		#{attrb_seq},
+		#{updt_prvns},
+		TO_TIMESTAMP(#{last_updt_dtm},'yyyy-mm-dd hh24:mi:ss.ff9'),
+		#{mcrrgnsm_2n},
+		#{mcrrgnsm_2m},
+		#{spec_val},
+		#{mcrrgnsm_2c},
+		#{vald_manli},
+		#{a082_cf_fnprt_cd_nm},
+		#{testitm_nm},
+		#{choic_impropt},
+		#{a082_ci_fnprt_cd_nm},
+		#{spec_val_sumup},
+		#{vald_begn_dt},
+		#{injry_yn},
+		#{a080_fnprt_cd_nm},
+		#{fnprt_itm_incls_yn},
+		#{mimm_val_dvs_cd},
+		#{ntr_prsec_itm_yn},
+		#{montrng_testitm_yn},
+		#{unit_cd},
+		#{choic_fit},
+		#{piam_kor_nm},
+		#{emphs_prsec_testitm_yn},
+		#{jdgmnt_fom_cd},
+		#{mimm_val},
+		#{unit_nm},
+		#{rvlv_else_testitm_yn},
+		#{mcrrgnsm_3m},
+		#{a081_fnprt_cd_nm},
+		#{a079_fnprt_cd_nm},
+		'Y')
+	</insert>
+	
+	<update id="updateIndvSpec" parameterType="HashMap">
+		UPDATE INDV_SPEC SET 
+		SORC				   = #{sorc},                  
+		VALD_END_DT			   = #{vald_end_dt},           
+		MXMM_VAL			   = #{mxmm_val},              
+		FNPRT_ITM_NM		   = #{fnprt_itm_nm},          
+		PRDLST_CD_NM		   = #{prdlst_cd_nm},          
+		MXMM_VAL_DVS_CD		   = #{mxmm_val_dvs_cd},       
+		ATTRB_SEQ			   = #{attrb_seq},             
+		UPDT_PRVNS			   = #{updt_prvns},   
+		LAST_UPDT_DTM = TO_TIMESTAMP(#{last_updt_dtm},'yyyy-mm-dd hh24:mi:ss.ff9'),
+		MCRRGNSM_2N			   = #{mcrrgnsm_2n},           
+		MCRRGNSM_2M			   = #{mcrrgnsm_2m},           
+		SPEC_VAL			   = #{spec_val},              
+		MCRRGNSM_2C			   = #{mcrrgnsm_2c},           
+		VALD_MANLI			   = #{vald_manli},            
+		A082_CF_FNPRT_CD_NM	   = #{a082_cf_fnprt_cd_nm},   
+		TESTITM_NM			   = #{testitm_nm},            
+		CHOIC_IMPROPT		   = #{choic_impropt},         
+		A082_CI_FNPRT_CD_NM	   = #{a082_ci_fnprt_cd_nm},   
+		SPEC_VAL_SUMUP		   = #{spec_val_sumup},        
+		VALD_BEGN_DT		   = #{vald_begn_dt},          
+		INJRY_YN			   = #{injry_yn},              
+		A080_FNPRT_CD_NM	   = #{a080_fnprt_cd_nm},      
+		FNPRT_ITM_INCLS_YN	   = #{fnprt_itm_incls_yn},    
+		MIMM_VAL_DVS_CD		   = #{mimm_val_dvs_cd},       
+		NTR_PRSEC_ITM_YN	   = #{ntr_prsec_itm_yn},      
+		MONTRNG_TESTITM_YN	   = #{montrng_testitm_yn},    
+		UNIT_CD				   = #{unit_cd},               
+		CHOIC_FIT			   = #{choic_fit},             
+		PIAM_KOR_NM			   = #{piam_kor_nm},           
+		EMPHS_PRSEC_TESTITM_YN = #{emphs_prsec_testitm_yn},
+		JDGMNT_FOM_CD		   = #{jdgmnt_fom_cd},         
+		MIMM_VAL			   = #{mimm_val},              
+		UNIT_NM				   = #{unit_nm},               
+		RVLV_ELSE_TESTITM_YN   = #{rvlv_else_testitm_yn},  
+		MCRRGNSM_3M			   = #{mcrrgnsm_3m},           
+		A081_FNPRT_CD_NM	   = #{a081_fnprt_cd_nm},      
+		A079_FNPRT_CD_NM	   = #{a079_fnprt_cd_nm},
+		KFDA_YN = 'Y'
+		WHERE INDV_SPEC_SEQ = #{indv_spec_seq}
+		AND TESTITM_CD = #{testitm_cd}
+		AND PRDLST_CD = #{prdlst_cd}
+	</update>
+
+
+
+</mapper>

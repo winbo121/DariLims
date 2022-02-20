@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="system">
+	<select id="selectNoticeList" parameterType="noticeVO" resultType="noticeVO">
+		SELECT z.*
+		  FROM ( SELECT a.*,
+					    ROWNUM rNum
+				   FROM (
+						SELECT NOTICE_TITLE
+								,NOTICE_NO
+								,(SELECT USER_NM FROM USER_INFO WHERE USER_ID = N.WRITER) AS WRITER
+								,TO_CHAR(WRITE_DATE, 'YYYY-MM-DD HH24:MI:SS') AS WRITE_DATE
+								,TO_CHAR(NOTICE_SDATE, 'YYYY-MM-DD') || ' ~ ' || TO_CHAR(NOTICE_EDATE, 'YYYY-MM-DD') AS  NOTICE_START
+								<if test="role_no != null and role_no != '' ">
+								,#{role_no} ROLE_NO
+								</if>
+						  FROM NOTICE N
+						 WHERE 1=1
+						<if test="notice_title != null and notice_title != '' ">
+							AND UPPER(notice_title) like '%' || UPPER( #{notice_title} ) || '%'
+						</if>
+						<if test="startDate != null and startDate != '' ">
+							<if test="endDate != null and endDate != '' ">
+								AND TO_CHAR(WRITE_DATE, 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate}
+							</if>
+						</if>
+						<if test="sortName != null and sortName != '' ">
+							ORDER BY ${sortName} ${sortType}
+						</if>
+						<if test="sortName == null or sortName == '' ">
+							ORDER BY WRITE_DATE DESC
+						</if>
+						)a
+				)z
+		WHERE rNum BETWEEN #{firstIndex} +1 AND #{firstIndex} + #{recordCountPerPage}
+		ORDER BY rNum
+	</select>
+	
+	<select id="system.noticeCnt" parameterType="pagingVO" resultType="int">
+		SELECT COUNT(*) 
+		  FROM NOTICE
+		<where>
+			<if test="notice_title != null and notice_title != '' ">
+				AND UPPER(notice_title) like '%' || UPPER( #{notice_title} ) || '%'
+			</if>
+			<if test="startDate != null and startDate != '' ">
+				<if test="endDate != null and endDate != '' ">
+					AND TO_CHAR(WRITE_DATE, 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate}
+				</if>
+			</if>
+		</where>
+	</select>
+	
+	<select id="system.noticeDetail" parameterType="noticeVO" resultType="noticeVO">
+		SELECT NOTICE_TITLE
+				,NOTICE_DESC
+				,NOTICE_NO
+				,TO_CHAR(WRITE_DATE, 'YYYY-MM-DD HH24:MI:SS') WRITE_DATE
+				,TO_CHAR(NOTICE_SDATE, 'YYYY-MM-DD') NOTICE_START
+				,TO_CHAR(NOTICE_EDATE, 'YYYY-MM-DD') NOTICE_END
+				,(SELECT USER_NM FROM USER_INFO WHERE USER_ID = N.WRITER) AS WRITER
+		  FROM NOTICE N
+		 WHERE NOTICE_NO = #{key}
+	</select>
+	
+	<insert id="system.insertNotice" parameterType="noticeVO">
+		<selectKey resultType="string" keyProperty="notice_no" order="BEFORE">
+			SELECT LPAD(NVL(MAX(notice_no),0)+1, 4,'0') FROM NOTICE
+		</selectKey>
+		INSERT INTO NOTICE(
+							NOTICE_NO
+							,NOTICE_TITLE
+							,NOTICE_DESC
+							,WRITE_DATE
+							,NOTICE_SDATE
+							,NOTICE_EDATE
+							,WRITER
+					)VALUES(
+							#{notice_no}
+							,#{notice_title}
+							,#{notice_desc}
+							,SYSDATE
+							,#{notice_start}
+							,#{notice_end}
+							,#{creater_id}
+							)
+	</insert>
+	
+	<update id="system.updateNotice" parameterType="noticeVO">
+		UPDATE NOTICE 
+		   SET NOTICE_TITLE 	= #{notice_title}
+			   ,NOTICE_DESC 	= #{notice_desc}
+			   ,NOTICE_SDATE 	= #{notice_start}
+			   ,NOTICE_EDATE 	= #{notice_end}
+			   ,WRITER 			= #{creater_id}
+		  WHERE NOTICE_NO = #{notice_no}
+	</update>
+	
+	<delete id="system.deleteNotice" parameterType="noticeVO">
+		DELETE FROM NOTICE
+		WHERE NOTICE_NO = #{notice_no}
+	</delete>
+	
+	<select id="system.mainNoticeList" resultType="noticeVO">
+		SELECT NOTICE_NO
+          FROM NOTICE
+         WHERE TO_CHAR(SYSDATE, 'YYYY-MM-DD') BETWEEN TO_CHAR(NOTICE_SDATE, 'YYYY-MM-DD') AND TO_CHAR(NOTICE_EDATE, 'YYYY-MM-DD')
+	</select>
+	
+	<select id="system.mainNotice" resultType="noticeVO">
+		SELECT * 
+		  FROM (
+				SELECT A.*
+				  	   ,ROWNUM rNum 
+				  FROM (SELECT NOTICE_TITLE
+				  			   ,NOTICE_NO
+							   ,TO_CHAR(WRITE_DATE, 'YYYY-MM-DD') WRITE_DATE
+							   ,WRITE_DATE c_date
+						  FROM NOTICE
+						 WHERE TO_CHAR(SYSDATE, 'YYYY-MM-DD') BETWEEN TO_CHAR(NOTICE_SDATE, 'YYYY-MM-DD') AND TO_CHAR(NOTICE_EDATE, 'YYYY-MM-DD')
+						ORDER BY c_date DESC )A
+				) 
+    	 WHERE rNum <![CDATA[ < ]]> 6
+	</select>
+</mapper>

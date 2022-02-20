@@ -1,0 +1,597 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="testStandard">
+
+	<!-- 스탠다드 등록 -->
+	<insert id="insertStandardItem" parameterType="TestStandardVO">
+		<selectKey resultType="string" keyProperty="sm_code" order="BEFORE">
+			SELECT LPAD(NVL(MAX(SM_CODE),0)+1, 5, 0) AS SM_CODE FROM STANDARD_NAME
+		</selectKey>
+	
+		BEGIN
+	
+			INSERT INTO STANDARD_NAME
+			(
+				 SM_CODE
+				,SM_NAME
+				,SM_NAME_E
+				,PRDLST_CD
+				,USE_FLAG
+			) 
+			VALUES 
+			(
+				 #{sm_code}
+				,#{sm_name}
+				,#{sm_name_e}
+				,#{protocol}
+				,#{use_flag}
+			);
+			
+			INSERT INTO STANDARD_SPEC 
+			(
+		        STANDARD_SPEC_SEQ,
+		        SM_CODE,
+		        SM_NAME,
+		        TESTITM_CD,	    
+		        TESTITM_NM,
+		        CREATER_ID,
+		        CREATE_DATE,
+		        LAST_UPDT_DTM,
+		        VALD_BEGN_DT,
+		        VALD_END_DT,
+		        SPEC_VAL,
+		        INJRY_YN,
+		        FNPRT_ITM_INCLS_YN,
+		        NTR_PRSEC_ITM_YN,
+		        MONTRNG_TESTITM_YN,
+		        EMPHS_PRSEC_TESTITM_YN,
+		        RVLV_ELSE_TESTITM_YN,
+		        JDGMNT_FOM_CD,
+		        KFDA_YN,
+		        DEL_ST_SPEC,
+		        UNIT_CD,
+		        TEST_METHOD_NO,
+		        OXIDE_CD,
+		        PRDLST_CD,
+		        ITEM_ORDER
+			)
+			SELECT
+				(SQ_STANDARD_SPEC.NEXTVAL),
+				#{sm_code},
+				#{sm_name},
+				TESTITM_CD,
+				TESTITM_NM,
+				#{user_id},
+				TO_CHAR(SYSDATE, 'YYYYmmdd'),
+				SYSDATE,
+				TO_CHAR(SYSDATE, 'YYYYmmdd'),
+				'99991231',
+		        '-',
+		        'N',
+		        'N',
+		        'N',
+		        'N',
+		        'N',
+		        'N',
+		        'C31002', <!-- JDGMNT_FOM_CD 결과값형태-->
+				'N',
+				'N',
+				DECODE(SUBSTR(UNIT_CD,0,1), 'C' , UNIT_CD ,(SELECT CODE FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'UNIT' AND CCD.KFDA_CODE = UNIT_CD)),
+			    TEST_METHOD_NO,
+			    OXIDE_CD,
+			    PRDLST_CD,
+			    ITEM_ORDER
+			FROM INDV_SPEC
+			WHERE PRDLST_CD = #{protocol}
+			;
+		
+		END;
+	</insert>
+	
+	<update id="updateStandardItem" parameterType="TestStandardVO">
+		BEGIN
+			UPDATE STANDARD_NAME SET
+				 SM_NAME = #{sm_name}
+				,SM_NAME_E = #{sm_name_e}
+				,USE_FLAG = #{use_flag}
+				,PRDLST_CD = #{protocol}
+			WHERE SM_CODE = #{sm_code}
+			;
+			
+			UPDATE STANDARD_SPEC SET
+				 SM_NAME = #{sm_name}
+			WHERE SM_CODE = #{sm_code}
+			;
+		END;
+	</update>
+	
+	<insert id="copyStandard" parameterType="TestStandardVO">
+		<selectKey resultType="string" keyProperty="sm_code" order="BEFORE">
+			SELECT LPAD(NVL(MAX(SM_CODE),0)+1, 5, 0) AS SM_CODE FROM STANDARD_NAME
+		</selectKey>
+	
+		BEGIN
+	
+			INSERT INTO STANDARD_NAME
+			(
+				 SM_CODE
+				,SM_NAME
+				,SM_NAME_E
+				,PRDLST_CD
+				,USE_FLAG
+			) 
+			VALUES 
+			(
+				 #{sm_code}
+				,#{sm_name}
+				,#{sm_name_e}
+				,#{protocol}
+				,#{use_flag}
+			);
+			
+ 			INSERT INTO STANDARD_SPEC 
+			(
+		        STANDARD_SPEC_SEQ,
+		        SM_CODE,
+		        SM_NAME,
+		        TESTITM_CD,	    
+		        TESTITM_NM,
+		        CREATER_ID,
+		        CREATE_DATE ,
+		        LAST_UPDT_DTM,
+		        VALD_BEGN_DT,
+		        VALD_END_DT,
+		        SPEC_VAL,
+		        INJRY_YN,
+		        FNPRT_ITM_INCLS_YN,
+		        NTR_PRSEC_ITM_YN,
+		        MONTRNG_TESTITM_YN,
+		        EMPHS_PRSEC_TESTITM_YN,
+		        RVLV_ELSE_TESTITM_YN,
+		        JDGMNT_FOM_CD,
+		        KFDA_YN,
+		        DEL_ST_SPEC,
+		        UNIT_CD,
+		        TEST_METHOD_NO,
+		        OXIDE_CD,
+		        PRDLST_CD,
+		        ITEM_ORDER,
+		        ACCOUNT_NO,
+		        BASE_CD,
+		        VALD_MANLI,
+		        MIMM_VAL,
+		        MIMM_VAL_DVS_CD,
+		        MXMM_VAL,
+		        MXMM_VAL_DVS_CD,
+		        CHOIC_FIT,
+		        CHOIC_IMPROPT,
+		        LOQ_LVAL,
+		        LOQ_LVAL_MARK,
+		        LOQ_HVAL,
+		        LOQ_HVAL_MARK
+			)
+			SELECT
+				(SQ_STANDARD_SPEC.NEXTVAL),
+				#{sm_code},
+				#{sm_name},
+				TESTITM_CD,
+				TESTITM_NM,
+				#{user_id},
+				TO_CHAR(SYSDATE, 'YYYYmmdd'),
+				SYSDATE,
+				TO_CHAR(SYSDATE, 'YYYYmmdd'),
+ 				'99991231',
+		         SPEC_VAL,
+		        'N',
+		        'N',
+		        'N',
+		        'N',
+		        'N',
+		        'N',
+		        'C31002', <!-- JDGMNT_FOM_CD 결과값형태 -->
+				'N',
+				'N',
+				DECODE(SUBSTR(UNIT_CD,0,1), 'C' , UNIT_CD ,(SELECT CODE FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'UNIT' AND CCD.KFDA_CODE = UNIT_CD)),
+			    TEST_METHOD_NO,
+			    OXIDE_CD,
+			    PRDLST_CD,
+			    ITEM_ORDER,
+			    ACCOUNT_NO,
+			    BASE_CD,
+		        VALD_MANLI,
+		        MIMM_VAL,
+		        MIMM_VAL_DVS_CD,
+		        MXMM_VAL,
+		        MXMM_VAL_DVS_CD,
+		        CHOIC_FIT,
+		        CHOIC_IMPROPT,
+		        LOQ_LVAL,
+		        LOQ_LVAL_MARK,
+		        LOQ_HVAL,
+		        LOQ_HVAL_MARK
+			FROM STANDARD_SPEC
+			WHERE SM_CODE = #{sm_code_n} 
+			;
+		
+		END;
+	</insert>
+	
+	<!-- 품목 리스트 -->
+	<select id="selectStandardList" resultType="TestStandardVO" parameterType="TestStandardVO">		
+		SELECT SM_CODE, SM_NAME, SM_NAME_E, PRDLST_CD, USE_FLAG
+		FROM STANDARD_NAME
+		WHERE 1 = 1
+		<if test="sm_name != null and sm_name != '' ">
+			AND (UPPER(SM_NAME) like '%'|| UPPER(#{sm_name}) ||'%'  OR UPPER(SM_NAME_E) like '%'|| UPPER(#{sm_name}) ||'%')
+		</if>
+		<if test="use_flag != null and use_flag != '' ">
+			AND USE_FLAG = #{use_flag}
+		</if>
+		ORDER BY SM_NAME
+	</select>
+	
+	<!-- 스탠다드별 항목 검사기준 조회 -->
+	<select id="selectStandardRItemList" parameterType="TestStandardVO" resultType="TestStandardVO">
+		SELECT
+		    S.STANDARD_SPEC_SEQ,
+		    S.SM_CODE,
+		    S.SM_NAME,
+		    S.TESTITM_CD,
+		    S.TESTITM_NM,
+		    A.ENG_NM,
+		    S.FNPRT_ITM_INCLS_YN,
+		    S.BASE_CD,
+		    S.JDGMNT_FOM_CD,
+		    S.ACCOUNT_NO AS FORMULA_NO,
+		    B.FORMULA_DISP AS FORMULA_NM,
+		    VALD_MANLI,
+		    CHOIC_FIT,
+		    DECODE(SUBSTR(CHOIC_FIT,0,1), 'C' , (SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = CHOIC_FIT) ,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'CHOIC' AND CCD.KFDA_CODE = CHOIC_FIT)) CHOIC_FIT_NM,
+		    CHOIC_IMPROPT,
+		    LOQ_LVAL,
+		    LOQ_HVAL,
+		    SPEC_VAL,
+		    MIMM_VAL,
+		    MIMM_VAL_DVS_CD,
+		    MXMM_VAL,
+		    MXMM_VAL_DVS_CD,
+		    S.VALD_BEGN_DT,
+		    S.DEPT_CD,
+		    S.KFDA_YN,
+		    S.DEL_ST_SPEC,
+		    S.UNIT_CD,
+		    S.TEST_METHOD_NO,
+	        (SELECT TEST_METHOD_NM FROM TEST_METHOD WHERE USE_FLAG = 'Y' AND TEST_METHOD_NO = S.TEST_METHOD_NO) AS TEST_METHOD_NM,
+	        S.OXIDE_CD,
+	        NVL(GET_COMMON_CODE(A.TESTITM_LCLAS_CD, ''),'') AS TESTITM_LCLAS_NM,
+			NVL(GET_COMMON_CODE(A.TESTITM_MLSFC_CD, ''),'') AS TESTITM_MLSFC_NM,
+			P.KOR_NM AS PRDLST_NM,
+			S.ITEM_ORDER,
+			S.LOQ_LVAL_MARK,
+		    S.LOQ_HVAL_MARK,
+		    S.PRDLST_CD AS PROTOCOL,
+		    S.REPORT_FLAG
+		FROM STANDARD_SPEC S
+		JOIN ANALYSIS A ON S.TESTITM_CD = A.TESTITM_CD
+		LEFT JOIN FORMULA B ON S.ACCOUNT_NO = B.FORMULA_NO
+		LEFT OUTER JOIN PRDLST_CL P ON S.PRDLST_CD = P.PRDLST_CD
+		WHERE S.SM_CODE = #{sm_code} AND S.VALD_BEGN_DT <![CDATA[<= ]]> TO_CHAR(SYSDATE,'YYYYmmdd')
+		AND S.FNPRT_ITM_NM IS NULL
+		AND DEL_ST_SPEC = 'N'
+		ORDER BY S.ITEM_ORDER
+	</select>
+	
+	<!-- 스탠다드 항목 추가 팝업 리스트 조회 -->
+	<select id="selectStandardPIList" parameterType="TestStandardVO" resultType="TestItemVO">
+		SELECT * FROM 
+		(
+			SELECT 
+				VW_LIST.*, 
+				ROWNUM AS ROW_NUM, 
+				FLOOR((ROWNUM -1) / #{pageSize} + 1) AS PAGENUM,
+				COUNT(*) OVER() AS TOTALCOUNT, 
+				COUNT(*) OVER() AS TOTAL, 
+				CEIL(COUNT(*) OVER() / #{pageSize}) AS TOTALPAGE
+			FROM 
+			(
+				SELECT
+					ANL.TESTITM_CD,
+					ANL.TESTITM_NM,
+					ANL.ENG_NM,
+					NVL(GET_COMMON_CODE(TESTITM_LCLAS_CD, ''),'') AS TESTITM_LCLAS_NM,
+					NVL(GET_COMMON_CODE(TESTITM_MLSFC_CD, ''),'') AS TESTITM_MLSFC_NM,
+					NCKNM,
+					ABRV,
+					REMN_MTTR_DFN,
+					KFDA_YN,
+					DECODE(USE_YN, 'Y', '예', '아니오') USE_FLAG,
+					TO_CHAR(LAST_UPDT_DTM, 'YYYY-mm-dd') LAST_UPDT_DTM
+				FROM ANALYSIS ANL
+				WHERE 1=1
+				<if test="test_item_nm != null and test_item_nm != '' ">
+					AND (UPPER(ANL.TESTITM_NM) LIKE '%' || UPPER(#{test_item_nm}) || '%' OR UPPER(ANL.ENG_NM) LIKE '%' || UPPER(#{test_item_nm}) || '%')
+				</if>
+				<if test="testitm_lclas_cd != null and testitm_lclas_cd != '' ">
+					AND ANL.TESTITM_LCLAS_CD = #{testitm_lclas_cd}
+				</if>
+				<if test="testitm_mlsfc_cd != null and testitm_mlsfc_cd != '' ">
+					AND ANL.TESTITM_MLSFC_CD = #{testitm_mlsfc_cd}
+				</if>
+				<if test="use_flag != null and use_flag != '' ">
+					AND USE_YN = #{use_flag} 
+				</if>
+				<if test="kfda_yn != null and kfda_yn != '' ">
+					AND KFDA_YN = #{kfda_yn} 
+				</if>
+				<if test="sortName != null and sortName != '' ">
+					ORDER BY ${sortName} ${sortType}
+				</if>
+				<if test="sortName == null or sortName == '' ">
+					ORDER BY ANL.TESTITM_LCLAS_CD, ANL.TESTITM_MLSFC_CD
+				</if>
+				
+			) VW_LIST
+	    )  
+		WHERE PAGENUM = #{pageNum}
+	</select>
+	
+	
+	<!-- 스탠다드 항목 멀티 추가 팝업 -->
+	<insert id="insertStandardInsItemPop" parameterType="Map">
+		INSERT INTO STANDARD_SPEC (
+	        STANDARD_SPEC_SEQ,
+	        SM_CODE,
+	        SM_NAME,
+	        TESTITM_CD,	    
+	        TESTITM_NM,
+	        CREATER_ID,
+	        CREATE_DATE,
+	        LAST_UPDT_DTM,
+	        VALD_BEGN_DT,
+	        VALD_END_DT,
+	        SPEC_VAL,
+	        INJRY_YN,
+	        FNPRT_ITM_INCLS_YN,
+	        NTR_PRSEC_ITM_YN,
+	        MONTRNG_TESTITM_YN,
+	        EMPHS_PRSEC_TESTITM_YN,
+	        RVLV_ELSE_TESTITM_YN,
+	        JDGMNT_FOM_CD,
+	        BASE_CD,
+	        ACCOUNT_NO,
+	        KFDA_YN,
+	        DEL_ST_SPEC,
+	        PRDLST_CD,
+	        ITEM_ORDER,
+	        REPORT_FLAG
+		) VALUES (
+			(SQ_STANDARD_SPEC.NEXTVAL),
+			#{sm_code},
+			#{sm_name},
+			#{testitm_cd},
+			(SELECT TESTITM_NM FROM ANALYSIS WHERE TESTITM_CD = #{testitm_cd}),
+			#{user_id},
+			TO_CHAR(SYSDATE, 'YYYYmmdd'),
+			SYSDATE,
+			TO_CHAR(SYSDATE, 'YYYYmmdd'),
+			'99991231',
+	        '-', <!-- SPEC_VAL 기준값-->
+	        'N',
+	        'N',
+	        'N',
+	        'N',
+	        'N',
+	        'N',
+	        'C31002', <!-- JDGMNT_FOM_CD 결과값형태-->
+	        #{base_cd},
+	        #{formula_no},
+			'N',
+			'N',
+			#{prdlst_cd},
+			(SELECT LPAD(NVL(MAX(ITEM_ORDER),0)+1, 5, 0) AS ITEM_ORDER FROM STANDARD_SPEC WHERE SM_CODE = #{sm_code}),
+			'Y'
+		)
+	</insert>
+	
+	<update id="deleteStandardSpItem" parameterType="java.util.HashMap">
+		DELETE FROM STANDARD_SPEC
+		WHERE TESTITM_CD = #{testitm_cd}
+		AND STANDARD_SPEC_SEQ = #{standard_spec_seq}
+	
+<!-- 	정렬순서 업데이트 문제로 DELETE 문 이용.
+		UPDATE STANDARD_SPEC
+		SET DEL_ST_SPEC = 'Y'
+		WHERE TESTITM_CD = #{testitm_cd}
+		AND STANDARD_SPEC_SEQ = #{standard_spec_seq} -->
+		
+	</update>
+	
+	<!-- 스탠다드 검사기준 수정 -->
+ 	<update id="updateStandardSpItem" parameterType="Map">		
+		UPDATE STANDARD_SPEC SET
+		    VALD_MANLI = #{vald_manli},
+		    CHOIC_FIT = #{choic_fit},
+		    <if test="choic_fit != null and choic_fit != '' ">
+		    A082_CF_FNPRT_CD_NM = (SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE #{choic_fit} = CODE),
+		    </if>
+		    CHOIC_IMPROPT = #{choic_impropt},
+		    <if test="choic_impropt != null and choic_impropt != '' ">
+		    	A082_CI_FNPRT_CD_NM = (SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE #{choic_impropt} = CODE),
+		    </if>
+		    LOQ_LVAL = #{loq_lval},
+		    LOQ_HVAL = #{loq_hval},
+		    SPEC_VAL = #{spec_val},
+		    MIMM_VAL = #{mimm_val},
+		    MIMM_VAL_DVS_CD = #{mimm_val_dvs_cd},
+		    MXMM_VAL = #{mxmm_val},
+		    MXMM_VAL_DVS_CD = #{mxmm_val_dvs_cd},
+		    JDGMNT_FOM_CD = #{jdgmnt_fom_cd},
+		    BASE_CD = #{base_cd},
+		    ACCOUNT_NO = #{formula_no},
+			LAST_UPDT_DTM = SYSDATE,
+			UNIT_CD = #{unit_cd},
+		    TEST_METHOD_NO = #{test_method_no},
+		    OXIDE_CD = #{oxide_cd},
+		    ITEM_ORDER = #{item_order},
+		    LOQ_LVAL_MARK = #{loq_lval_mark},
+		    LOQ_HVAL_MARK = #{loq_hval_mark},
+		    REPORT_FLAG = #{report_flag}
+		WHERE STANDARD_SPEC_SEQ = ${standard_spec_seq}
+		AND TESTITM_CD = #{testitm_cd}
+	</update>
+	
+		<!-- 스탠다드별 항목 검사기준 조회 -팝업 -->
+	<select id="selectStandardRItemListPop" parameterType="TestStandardVO" resultType="TestStandardVO">		
+		SELECT
+		    S.STANDARD_SPEC_SEQ,
+		    S.SM_CODE,
+		    S.SM_NAME,
+		   	A.ENG_NM,
+		    S.TESTITM_CD,
+		    S.TESTITM_NM,
+		    S.FNPRT_ITM_INCLS_YN,
+		    S.BASE_CD,
+     		(DECODE(SUBSTR(S.BASE_CD,0,1), 'C', (SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = S.BASE_CD), S.BASE_CD )) AS BASE_NM,
+     		S.JDGMNT_FOM_CD,
+		    (DECODE(SUBSTR(S.JDGMNT_FOM_CD,0,1), 'C', (SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = S.JDGMNT_FOM_CD),S.JDGMNT_FOM_CD )) AS JDGMNT_FOM_NM,
+		    S.ACCOUNT_NO AS FORMULA_NO,
+		    B.FORMULA_DISP AS FORMULA_NM,
+		    VALD_MANLI,
+		    CHOIC_FIT,   
+		    DECODE(SUBSTR(CHOIC_FIT,0,1), 'C' , (SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = CHOIC_FIT),(SELECT CODE_NAME FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'CHOIC' AND CCD.KFDA_CODE = CHOIC_FIT)) CHOIC_FIT_NM,
+		    CHOIC_IMPROPT,
+		    (SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = CHOIC_IMPROPT) AS CHOIC_IMPROPT,
+		    LOQ_LVAL,
+		    LOQ_HVAL,
+		    LOQ_LVAL_MARK,
+		    LOQ_HVAL_MARK,
+		    SPEC_VAL,
+		    MIMM_VAL,
+		    MIMM_VAL_DVS_CD,
+		    DECODE(SUBSTR(MIMM_VAL_DVS_CD,0,1), 'C' , (SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = MIMM_VAL_DVS_CD) ,(SELECT CODE FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'MIMM_VAL' AND CCD.KFDA_CODE = MIMM_VAL_DVS_CD)) MIMM_VAL_DVS_NM,  
+		    MXMM_VAL,
+		    MXMM_VAL_DVS_CD,
+		    DECODE(SUBSTR(MXMM_VAL_DVS_CD,0,1), 'C' , (SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = MXMM_VAL_DVS_CD) ,(SELECT CODE FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'MXMM_VAL' AND CCD.KFDA_CODE = MXMM_VAL_DVS_CD)) MXMM_VAL_DVS_NM, 
+		    S.VALD_BEGN_DT,
+		    S.DEPT_CD,
+		    S.KFDA_YN,
+		    S.DEL_ST_SPEC,
+		    NVL(GET_COMMON_CODE(A.TESTITM_LCLAS_CD, ''),'') AS TESTITM_LCLAS_NM,
+			NVL(GET_COMMON_CODE(A.TESTITM_MLSFC_CD, ''),'') AS TESTITM_MLSFC_NM,
+		    CCD.CODE_NAME AS UNIT_NM,
+		    S.UNIT_CD,
+		    (SELECT TEST_METHOD_NM FROM TEST_METHOD WHERE TEST_METHOD_NO = S.TEST_METHOD_NO) AS TEST_METHOD_NM,
+		    S.TEST_METHOD_NO,
+		    OM.OXIDE_CONTENT,
+		    S.OXIDE_CD,
+		    S.ITEM_ORDER,
+		    S.REPORT_FLAG
+		FROM STANDARD_SPEC S
+		LEFT JOIN FORMULA B ON S.ACCOUNT_NO = B.FORMULA_NO
+		JOIN ANALYSIS A ON S.TESTITM_CD = A.TESTITM_CD
+		LEFT JOIN COMMON_CODE_DETAIL CCD ON S.UNIT_CD = CCD.CODE
+		LEFT JOIN OXIDE_MARK OM ON S.OXIDE_CD = OM.OXIDE_CD
+		WHERE S.SM_CODE = #{sm_code} AND S.VALD_BEGN_DT <![CDATA[<= ]]> TO_CHAR(SYSDATE,'YYYYmmdd')
+		AND S.FNPRT_ITM_NM IS NULL
+		AND DEL_ST_SPEC = 'N'
+		<if test="testitm_nm != null and testitm_nm != '' ">
+			AND (UPPER(S.TESTITM_NM) LIKE '%' || UPPER(#{testitm_nm}) || '%' OR UPPER(A.ENG_NM) LIKE '%' || UPPER(#{testitm_nm}) || '%')
+		</if>
+		ORDER BY A.ENG_NM
+	</select>
+	
+	<!-- 스탠다드 복사 -->
+	<insert id="copyTestStandardItem" parameterType="TestStandardVO">
+<!--  		<selectKey resultType="string" keyProperty="sm_code" order="BEFORE">
+			SELECT LPAD(NVL(MAX(SM_CODE),0)+1, 5, 0) AS SM_CODE FROM STANDARD_NAME
+		</selectKey>  -->
+	
+		BEGIN
+			
+ 			INSERT INTO STANDARD_SPEC 
+			(
+		        STANDARD_SPEC_SEQ,
+		        SM_CODE,
+		        SM_NAME,
+		        TESTITM_CD,	    
+		        TESTITM_NM,
+		        CREATER_ID,
+		        CREATE_DATE ,
+		        LAST_UPDT_DTM,
+		        VALD_BEGN_DT,
+		        VALD_END_DT,
+		        SPEC_VAL,
+		        INJRY_YN,
+		        FNPRT_ITM_INCLS_YN,
+		        NTR_PRSEC_ITM_YN,
+		        MONTRNG_TESTITM_YN,
+		        EMPHS_PRSEC_TESTITM_YN,
+		        RVLV_ELSE_TESTITM_YN,
+		        JDGMNT_FOM_CD,
+		        KFDA_YN,
+		        DEL_ST_SPEC,
+		        UNIT_CD,
+		        TEST_METHOD_NO,
+		        OXIDE_CD,
+		        PRDLST_CD,
+		        ITEM_ORDER,
+		         ACCOUNT_NO,
+			    BASE_CD,
+		        VALD_MANLI,
+		        MIMM_VAL,
+		        MIMM_VAL_DVS_CD,
+		        MXMM_VAL,
+		        MXMM_VAL_DVS_CD,
+		        CHOIC_FIT,
+		        CHOIC_IMPROPT,
+		        LOQ_LVAL,
+		        LOQ_LVAL_MARK,
+		        LOQ_HVAL,
+		        LOQ_HVAL_MARK
+			)
+			SELECT
+				(SQ_STANDARD_SPEC.NEXTVAL),
+				SM_CODE,
+				SM_NAME,
+				TESTITM_CD,
+				TESTITM_NM,
+				#{user_id},
+				TO_CHAR(SYSDATE, 'YYYYmmdd'),
+				SYSDATE,
+				TO_CHAR(SYSDATE, 'YYYYmmdd'),
+ 				'99991231',
+		         SPEC_VAL,
+		        'N',
+		        'N',
+		        'N',
+		        'N',
+		        'N',
+		        'N',
+		        'C31002', <!-- JDGMNT_FOM_CD 결과값형태 -->
+				'N',
+				'N',
+				DECODE(SUBSTR(UNIT_CD,0,1), 'C' , UNIT_CD ,(SELECT CODE FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'UNIT' AND CCD.KFDA_CODE = UNIT_CD)),
+			    TEST_METHOD_NO,
+			    OXIDE_CD,
+			    PRDLST_CD,
+			    ITEM_ORDER,
+			    ACCOUNT_NO,
+			    BASE_CD,
+		        VALD_MANLI,
+		        MIMM_VAL,
+		        MIMM_VAL_DVS_CD,
+		        MXMM_VAL,
+		        MXMM_VAL_DVS_CD,
+		        CHOIC_FIT,
+		        CHOIC_IMPROPT,
+		        LOQ_LVAL,
+		        LOQ_LVAL_MARK,
+		        LOQ_HVAL,
+		        LOQ_HVAL_MARK
+			FROM STANDARD_SPEC
+			WHERE STANDARD_SPEC_SEQ = #{standard_spec_seq} 
+			;
+		
+		END;
+	</insert>
+</mapper>

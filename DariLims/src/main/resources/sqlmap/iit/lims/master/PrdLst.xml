@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="prdLst">
+
+	<!-- 품목 리스트 -->
+	<select id="selectPrdLstList" resultType="PrdLstVO" parameterType="PrdLstVO">		
+		SELECT 
+            PRDLST_CD
+			  ,HTRK_PRDLST_CD
+              ,GET_COMMON_CODE(HTRK_PRDLST_CD,'') AS HTRK_PRDLST_NM
+              ,HRNK_PRDLST_CD
+              ,DISP_PRDLST_CD
+              ,KOR_NM
+              ,ENG_NM
+              ,LV
+              ,PIAM_KOR_NM 
+              ,DECODE(MXTR_PRDLST_YN, 'Y', '예', '아니요') MXTR_PRDLST_YN
+              ,TO_CHAR(TO_DATE(VALD_END_DT, 'YYYYmmdd'), 'YYYY-mm-dd') VALD_END_DT
+              ,TO_CHAR(TO_DATE(VALD_BEGN_DT, 'YYYYmmdd'), 'YYYY-mm-dd') VALD_BEGN_DT   
+              ,RM
+              ,DECODE(PRDLST_YN, 'Y', '예', '아니요') PRDLST_YN
+              ,DFN
+              ,DECODE(USE_YN, 'Y', '사용', '미사용') USE_YN
+              ,TO_CHAR(LAST_UPDT_DTM, 'YYYY-mm-dd') LAST_UPDT_DTM
+              ,KFDA_YN
+              ,UI.DEPT_CD AS CHARGER_DEPT_CD
+              ,D.DEPT_NM AS CHARGER_DEPT_NM
+         	  ,PL.CHARGER_USER_ID
+              ,UI.USER_NM AS CHARGER_USER_NM
+              ,PL.MAX_GRADE
+	    FROM PRDLST_CL PL
+	    LEFT OUTER JOIN USER_INFO UI ON PL.CHARGER_USER_ID = UI.USER_ID
+	    LEFT OUTER JOIN DEPART D ON UI.DEPT_CD = D.DEPT_CD
+        WHERE 1 = 1
+        
+        <if test="htrk_prdlst_cd != null and htrk_prdlst_cd != '' ">
+		  	AND HTRK_PRDLST_CD = #{htrk_prdlst_cd}
+		  </if>
+		  <if test="use_yn != null and use_yn != '' ">
+			AND USE_YN = #{use_yn} 
+		  </if>
+		  <if test="kfda_yn != null and kfda_yn != '' ">
+			AND KFDA_YN = #{kfda_yn} 
+		  </if>
+		  <if test="prdlst_yn != null and prdlst_yn != '' ">
+			AND PRDLST_YN = #{prdlst_yn} 
+		  </if>
+		  <if test="kor_nm != null and kor_nm != '' ">
+		  	AND KOR_NM like '%'|| #{kor_nm} ||'%'
+		  </if>
+        ORDER BY HTRK_PRDLST_CD ,PRDLST_CD
+	</select>
+	
+	<select id="selectPrdLstListDetail" resultType="PrdLstVO" parameterType="PrdLstVO">	
+		SELECT
+			PL.PRDLST_CD
+			,PL.HTRK_PRDLST_CD
+			,PL.HRNK_PRDLST_CD
+            ,PL.DISP_PRDLST_CD
+            ,PL.KOR_NM
+            ,PL.ENG_NM
+            ,PL.LV
+			,PL.PIAM_KOR_NM 
+			,DECODE(PL.MXTR_PRDLST_YN, 'Y', '예', '아니요') MXTR_PRDLST_YN
+			,DECODE(PL.PRDLST_YN, 'Y', '예', '아니요') PRDLST_YN
+            ,PL.USE_YN
+            ,PL.RM
+            ,PL.DFN
+            ,PL.VALD_BEGN_DT
+            ,PL.VALD_END_DT
+			,TO_CHAR(PL.LAST_UPDT_DTM, 'YYYY-mm-dd') LAST_UPDT_DTM
+            ,PL.KFDA_YN
+            ,UI.DEPT_CD AS CHARGER_DEPT_CD
+  			,D.DEPT_NM AS CHARGER_DEPT_NM
+			,PL.CHARGER_USER_ID
+  			,UI.USER_NM AS CHARGER_USER_NM
+        FROM PRDLST_CL PL
+        LEFT OUTER JOIN USER_INFO UI ON PL.CHARGER_USER_ID = UI.USER_ID
+	    LEFT OUTER JOIN DEPART D ON UI.DEPT_CD = D.DEPT_CD
+        WHERE PRDLST_CD = #{prdlst_cd}
+	</select>
+
+
+	<insert id="insertPrdlst" parameterType="PrdLstVO">
+		 INSERT INTO PRDLST_CL(
+            PRDLST_CD
+            ,HTRK_PRDLST_CD
+            ,KOR_NM
+            ,ENG_NM
+            ,LV
+            ,PRDLST_YN
+            ,USE_YN
+            ,RM
+            ,DFN
+            ,VALD_BEGN_DT
+            ,VALD_END_DT
+            ,LAST_UPDT_DTM
+            ,KFDA_YN
+            ,CHARGER_USER_ID
+         )VALUES(
+            GET_PRDLST_CD()
+            ,#{htrk_prdlst_cd}
+            ,#{kor_nm}
+            ,#{eng_nm}
+            ,'X'
+            ,'Y'
+            ,#{use_yn}
+            ,#{rm}
+            ,#{dfn}
+            ,TO_CHAR(SYSDATE, 'YYYYMMDD')
+            ,'99991231'
+            ,SYSDATE
+            ,'N'
+            ,#{charger_user_id}
+         )		
+	</insert>
+	
+	<update id="updatePrdlst" parameterType="PrdLstVO">
+		UPDATE PRDLST_CL SET
+			CHARGER_USER_ID = #{charger_user_id}
+			<if test="kfda_yn == 'N'.toString()">
+			,HTRK_PRDLST_CD = #{htrk_prdlst_cd}
+            ,KOR_NM = #{kor_nm} 
+            ,ENG_NM = #{eng_nm}
+			,USE_YN = #{use_yn}
+			,RM = #{rm}
+            ,DFN = #{dfn}
+			</if>
+			,LAST_UPDT_DTM = SYSDATE
+		WHERE PRDLST_CD = #{prdlst_cd}
+	</update>
+
+</mapper>

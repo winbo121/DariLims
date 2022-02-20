@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="eduAttend">
+
+	<select id="selectEduAttendList" parameterType="eduAttendVO" resultType="eduAttendVO">
+		SELECT A.ATTEND_NO,
+        A.EDU_RESULT_NO,
+        A.DEPT_NO,
+        A.USER_NO,
+        A.DOC_NM,
+        A.FILE_NM,
+        U.USER_NM,
+        D.DEPT_NM
+        FROM EDU_ATTEND A, USER_INFO U, DEPART D
+        WHERE A.USER_NO = U.USER_ID AND A.DEPT_NO = D.DEPT_CD
+		AND A.EDU_RESULT_NO = #{edu_result_no}
+		<if test="user_nm != null and user_nm != '' ">
+			AND UPPER(U.USER_NM) like '%' || UPPER( #{user_nm} ) || '%' 
+		</if>
+		<if test="dept_nm != null and dept_nm != '' ">
+			AND UPPER(D.DEPT_NM) like '%' || UPPER( #{dept_nm} ) || '%' 
+		</if>
+		 <if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		 </if>
+		 <if test="sortName == null or sortName == '' ">
+			ORDER BY U.USER_NM
+		 </if>
+	</select>
+	
+	<select id="selectAllUserList" parameterType="eduAttendVO" resultType="eduAttendVO">
+		SELECT U.USER_NM, 
+		U.USER_ID as USER_NO,
+		U.DEPT_CD AS DEPT_NO,
+		D.DEPT_NM,
+		(CASE WHEN U.USER_ID IN 
+        (SELECT USER_NO FROM EDU_ATTEND WHERE EDU_RESULT_NO = #{edu_result_no})
+           THEN
+              'true'
+           ELSE
+              'false'
+         END) use_flag
+		FROM USER_INFO U, DEPART D
+		WHERE U.DEPT_CD = D.DEPT_CD	
+		<if test="user_nm != null and user_nm != '' ">
+			AND UPPER(U.USER_NM) like '%' || UPPER( #{user_nm} ) || '%' 
+		</if>
+		<if test="dept_nm != null and dept_nm != '' ">
+			AND UPPER(D.DEPT_NM) like '%' || UPPER( #{dept_nm} ) || '%' 
+		</if>
+		 <if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		 </if>
+		 <if test="sortName == null or sortName == '' ">
+			ORDER BY use_flag DESC, U.USER_NM
+		 </if>	
+	</select>
+	
+	<insert id="insertEduAttend" parameterType="eduAttendVO">
+		INSERT INTO EDU_ATTEND (
+		ATTEND_NO,
+        EDU_RESULT_NO,
+        DEPT_NO,
+        USER_NO
+		) VALUES (
+		(SELECT LPAD(NVL(MAX(ATTEND_NO),0)+1,6,0) FROM EDU_ATTEND),
+		#{edu_result_no},
+		#{dept_no},
+		#{user_no}
+		)
+	</insert>
+	
+	<delete id="deleteEduAttend" parameterType="eduAttendVO">
+		DELETE EDU_ATTEND
+		WHERE EDU_RESULT_NO = #{edu_result_no}
+		<if test="attend_no != null and attend_no != '' ">
+		AND ATTEND_NO = #{attend_no}
+		</if>
+	</delete>
+	
+	<select id="selectEduAttendDetail" parameterType="eduAttendVO" resultType="eduAttendVO">
+		SELECT A.ATTEND_NO,
+        A.EDU_RESULT_NO,
+        A.DEPT_NO,
+        A.USER_NO,
+        A.DOC_NM,
+        A.FILE_NM,
+        U.USER_NM,
+        D.DEPT_NM
+        FROM EDU_ATTEND A, USER_INFO U, DEPART D
+        WHERE A.USER_NO = U.USER_ID AND A.DEPT_NO = D.DEPT_CD
+		AND A.ATTEND_NO = #{attend_no} 
+	</select>
+	
+	<update id="updateEduAttend" parameterType="eduAttendVO" >
+		UPDATE EDU_ATTEND SET		
+		<if test="att_file != null and att_file != '' ">
+			FILE_NM = #{file_nm},
+			ATT_FILE = #{att_file},
+		</if>
+		<if test="att_file == null or att_file == '' ">
+			<if test="file_nm == null or file_nm == '' ">
+				FILE_NM = #{file_nm},
+				ATT_FILE = EMPTY_BLOB(),
+			</if>
+		</if>
+		DOC_NM = #{doc_nm}
+		WHERE ATTEND_NO = #{attend_no}		
+	</update>
+	
+	<select id="eduAttendFileDown" parameterType="eduAttendVO" resultType="eduAttendVO">
+		SELECT ATT_FILE, FILE_NM
+		FROM EDU_ATTEND
+		WHERE ATTEND_NO = #{attend_no}
+	</select>
+
+</mapper>

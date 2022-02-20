@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE configuration PUBLIC "-//mybatis.org//DTD Config 3.0//EN" "http://mybatis.org/dtd/mybatis-3-config.dtd">
+
+<configuration>
+	<settings>
+        <setting name="jdbcTypeForNull" value="NULL" />
+    </settings>
+    
+	<typeAliases>
+		<!-- COMMON -->	
+		<typeAlias alias="commonVO" type="iit.lims.common.vo.CommonVO" />
+		<typeAlias alias="pagingVO" type="iit.lims.common.vo.PagingVO" />
+		<typeAlias alias="WorkVO" type="iit.lims.common.vo.WorkVO" />
+		<typeAlias alias="HistoryVO" type="iit.lims.common.vo.HistoryVO" />
+		<typeAlias alias="MakeGridVO" type="iit.lims.common.vo.MakeGridVO" />
+		<typeAlias alias="UmsVO" type="iit.lims.common.vo.UmsVO" />
+		<typeAlias alias="DemoSampleVO" type="iit.lims.common.vo.DemoSampleVO" />
+		<!-- SYSTEM -->
+		<typeAlias alias="commonCodeVO" type="iit.lims.system.vo.CommonCodeVO" />
+		<typeAlias alias="codeVO" type="iit.lims.system.vo.CodeVO" />
+		<typeAlias alias="roleVO" type="iit.lims.system.vo.RoleVO" />
+		<typeAlias alias="zipCodeVO" type="iit.lims.common.vo.ZipCodeVO" />
+		<typeAlias alias="deptVO" type="iit.lims.system.vo.DeptVO" />
+		<typeAlias alias="userInfoVO" type="iit.lims.system.vo.UserInfoVO" />
+		<typeAlias alias="userVO" type="iit.lims.system.vo.UserVO" />
+		<typeAlias alias="authVO" type="iit.lims.system.vo.AuthVO" />
+		<typeAlias alias="logVO" type="iit.lims.system.vo.LogVO" />
+		<typeAlias alias="noticeVO" type="iit.lims.system.vo.NoticeVO" />
+		<typeAlias alias="auditTrailVO" type="iit.lims.system.vo.AuditTrailVO" />
+		<typeAlias alias="BoardVO" type="iit.lims.system.vo.BoardVO" />
+		<typeAlias alias="MenuVO" type="iit.lims.system.vo.MenuVO" />		
+		<typeAlias alias="accessIpVO" type="iit.lims.system.vo.AccessIpVO" />
+		
+		<typeAlias alias="testMethodVO" type="iit.lims.master.vo.TestMethodVO" />
+		<typeAlias alias="unitWorkVO" type="iit.lims.master.vo.UnitWorkVO" />
+		<typeAlias alias="testStdVO" type="iit.lims.master.vo.TestStdVO" />
+		<typeAlias alias="testStdRevVO" type="iit.lims.master.vo.TestStdRevVO" />
+		<typeAlias alias="testPrdStdVO" type="iit.lims.master.vo.TestPrdStdVO" />
+		<typeAlias alias="stdTestItemVO" type="iit.lims.master.vo.StdTestItemVO" />
+		<typeAlias alias="SampleVO" type="iit.lims.master.vo.SampleVO" />
+		<typeAlias alias="TestItemVO" type="iit.lims.master.vo.TestItemVO" />
+		<typeAlias alias="ReqOrgVO" type="iit.lims.master.vo.ReqOrgVO" />
+		<typeAlias alias="SamplingPointVO" type="iit.lims.master.vo.SamplingPointVO" />
+		<typeAlias alias="AccountVO" type="iit.lims.master.vo.AccountVO" />
+		<typeAlias alias="DocumentVO" type="iit.lims.master.vo.DocumentVO" />
+		<typeAlias alias="PrdLstVO" type="iit.lims.master.vo.PrdLstVO"/>
+		<typeAlias alias="TestStandardVO" type="iit.lims.master.vo.TestStandardVO"/>
+		<typeAlias alias="SampleGradeVO" type="iit.lims.master.vo.SampleGradeVO"/>
+		<typeAlias alias="PretreatmentVO" type="iit.lims.master.vo.PretreatmentVO"/>
+		<typeAlias alias="oxideMarkVO" type="iit.lims.master.vo.OxideMarkVO"/>
+				
+		<typeAlias alias="machineVO" type="iit.lims.instrument.vo.MachineVO" />
+		<typeAlias alias="repairVO" type="iit.lims.instrument.vo.RepairVO" />
+		<typeAlias alias="correctionVO" type="iit.lims.instrument.vo.CorrectionVO" />
+		<typeAlias alias="stateVO" type="iit.lims.instrument.vo.StateVO" />
+		<typeAlias alias="useLogVO" type="iit.lims.instrument.vo.UseLogVO" />
+				
+	    <typeAlias alias="AcceptApprovalVO" type="iit.lims.accept.vo.AcceptApprovalVO" />
+	    <typeAlias alias="AcceptVO" type="iit.lims.accept.vo.AcceptVO" />
+		<typeAlias alias="CounselVO" type="iit.lims.accept.vo.CounselVO" />
+		<typeAlias alias="EstimateVO" type="iit.lims.accept.vo.EstimateVO" />
+		<typeAlias alias="InstRentVO" type="iit.lims.accept.vo.InstRentVO" />
+		<typeAlias alias="CommissionCheckVO" type="iit.lims.accept.vo.CommissionCheckVO" />
+		<typeAlias alias="CommissionTaxInvoiceVO" type="iit.lims.accept.vo.CommissionTaxInvoiceVO" />
+		
+		<typeAlias alias="ResultInputVO" type="iit.lims.analysis.vo.ResultInputVO" />
+		<typeAlias alias="ResultApprovalVO" type="iit.lims.analysis.vo.ResultApprovalVO" />
+		<typeAlias alias="SampleStateVO" type="iit.lims.analysis.vo.SampleStateVO" />
+		<typeAlias alias="TestReportVO" type="iit.lims.analysis.vo.TestReportVO" />
+		<typeAlias alias="ReqStartStopVO" type="iit.lims.analysis.vo.ReqStartStopVO" />
+			
+		<typeAlias alias="eduResultVO" type="iit.lims.kolas.vo.EduResultVO" />
+		<typeAlias alias="eduAttendVO" type="iit.lims.kolas.vo.EduAttendVO" />
+		<typeAlias alias="kolasDocVO" type="iit.lims.kolas.vo.KolasDocVO" />	
+		
+		<typeAlias alias="reagentsGlassVO" type="iit.lims.reagentsGlass.vo.ReagentsGlassVO" />
+
+		<typeAlias alias="ResultStatisticalVO" type="iit.lims.resultStatistical.vo.ResultStatisticalVO" />
+		<typeAlias alias="receptionStatusVO" type="iit.lims.resultStatistical.vo.ReceptionStatusVO" />
+		<typeAlias alias="InstrumentUseStatisticalVO" type="iit.lims.resultStatistical.vo.InstrumentUseStatisticalVO" />
+		
+		<typeAlias alias="PaperVO" type="iit.lims.report.vo.PaperVO"/> 
+		<typeAlias alias="ReportVO" type="iit.lims.report.vo.ReportVO"/>
+		
+		<typeAlias alias="SyncVO" type="iit.lims.util.sync.vo.SyncVO"/>
+		<typeAlias alias="SmsVO" type="iit.lims.util.sms.vo.SmsVO"/>
+		
+		<typeAlias alias="CamelListMap" type="iit.lims.util.CamelListMap" />
+		
+		<typeAlias alias="SamplingVO" type="iit.lims.accept.vo.SamplingVO"/>
+		<typeAlias alias="FormulaVO" type="iit.lims.master.vo.FormulaVO"/>
+
+	</typeAliases>
+	<mappers>
+		<!-- 공통관리 -->
+		<mapper resource="sqlmap/iit/lims/common/Common.xml" />		
+
+		<!-- 시스템관리 -->
+		<mapper resource="sqlmap/iit/lims/system/Menu.xml" />
+		<mapper resource="sqlmap/iit/lims/system/Dept.xml" />
+		<mapper resource="sqlmap/iit/lims/system/User.xml" />
+		<mapper resource="sqlmap/iit/lims/system/Code.xml" />
+		<mapper resource="sqlmap/iit/lims/system/Auth.xml" />
+		<mapper resource="sqlmap/iit/lims/system/UserAuth.xml" />
+		<mapper resource="sqlmap/iit/lims/system/Log.xml" />
+		<mapper resource="sqlmap/iit/lims/system/Notice.xml" />
+		<mapper resource="sqlmap/iit/lims/system/AuditTrail.xml" />
+		<mapper resource="sqlmap/iit/lims/system/Board.xml" />
+		<mapper resource="sqlmap/iit/lims/system/CommonCode.xml" />
+		<mapper resource="sqlmap/iit/lims/system/Absence.xml" />
+		<mapper resource="sqlmap/iit/lims/system/AccessIp.xml" />
+		
+		<!-- 접수관리 -->
+		<mapper resource="sqlmap/iit/lims/accept/AcceptApproval.xml" />
+		<mapper resource="sqlmap/iit/lims/accept/Accept.xml" />
+		<mapper resource="sqlmap/iit/lims/accept/Commission.xml" />
+		<mapper resource="sqlmap/iit/lims/accept/Counsel.xml" />
+		<mapper resource="sqlmap/iit/lims/accept/Estimate.xml" />
+		<mapper resource="sqlmap/iit/lims/accept/InstRent.xml" />
+		<mapper resource="sqlmap/iit/lims/accept/CommissionCheck.xml" />
+		<mapper resource="sqlmap/iit/lims/accept/CommissionUnpaid.xml" />
+		<mapper resource="sqlmap/iit/lims/accept/CommissionBonus.xml" />
+		<mapper resource="sqlmap/iit/lims/accept/ChargerManage.xml" />
+		<mapper resource="sqlmap/iit/lims/accept/CommissionPrd.xml" />
+
+		<!-- 시험분석 -->
+		<mapper resource="sqlmap/iit/lims/analysis/ResultInputSample.xml" />
+		<mapper resource="sqlmap/iit/lims/analysis/ResultInputGrade.xml" />
+		<mapper resource="sqlmap/iit/lims/analysis/ResultInputItem.xml" />
+		<mapper resource="sqlmap/iit/lims/analysis/ResultInputMultiple.xml" />
+		<mapper resource="sqlmap/iit/lims/analysis/ResultCheck.xml" />
+		<mapper resource="sqlmap/iit/lims/analysis/ResultApproval.xml" />
+		<mapper resource="sqlmap/iit/lims/analysis/SampleDisuse.xml" />
+		<mapper resource="sqlmap/iit/lims/analysis/ResultModify.xml" />
+		<mapper resource="sqlmap/iit/lims/analysis/TestReport.xml" />
+		<mapper resource="sqlmap/iit/lims/analysis/ResultInputReport.xml" />
+		<mapper resource="sqlmap/iit/lims/analysis/ReqStartStop.xml" />
+		<mapper resource="sqlmap/iit/lims/analysis/ResultAssignment.xml" />
+		<mapper resource="sqlmap/iit/lims/analysis/SamplePosition.xml" /> 
+		<mapper resource="sqlmap/iit/lims/accept/Sampling.xml" />
+
+		<!-- 성적서 -->
+		<mapper resource="sqlmap/iit/lims/report/ReportWrite.xml" />
+		<mapper resource="sqlmap/iit/lims/report/ReportPublish.xml" />
+		<mapper resource="sqlmap/iit/lims/report/ReportOnnara.xml" />
+		<mapper resource="sqlmap/iit/lims/report/PaperWrite.xml" />
+		<mapper resource="sqlmap/iit/lims/report/ReportApproval.xml" />
+
+		<!-- 시약/실험기구 -->
+		<mapper resource="sqlmap/iit/lims/reagentsGlass/ReagentsGlass.xml" />
+		<mapper resource="sqlmap/iit/lims/reagentsGlass/PurchaseConfirm.xml" />
+
+		<!-- KOLAS -->
+		<mapper resource="sqlmap/iit/lims/kolas/eduCurr.xml" />
+		<mapper resource="sqlmap/iit/lims/kolas/eduAttend.xml" />
+		<mapper resource="sqlmap/iit/lims/kolas/KolasDoc.xml" />
+
+		<!-- 장비관리 -->
+		<mapper resource="sqlmap/iit/lims/instrument/machine_SQL.xml" />
+		<mapper resource="sqlmap/iit/lims/instrument/repair_SQL.xml" />
+		<mapper resource="sqlmap/iit/lims/instrument/correction_SQL.xml" />
+		<mapper resource="sqlmap/iit/lims/instrument/state_SQL.xml" />
+		<mapper resource="sqlmap/iit/lims/instrument/useLog_SQL.xml" />
+
+		<!-- 마스터관리 -->
+		<mapper resource="sqlmap/iit/lims/master/TestItem.xml" />
+		<mapper resource="sqlmap/iit/lims/master/TestStd.xml" />
+		<mapper resource="sqlmap/iit/lims/master/TestPrdStd.xml" />
+		<mapper resource="sqlmap/iit/lims/master/samplingPoint_SQL.xml" />
+		<mapper resource="sqlmap/iit/lims/master/sample_SQL.xml" />
+		<mapper resource="sqlmap/iit/lims/master/unitWork_SQL.xml" />
+		<mapper resource="sqlmap/iit/lims/master/TestMethod.xml" />
+		<mapper resource="sqlmap/iit/lims/master/TestItemInst.xml" />
+		<mapper resource="sqlmap/iit/lims/master/ReqOrg.xml" />
+		<mapper resource="sqlmap/iit/lims/master/TestItemUser.xml" />
+		<mapper resource="sqlmap/iit/lims/master/TestItemMethod.xml" />
+		<mapper resource="sqlmap/iit/lims/master/TestItemGroup.xml" />
+		<mapper resource="sqlmap/iit/lims/master/Account.xml" />
+		<mapper resource="sqlmap/iit/lims/master/Document.xml" />
+		<mapper resource="sqlmap/iit/lims/master/PrdLst.xml" />
+		<mapper resource="sqlmap/iit/lims/master/TestStandard.xml" />
+		<mapper resource="sqlmap/iit/lims/master/SampleGrade.xml" />
+		<mapper resource="sqlmap/iit/lims/master/Pretreatment.xml" />
+		<mapper resource="sqlmap/iit/lims/master/MailGroup.xml" />
+		<mapper resource="sqlmap/iit/lims/master/OxideMark.xml" />
+		<mapper resource="sqlmap/iit/lims/master/Formula.xml" />
+		
+		<!-- 실적 및 통계 -->
+		<mapper resource="sqlmap/iit/lims/resultStatistical/ResultStatistical.xml" />
+		<mapper resource="sqlmap/iit/lims/resultStatistical/ItemStatistics.xml" />
+		<mapper resource="sqlmap/iit/lims/resultStatistical/ReceptionStatus.xml" />
+		<mapper resource="sqlmap/iit/lims/resultStatistical/SampleStatistics.xml" />
+		<mapper resource="sqlmap/iit/lims/resultStatistical/TestStatus.xml" />
+		<mapper resource="sqlmap/iit/lims/resultStatistical/InstrumentUseStatistical.xml" />
+		<mapper resource="sqlmap/iit/lims/resultStatistical/TatStatistics.xml" />
+		
+		<!-- sync -->
+		<mapper resource="sqlmap/iit/lims/util/sync/Sync.xml" />
+		<mapper resource="sqlmap/iit/lims/util/sms/Sms.xml" />
+	</mappers>
+	
+</configuration>

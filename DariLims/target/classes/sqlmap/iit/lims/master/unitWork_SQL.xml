@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="unitWork">
+	<!-- UNIT_WORK 단위업무 -->
+	<select id="unitWork" parameterType="unitWorkVO" resultType="unitWorkVO">
+		SELECT
+		UNIT_WORK_CD,
+		H_UNIT_WORK,
+		M_UNIT_WORK,
+		UNIT_WORK_NM,
+		UNIT_WORK_DESC,
+		DECODE(UW.USE_FLAG, 'Y','사용함','사용안함') USE_FLAG,
+		CREATE_DATE,
+		CREATER_ID
+		FROM UNIT_WORK UW
+		LEFT JOIN COMMON_CODE_DETAIL CCD ON UW.H_UNIT_WORK = CCD.CODE
+		LEFT JOIN COMMON_CODE_DETAIL CCDM ON UW.M_UNIT_WORK = CCDM.CODE
+		WHERE 1=1
+		<if test="h_unit_work != null and h_unit_work != '' ">
+			AND UPPER(H_UNIT_WORK) LIKE '%' || UPPER(#{h_unit_work}) || '%'
+		</if>
+		<if test="m_unit_work != null and m_unit_work != '' ">
+			AND UPPER(M_UNIT_WORK) LIKE '%' || UPPER(#{m_unit_work}) || '%'
+		</if>
+		<if test="unit_work_nm != null and unit_work_nm != '' ">
+			AND UPPER(UNIT_WORK_NM) LIKE '%' || UPPER(#{unit_work_nm}) || '%'
+		</if>
+		<if test="unit_work_desc != null and unit_work_desc != '' ">
+			AND UPPER(UNIT_WORK_DESC) LIKE '%' || UPPER(#{unit_work_desc}) || '%'
+		</if>
+		<if test="use_flag != null and use_flag != '' ">
+			AND UW.USE_FLAG = #{use_flag}
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY H_UNIT_WORK, M_UNIT_WORK, CREATE_DATE
+		</if>
+	</select>
+
+	<select id="unitWorkDetail" parameterType="unitWorkVO" resultType="unitWorkVO">
+		SELECT
+		UNIT_WORK_CD,
+		H_UNIT_WORK,
+		M_UNIT_WORK,
+		UNIT_WORK_NM,
+		UNIT_WORK_DESC,
+		USE_FLAG
+		FROM UNIT_WORK
+		WHERE UNIT_WORK_CD = #{key}
+	</select>
+
+	<insert id="insertUnitWork" parameterType="unitWorkVO">
+		INSERT INTO UNIT_WORK
+		(
+		UNIT_WORK_CD,
+		H_UNIT_WORK,
+		M_UNIT_WORK,
+		UNIT_WORK_NM,
+		UNIT_WORK_DESC,
+		USE_FLAG,
+		CREATE_DATE,
+		CREATER_ID
+		) VALUES (
+		(SELECT LPAD(NVL(MAX(UNIT_WORK_CD),0)+1,3,0) FROM UNIT_WORK),
+		#{h_unit_work},
+		#{m_unit_work},
+		#{unit_work_nm},
+		#{unit_work_desc},
+		#{use_flag},
+		SYSDATE,
+		#{user_id}
+		)
+	</insert>
+
+	<update id="updateUnitWork" parameterType="unitWorkVO">
+		UPDATE UNIT_WORK SET
+		H_UNIT_WORK = #{h_unit_work},
+		M_UNIT_WORK = #{m_unit_work},
+		UNIT_WORK_NM = #{unit_work_nm},
+		UNIT_WORK_DESC = #{unit_work_desc},
+		UPDATE_DATE = SYSDATE,
+		UPDATER_ID = #{user_id},
+		USE_FLAG = #{use_flag}
+		WHERE UNIT_WORK_CD = #{unit_work_cd}
+	</update>
+
+	<update id="deleteUnitWork" parameterType="unitWorkVO">
+		UPDATE UNIT_WORK SET
+		USE_FLAG = 'N'
+		WHERE
+		UNIT_WORK_CD = #{unit_work_cd}
+	</update>
+
+	<!-- 부서목록 조회 -->
+	<select id="deptList" parameterType="unitWorkVO" resultType="unitWorkVO">
+		SELECT *
+		FROM DEPART
+		WHERE PRE_DEPT_CD IS NOT NULL
+		<if test="pre_dept_nm != null and pre_dept_nm != '' ">
+			AND UPPER(PRE_DEPT_NM) LIKE '%' || UPPER(#{pre_dept_nm}) || '%'
+		</if>
+		<if test="pre_dept_cd != null and pre_dept_cd != '' ">
+			AND PRE_DEPT_CD = #{pre_dept_cd}
+		</if>
+		<if test="dept_nm != null and dept_nm != '' ">
+			AND UPPER(DEPT_NM) LIKE '%' || UPPER(#{dept_nm}) || '%'
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND DEPT_CD = #{dept_cd}
+		</if>
+	</select>
+
+	<!-- 모든 단위업무 -->
+	<select id="allDeptUnitWork" parameterType="unitWorkVO" resultType="unitWorkVO">
+		SELECT UNIT_WORK_CD,
+		B.CODE_NAME H_UNIT_WORK,
+		C.CODE_NAME M_UNIT_WORK,
+		UNIT_WORK_NM,
+		UNIT_WORK_DESC,
+		(CASE WHEN UNIT_WORK_CD IN
+		(SELECT UNIT_WORK_CD FROM DEPT_UNIT_WORK WHERE 1=1 
+		 <if test="key != null and key != '' ">
+		 AND DEPT_CD = #{key} 
+		 </if>
+		 AND A.USE_FLAG = 'Y')
+		THEN
+		'true'
+		ELSE
+		'false'
+		END) USE_FLAG
+		FROM UNIT_WORK A
+		LEFT JOIN COMMON_CODE_DETAIL B ON A.H_UNIT_WORK = B.CODE
+		LEFT JOIN COMMON_CODE_DETAIL C ON A.M_UNIT_WORK = C.CODE
+		WHERE A.USE_FLAG = 'Y'
+		<if test="unit_work_nm != null and unit_work_nm != '' ">
+			AND UPPER(UNIT_WORK_NM) LIKE '%' || UPPER(#{unit_work_nm}) || '%'
+		</if>
+		<if test="unit_work_desc != null and unit_work_desc != '' ">
+			AND UPPER(UNIT_WORK_DESC) LIKE '%' || UPPER(#{unit_work_desc}) || '%'
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY H_UNIT_WORK DESC, M_UNIT_WORK DESC
+		</if>
+	</select>
+
+	<!-- 부서별 단위업무 -->
+	<select id="selectDeptUnitWork" parameterType="unitWorkVO" resultType="unitWorkVO">
+		SELECT DEPT_CD,
+			B.CODE_NAME H_UNIT_WORK,
+			C.CODE_NAME M_UNIT_WORK,
+			UW.UNIT_WORK_NM,
+			UW.UNIT_WORK_DESC,
+			DUW.UNIT_WORK_CD
+		FROM DEPT_UNIT_WORK DUW
+		LEFT JOIN UNIT_WORK UW ON DUW.UNIT_WORK_CD = UW.UNIT_WORK_CD
+		LEFT JOIN COMMON_CODE_DETAIL B ON UW.H_UNIT_WORK = B.CODE
+		LEFT JOIN COMMON_CODE_DETAIL C ON UW.M_UNIT_WORK = C.CODE
+		WHERE 1=1
+		AND UW.USE_FLAG = 'Y'
+<!-- 		DEPT_CD중복이라 주석처리함 -->
+<!-- 		AND DEPT_CD = #{dept_cd} -->
+		<if test="unit_work_nm != null and unit_work_nm != '' ">
+			AND UPPER(UW.UNIT_WORK_NM) LIKE '%' || UPPER(#{unit_work_nm}) || '%'
+		</if>
+		<if test="unit_work_desc != null and unit_work_desc != '' ">
+			AND UPPER(UW.UNIT_WORK_DESC) LIKE '%' || UPPER(#{unit_work_desc}) || '%'
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND DEPT_CD = #{dept_cd}
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY H_UNIT_WORK DESC, M_UNIT_WORK DESC
+		</if>
+	</select>
+
+	<insert id="insertDeptUnitWork" parameterType="unitWorkVO">
+		INSERT INTO DEPT_UNIT_WORK(
+			UNIT_WORK_CD
+			, CREATE_DATE
+			, CREATER_ID
+			, UPDATE_DATE
+			, UPDATER_ID
+			, DEPT_CD
+		)VALUES(
+			#{unit_work_cd}
+			, SYSDATE
+			, #{user_id}
+			, SYSDATE
+			, #{user_id}
+			, #{dept_cd}
+		)
+	</insert>
+
+	<select id="deptUnitWorkDeleteFlag" parameterType="unitWorkVO" resultType="unitWorkVO">
+		SELECT COUNT(*) DEL_COUNT
+		FROM DEPT_UNIT_WORK
+		WHERE UNIT_WORK_CD = #{unit_work_cd}
+	</select>
+
+	<delete id="deleteDeptUnitWork" parameterType="unitWorkVO">
+		DELETE DEPT_UNIT_WORK
+		WHERE 1=1
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND DEPT_CD = #{dept_cd}
+		</if>
+		<if test="unit_work_cd != null and unit_work_cd != '' ">
+			AND UNIT_WORK_CD = #{unit_work_cd}
+		</if>
+	</delete>
+</mapper>

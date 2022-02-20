@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="resultApproval">
+
+	<select id="selectApprList" parameterType="ResultApprovalVO" resultType="ResultApprovalVO">
+		SELECT APPR_NO
+		,APPR_ID
+		,USER_NM
+		,SIMPLE_PRC_NM
+		FROM APPR_LINE AL
+		JOIN USER_INFO UI ON UI.USER_ID = AL.APPR_ID
+		JOIN PROCESS PRC ON PRC.PRC_CD = AL.APPR_STATE
+		WHERE AL.TEST_SAMPLE_SEQ IN (SELECT TEST_SAMPLE_SEQ FROM APPR_LINE WHERE APPR_ID = #{user_id} AND APPR_NOWPOS = 'Y')
+		ORDER BY AL.APPR_NO
+	</select>
+	
+	<!--  시험부서 승인대기 접수리스트 -->
+	<select id="selectSampleList" parameterType="ResultApprovalVO" resultType="ResultApprovalVO">
+		SELECT
+			DISTINCT R.TEST_REQ_NO
+			, R.TEST_REQ_SEQ
+			, TO_CHAR(TO_DATE(R.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') REQ_DATE
+			, TO_CHAR(TO_DATE(R.DEADLINE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') DEADLINE_DATE
+			, GET_COMMON_CODE(R.REQ_TYPE, 'EX1') REQ_TYPE
+			, R.REQ_NM
+			, R.DEPT_CD
+			, R.SUPV_DEPT_CD
+			, D.DEPT_NM
+			, R.REQ_MESSAGE
+			, R.TITLE
+			, NVL2(RO.ORG_NM , RO.ORG_NM, RD.DEPT_NM ) REQ_ORG_NM
+			, C1.CODE_NAME TEST_GOAL
+			, UW.UNIT_WORK_NM UNIT_WORK_CD
+			, U.USER_NM
+			, U2.USER_NM CREATER_NM
+			, R.STATE
+			, R.BACKUP_STATE
+			, R.STOP_FLAG
+			, ( 
+					SELECT 
+						LISTAGG(EXCEED_REASON, ', ') WITHIN GROUP (ORDER BY r.test_req_no) 
+					FROM 
+						TEST_SAMPLE_ITEM TSI 
+					WHERE 
+						ts.TEST_SAMPLE_SEQ = TSI.TEST_SAMPLE_SEQ 
+				) AS EXCEED_REASON
+			,(SELECT SUBSTITUTE_ID FROM ABSENCE WHERE START_DATE <![CDATA[ <= ]]>
+			TO_CHAR(SYSDATE, 'YYYYMMDD') AND END_DATE <![CDATA[ >= ]]>
+			TO_CHAR(SYSDATE, 'YYYYMMDD') AND USER_ID = AL.APPR_ID) ABSENCE_FLAG
+		FROM TEST_SAMPLE TS		
+		INNER JOIN TEST_REQ R ON R.TEST_REQ_SEQ = TS.TEST_REQ_SEQ
+		LEFT OUTER JOIN DEPART D ON D.DEPT_CD = R.DEPT_CD
+		LEFT OUTER JOIN COMMON_CODE_DETAIL C1 ON C1.CODE = R.TEST_GOAL
+		LEFT OUTER JOIN UNIT_WORK UW ON UW.UNIT_WORK_CD = R.UNIT_WORK_CD
+		LEFT OUTER JOIN USER_INFO U ON U.USER_ID = R.ACT_USER_ID
+		LEFT OUTER JOIN USER_INFO U2 ON U2.USER_ID = R.CREATER_ID
+		LEFT OUTER JOIN DEPART RD ON RD.DEPT_CD = R.REQ_ORG_NO
+		LEFT OUTER JOIN REQ_ORG RO ON RO.REQ_ORG_NO = R.REQ_ORG_NO
+		INNER JOIN APPR_LINE AL ON AL.TEST_REQ_SEQ = R.TEST_REQ_SEQ AND APPR_NOWPOS = 'Y' AND APPR_DEPT_FLAG = 'N'
+		WHERE 1=1
+			AND R.STOP_FLAG = 'N'
+			AND R.STATE = 'D'
+			AND R.TEST_REQ_SEQ IN (
+				SELECT DISTINCT TEST_REQ_SEQ FROM APPR_LINE 
+				WHERE APPR_NOWPOS = 'Y'
+				AND ( APPR_ID = #{user_id} OR APPR_ID IN (
+					SELECT USER_ID FROM ABSENCE WHERE START_DATE <![CDATA[ <= ]]>
+					TO_CHAR(SYSDATE, 'YYYYMMDD') AND END_DATE <![CDATA[ >= ]]>
+					TO_CHAR(SYSDATE, 'YYYYMMDD') AND SUBSTITUTE_ID = #{user_id} ) 
+				) 
+			)
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND R.DEPT_CD = #{dept_cd}
+		</if>
+		<if test="test_req_no != null and test_req_no != '' ">
+			AND R.TEST_REQ_NO like '%' || #{test_req_no} || '%'
+		</if>
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				AND TO_CHAR(TO_DATE(R.REQ_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') BETWEEN #{startDate} AND #{endDate}
+			</if>
+		</if>
+		<if test="req_nm != null and req_nm != '' ">
+			AND UPPER(R.REQ_NM) LIKE '%' || UPPER(#{req_nm}) || '%'
+		</if>
+		<if test="req_type != null and req_type != '' ">
+			AND R.REQ_TYPE = #{req_type}
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY R.TEST_REQ_NO DESC
+		</if>	
+	</select>
+
+	<select id="selectSampleItemList" parameterType="ResultInputVO" resultType="ResultInputVO">
+		SELECT
+			DECODE(SI.STATE, 'B', P.EXT_PRC_NM, P.SIMPLE_PRC_NM) STATE,
+			SI.TEST_SAMPLE_SEQ ,
+			SI.TEST_ITEM_SEQ ,
+			SI.TEST_ITEM_CD ,
+			ANAL.TESTITM_NM AS TEST_ITEM_NM ,
+			SI.DISP_ORDER,
+			SI.RESULT_VAL ,
+			ANAL.L_KOR_NM AS TEST_ITEM_TYPE,
+<!-- 			C1.CODE_NAME TEST_ITEM_TYPE , -->
+			SI.COLLA_FLAG ,
+			SI.RESULT_TYPE ,
+<!-- 			NVL2(SI.UNIT, SI.UNIT, TI.UNIT) UNIT , -->
+			SI.VALID_POSITION ,
+			SI.STD_HVAL ,
+			SI.LVAL_TYPE ,
+			SI.STD_LVAL ,
+			SI.HVAL_TYPE ,
+			SI.LOQ_HVAL ,
+			SI.STD_VAL ,
+			SI.STD_FIT STD_FIT_VAL ,
+			SI.STD_UNFIT STD_UNFIT_VAL ,
+			SI.TEST_ITEM_DIARY ,
+			SI.JDG_TYPE ,
+			SI.TEST_END_DATE ,
+			SI.STD_TYPE ,
+			SI.TEST_METHOD TEST_METHOD_NO,
+			M.TEST_METHOD_NM,
+			SI.TEST_INST INST_NO,
+			I.INST_KOR_NM,
+			SI.REPORT_DISP_VAL
+		FROM TEST_SAMPLE_ITEM SI
+		LEFT OUTER JOIN ANALYSIS ANAL ON ANAL.TESTITM_CD = SI.TEST_ITEM_CD
+<!-- 		LEFT OUTER JOIN COMMON_CODE_DETAIL C1 ON C1.CODE = TI.TEST_ITEM_TYPE -->
+		LEFT OUTER JOIN TEST_METHOD M ON SI.TEST_METHOD = M.TEST_METHOD_NO
+		LEFT OUTER JOIN INSTRUMENT I ON SI.TEST_INST = I.INST_NO
+		INNER JOIN PROCESS P ON P.PRC_CD = SI.STATE
+		WHERE
+		SI.TEST_SAMPLE_SEQ = #{test_sample_seq}
+		AND STATE = 'D'
+		AND SI.TEST_DEPT_CD = #{dept_cd}
+		ORDER BY SI.DISP_ORDER
+	</select>
+
+	<update id="updateApprNowPos" parameterType="ResultApprovalVO">
+		UPDATE APPR_LINE SET
+		APPR_STATE = 'E'
+		,APPR_NOWPOS = 'Y'
+		WHERE APPR_NO = #{appr_no}
+		AND TEST_REQ_SEQ = #{test_req_seq}
+		AND APPR_STATE = 'D'
+	</update>
+	
+	<select id="selectApprNowPos" parameterType="ResultApprovalVO" resultType="ResultApprovalVO">
+		SELECT APPR_NO , APPR_ID
+		FROM APPR_LINE
+		WHERE APPR_NO = (SELECT MIN(APPR_NO) FROM APPR_LINE WHERE TEST_REQ_SEQ = #{test_req_seq}
+		AND APPR_STATE = 'D'
+		<if test="test_dept_cd != null and test_dept_cd != '' ">
+			AND ( APPR_TEST_DEPT_CD = #{test_dept_cd} OR APPR_TEST_DEPT_CD = (SELECT DEPT_CD FROM DEPART WHERE PRE_DEPT_CD = #{test_dept_cd} ) )
+		</if>
+		)
+		AND TEST_REQ_SEQ = #{test_req_seq}
+	</select>
+	
+	
+	<update id="updateAppr" parameterType="ResultApprovalVO">
+		UPDATE APPR_LINE SET
+		APPR_STATE = 'F'
+		,APPR_NOWPOS = 'N'
+		WHERE TEST_REQ_SEQ = #{test_req_seq}
+		AND ( APPR_ID = #{appr_id} OR APPR_ID IN (SELECT USER_ID FROM ABSENCE WHERE START_DATE <![CDATA[ <= ]]> SYSDATE AND END_DATE <![CDATA[ >= ]]> SYSDATE AND SUBSTITUTE_ID = #{appr_id} ) )
+		AND APPR_STATE = 'E'
+	</update>
+
+	<select id="selectApprCnt" parameterType="ResultApprovalVO" resultType="int">
+		SELECT COUNT(APPR_SEQ) AS CNT
+		FROM APPR_LINE
+		WHERE TEST_REQ_SEQ = #{test_req_seq}
+		AND APPR_STATE = 'E'
+		AND APPR_DEPT_FLAG = 'N'
+	</select>
+
+<!-- 	사용안함
+		<select id="apprItemCnt" parameterType="ResultApprovalVO" resultType="int">
+		SELECT COUNT(TEST_ITEM_SEQ) CNT
+		FROM TEST_SAMPLE_ITEM
+		WHERE SUBSTR(TEST_SAMPLE_SEQ, 0 ,7) = #{test_req_no}
+		AND STATE != 'F'
+	</select> -->
+
+	<select id="selectApprLineList" parameterType="ResultApprovalVO" resultType="ResultApprovalVO">
+		SELECT APPR_TEST_DEPT_CD
+		FROM APPR_LINE
+		WHERE TEST_SAMPLE_SEQ = #{test_req_no}
+		AND APPR_ID = #{appr_id}
+		AND APPR_STATE = 'E'
+		AND APPR_DEPT_FLAG = 'N'
+	</select>
+
+	<update id="updateSampleItemApprReturn" parameterType="ResultApprovalVO">
+		UPDATE TEST_SAMPLE_ITEM
+		SET STATE = 'C'
+		WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+		AND TEST_DEPT_CD = #{appr_test_dept_cd}
+	</update>
+
+	<update id="updateSampleApprReturn" parameterType="ResultApprovalVO">
+		UPDATE TEST_SAMPLE
+		SET STATE = 'C'
+		WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+	</update>
+	
+	<!-- 승인할 리스트 조회 -->
+	<select id="selectApprovalList" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT
+			SI.TEST_REQ_SEQ,
+			SI.TEST_SAMPLE_SEQ,
+			SI.TEST_ITEM_SEQ,
+			ANAL.TESTITM_NM AS TEST_ITEM_NM,
+			R.DEPT_CD,
+			AP.APPR_ID USER_ID
+		FROM TEST_SAMPLE_ITEM SI
+		INNER JOIN TEST_SAMPLE TS ON TS.TEST_SAMPLE_SEQ = SI.TEST_SAMPLE_SEQ
+		INNER JOIN TEST_REQ R ON R.TEST_REQ_SEQ = TS.TEST_REQ_SEQ
+		LEFT OUTER JOIN ANALYSIS ANAL ON ANAL.TESTITM_CD = SI.TEST_ITEM_CD
+		LEFT OUTER JOIN DEPART PD ON PD.DEPT_CD = SI.TEST_DEPT_CD
+		INNER JOIN APPR_LINE AP ON R.TEST_REQ_SEQ = AP.TEST_REQ_SEQ AND AP.APPR_NOWPOS = 'Y'
+		WHERE R.TEST_REQ_SEQ = #{test_req_seq} 
+		AND ( APPR_ID = #{appr_id} OR APPR_ID IN (SELECT USER_ID FROM ABSENCE WHERE START_DATE <![CDATA[ <= ]]> SYSDATE AND END_DATE <![CDATA[ >= ]]> SYSDATE AND SUBSTITUTE_ID = #{appr_id} ) )
+		<if test="type != 'dept'">
+			AND APPR_DEPT_FLAG = 'N'
+		</if>
+		ORDER BY SI.TEST_SAMPLE_SEQ , SI.TEST_ITEM_SEQ
+	</select>
+</mapper>

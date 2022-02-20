@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="testMethod">
+
+	<select id="selectTestMethodList" parameterType="testMethodVO" resultType="testMethodVO">
+		SELECT TEST_METHOD_NO,
+		TEST_METHOD_NM,
+		QUOT_STD,
+		CONDITION,
+		GUIDE_NM,
+		DOC_NM,
+		FILE_NM,
+		USE_FLAG
+		FROM TEST_METHOD
+		WHERE 1=1
+		<if test="test_method_nm != null and test_method_nm != '' ">
+			AND UPPER(TEST_METHOD_NM) LIKE '%' ||
+			UPPER(#{test_method_nm}) || '%'
+		</if>
+		<if test="quot_std != null and quot_std != '' ">
+			AND UPPER(QUOT_STD) LIKE '%' || UPPER(#{quot_std}) || '%'
+		</if>
+		<if test="condition != null and condition != '' ">
+			AND UPPER(CONDITION) LIKE '%' || UPPER(#{condition}) ||
+			'%'
+		</if>
+		<if test="use_flag != null and use_flag != '' ">
+			AND USE_FLAG = #{use_flag}
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY TEST_METHOD_NO
+		</if>
+	</select>
+	
+	<select id="selectTestMethodDetail" parameterType="testMethodVO" resultType="testMethodVO">
+		SELECT TEST_METHOD_NO,
+		TEST_METHOD_NM,
+		QUOT_STD,
+		CONDITION,
+		GUIDE_NM,
+		DOC_NM,
+		FILE_NM,
+		USE_FLAG,
+		TEST_METHOD_CONTENT,
+		TEST_METHOD_PRECLEAN
+		FROM TEST_METHOD
+		WHERE TEST_METHOD_NO = #{key}
+	</select>
+	
+	<insert id="insertTestMethod" parameterType="testMethodVO">
+		INSERT INTO TEST_METHOD (
+		TEST_METHOD_NO,
+		TEST_METHOD_NM,
+		QUOT_STD,
+		CONDITION,
+		GUIDE_NM,
+		DOC_NM,
+		<if test="att_file != null and att_file != '' ">
+			FILE_NM,
+			ATT_FILE,
+		</if>
+		USE_FLAG,
+		CREATER_ID,
+		CREATE_DATE,
+		TEST_METHOD_CONTENT,
+		TEST_METHOD_PRECLEAN
+		) VALUES (
+		(SELECT
+		LPAD(NVL(MAX(TEST_METHOD_NO),0)+1 ,3 ,0) FROM TEST_METHOD),
+		#{test_method_nm},
+		#{quot_std},
+		#{condition},
+		#{guide_nm},
+		#{doc_nm},
+		<if test="att_file != null and att_file != '' ">
+			#{file_nm},
+			#{att_file},
+		</if>
+		#{use_flag},
+		#{user_id},
+		SYSDATE,
+		#{test_method_content},
+		#{test_method_preclean}
+		)
+	</insert>
+	
+	<update id="updateTestMethod" parameterType="testMethodVO">
+		UPDATE TEST_METHOD SET
+		TEST_METHOD_NM = #{test_method_nm},
+		QUOT_STD = #{quot_std},
+		CONDITION = #{condition},
+		GUIDE_NM = #{guide_nm},
+		DOC_NM = #{doc_nm},
+		TEST_METHOD_CONTENT = #{test_method_content},
+		TEST_METHOD_PRECLEAN = #{test_method_preclean},
+		<if test="att_file != null and att_file != '' ">
+			FILE_NM = #{file_nm},
+			ATT_FILE = #{att_file},
+		</if>
+		<if test="att_file == null or att_file == '' ">
+			<if test="file_nm == null or file_nm == '' ">
+				FILE_NM = #{file_nm},
+				ATT_FILE = EMPTY_BLOB(),
+			</if>
+		</if>
+		USE_FLAG = #{use_flag},
+		UPDATER_ID = #{user_id},
+		UPDATE_DATE = SYSDATE
+		WHERE TEST_METHOD_NO = #{test_method_no}
+	</update>
+	
+	<select id="testMethodDown" parameterType="testMethodVO" resultType="testMethodVO">
+		SELECT ATT_FILE, FILE_NM
+		FROM TEST_METHOD
+		WHERE TEST_METHOD_NO = #{test_method_no}
+	</select>	
+
+</mapper>

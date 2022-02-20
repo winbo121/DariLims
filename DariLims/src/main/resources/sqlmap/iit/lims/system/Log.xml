@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="system">
+
+	<!-- 로그 목록 -->
+	<select id="system.selectLogList" parameterType="LogVO" resultType="LogVO">
+	SELECT LAST.*
+            FROM (   
+                    SELECT ROWNUM rNum, LOG.*
+                    FROM (
+							SELECT
+								ULH.LOG_ID,
+								ULH.USER_ID,
+								ULH.USER_IP,
+								ULH.USER_LOGIN_DATE,
+								ULH.USER_LOGOUT_DATE,
+								UI.USER_NM,
+								DP.DEPT_NM
+							FROM USER_LOG_HISTORY ULH
+							LEFT JOIN USER_INFO UI ON UI.USER_ID = ULH.USER_ID
+							LEFT JOIN DEPART DP ON DP.DEPT_CD = UI.DEPT_CD
+							WHERE 1=1
+							<if test="user_nm != null and user_nm != '' ">
+								AND UI.USER_NM like '%'|| #{user_nm} ||'%'
+							</if>
+							<if test="user_id != null and user_id != '' ">
+								AND ULH.USER_ID like '%'|| #{user_id} ||'%'
+							</if>
+							<if test="dept_cd != null and dept_cd != '' ">
+								AND DP.DEPT_CD like '%'|| #{dept_cd} ||'%'
+							</if>
+							<if test="startDate != null and startDate != ''">
+							<if test="endDate != null and endDate != ''">
+								AND (TO_CHAR(ULH.USER_LOGIN_DATE, 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate} 
+								OR TO_CHAR(ULH.USER_LOGOUT_DATE, 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate})
+							</if>
+							</if> 
+							<if test="sortName != null and sortName != '' ">
+								ORDER BY ${sortName} ${sortType}
+							</if>
+							<if test="sortName == null or sortName == '' ">
+								ORDER BY LOG_ID DESC
+							</if>
+					  )LOG
+				)LAST
+		WHERE rNum BETWEEN #{firstIndex} +1 AND #{firstIndex} + #{recordCountPerPage}
+		ORDER BY rNum
+	</select>
+	
+	
+	<!-- 로그인 히스토리 처리 -->
+	<insert id="system.insertLoginLog" parameterType="java.util.HashMap">
+		INSERT INTO USER_LOG_HISTORY (
+			LOG_ID
+	       ,USER_ID
+	       ,USER_IP
+	       ,USER_LOGIN_DATE
+	       ,CREATER_ID
+	       ,CREATE_DATE
+		) VALUES (
+			LOG_ID.NEXTVAL
+	       ,#{user_id, jdbcType=VARCHAR}
+	       ,#{user_ip, jdbcType=VARCHAR}
+	       ,SYSDATE
+	       ,'ADMIN'
+	       ,SYSDATE
+		)
+	</insert>
+	
+	<!-- 로그아웃 히스토리 처리 -->
+	<insert id="system.insertLogoutLog" parameterType="java.util.HashMap">
+		INSERT INTO USER_LOG_HISTORY (
+			LOG_ID
+	       ,USER_ID
+	       ,USER_IP
+	       ,USER_LOGOUT_DATE
+	       ,CREATER_ID
+	       ,CREATE_DATE
+		) VALUES (
+			LOG_ID.NEXTVAL
+	       ,#{user_id, jdbcType=VARCHAR}
+	       ,#{user_ip, jdbcType=VARCHAR}
+	       ,SYSDATE
+	       ,'ADMIN'
+	       ,SYSDATE
+		)
+	</insert>
+	
+	
+	<select id="logCnt" parameterType="pagingVO" resultType="int">
+		SELECT COUNT(*)
+		FROM USER_LOG_HISTORY ULH
+		LEFT JOIN USER_INFO UI ON UI.USER_ID = ULH.USER_ID
+		LEFT JOIN DEPART DP ON DP.DEPT_CD = UI.DEPT_CD
+		WHERE 1=1
+		<if test="user_nm != null and user_nm != '' ">
+			AND UI.USER_NM like '%'|| #{user_nm} ||'%'
+		</if>
+		<if test="user_id != null and user_id != '' ">
+			AND ULH.USER_ID like '%'|| #{user_id} ||'%'
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND DP.DEPT_CD like '%'|| #{dept_cd} ||'%'
+		</if>
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				AND (TO_CHAR(ULH.USER_LOGIN_DATE, 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate} 
+				OR TO_CHAR(ULH.USER_LOGOUT_DATE, 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate})
+			</if>
+		</if> 
+	</select>
+</mapper>

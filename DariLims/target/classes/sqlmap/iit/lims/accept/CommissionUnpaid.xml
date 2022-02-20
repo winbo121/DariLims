@@ -1,0 +1,390 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="commissionUnpaid">
+
+	<!-- 수수료 미납업체(영업) 목록 조회 -->
+	<select id="selectCommissionUnpaidList" parameterType="CommissionCheckVO" resultType="CommissionCheckVO">
+		SELECT 
+        A.TEST_REQ_NO,
+        A.TEST_REQ_SEQ,
+        A.TITLE,
+        TO_CHAR(A.REPORT_LAST_DATE, 'YYYY-MM-DD') AS LAST_REPORT_DATE,
+        B.PRDLST_NM,
+        DECODE(A.EXPRESS_FLAG,'Y','특급','일반') AS EXPRESS_FLAG,
+        TO_CHAR(TO_DATE(A.SAMPLE_ARRIVAL_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS SAMPLE_ARRIVAL_DATE,
+        (SELECT SIMPLE_PRC_NM FROM PROCESS WHERE PRC_CD = A.STATE) AS STATE,
+        GET_COMMON_CODE(A.REQ_CLASS,'') AS REQ_CLASS,
+        RO.ORG_NM,
+        RO3.ORG_NM AS TAX_REQ_ORG_NM,
+        RO3.PRE_TEL_NUM AS TAX_PRE_TEL_NUM,
+        RO3.BIZ_NO1 || '-' || RO3.BIZ_NO2 || '-' || RO3.BIZ_NO3 AS TAX_BIZ_NO,
+        DECODE(OCD.TAX_INVOICE_FLAG,'Y','발행','미발행') AS TAX_INVOICE_FLAG,
+        TO_CHAR(TO_DATE(OCD.TAX_INVOICE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') AS TAX_INVOICE_DATE,
+        GET_DEPT_NM(A.SALES_DEPT_CD) AS SALES_DEPT_CD, 
+        GET_USER_NM(A.SALES_USER_ID) AS SALES_USER_ID,
+        CCD.CODE_NAME AS PAYMENT_METHOD,
+        S1.ITEM_CNT,
+        DP.DEPT_NM,
+        NVL(
+        	NVL2(
+        		A.DISCOUNT_RATE, 
+        		A.FEE_TOT - (
+        			CASE WHEN A.DISCOUNT_FLAG = 'Y' THEN A.FEE_TOT * (A.DISCOUNT_RATE * 0.01) ELSE 0 END
+        		), 
+        	A.FEE_TOT),0
+        ) AS COMMISSION_AMT_DET,
+        NVL(OCD.DEPOSIT_AMT,0) AS DEPOSIT_AMT,
+        NVL(
+        	NVL2(
+        		A.DISCOUNT_RATE, A.FEE_TOT - 
+        		(
+        			CASE WHEN A.DISCOUNT_FLAG = 'Y' THEN A.FEE_TOT * (A.DISCOUNT_RATE * 0.01) ELSE 0 END
+        		), A.FEE_TOT
+        	) - 
+        	NVL(OCD.DEPOSIT_AMT,0),0
+        ) AS DEFAULT_AMT
+        FROM TEST_REQ A
+        INNER JOIN REQ_ORG RO ON RO.REQ_ORG_NO = A.REQ_ORG_NO
+        INNER JOIN REQ_ORG RO3 ON RO3.REQ_ORG_NO = A.REQ_ORG_NO3
+        INNER JOIN ORG_COMMISSION_DEPOSIT OCD ON OCD.REQ_ORG_NO = A.REQ_ORG_NO AND OCD.TEST_REQ_SEQ = A.TEST_REQ_SEQ
+        LEFT JOIN COMMON_CODE_DETAIL CCD ON OCD.PAYMENT_METHOD = CCD.CODE
+        LEFT OUTER JOIN DEPART DP ON DP.DEPT_CD = A.DEPT_CD
+        INNER JOIN 
+		(
+			SELECT TEST_REQ_SEQ, MAX(IB.KOR_NM) AS PRDLST_NM, COUNT(IA.TEST_SAMPLE_SEQ) AS SAMPLE_CNT
+		  FROM TEST_SAMPLE IA 
+		  INNER JOIN PRDLST_CL IB ON IA.PRDLST_CD = IB.PRDLST_CD
+		  GROUP BY IA.TEST_REQ_SEQ
+		) B ON A.TEST_REQ_SEQ = B.TEST_REQ_SEQ
+		INNER JOIN (
+            SELECT A.TEST_REQ_SEQ, 
+            SUM(1) AS ITEM_CNT,
+            SUM(
+                NVL(
+                	NVL2(
+                		A.DISCOUNT_RATE, 
+                		I.FEE - (
+                			CASE WHEN A.DISCOUNT_FLAG = 'Y' THEN I.FEE * (A.DISCOUNT_RATE * 0.01) ELSE 0 END
+                		), 
+                	I.FEE),0
+            	)
+            ) AS COMMISSION_AMT_DET,
+            SUM(0) AS DEPOSIT_AMT,
+            SUM(
+                NVL(
+                	NVL2(
+                		A.DISCOUNT_RATE, I.FEE - 
+                		(
+                			CASE WHEN A.DISCOUNT_FLAG = 'Y' THEN I.FEE * (A.DISCOUNT_RATE * 0.01) ELSE 0 END
+                		), I.FEE
+                	) - 0,0
+                )
+            ) AS DEFAULT_AMT
+            FROM TEST_REQ A
+            INNER JOIN TEST_SAMPLE_ITEM I ON A.TEST_REQ_SEQ = I.TEST_REQ_SEQ
+            INNER JOIN ORG_COMMISSION_DEPOSIT OCD ON OCD.REQ_ORG_NO = A.REQ_ORG_NO AND OCD.TEST_REQ_SEQ = A.TEST_REQ_SEQ	 
+            GROUP BY A.TEST_REQ_SEQ
+    	) S1 ON A.TEST_REQ_SEQ = S1.TEST_REQ_SEQ
+    	WHERE 1=1 
+        <if test="paid == 'No'">
+        AND NVL(
+        	NVL2(
+        		A.DISCOUNT_RATE, A.FEE_TOT - (A.FEE_TOT * (A.DISCOUNT_RATE * 0.01)
+        	), A.FEE_TOT
+    	),0) - 
+    	NVL(OCD.DEPOSIT_AMT, 0) > 0
+    	</if>
+    	<if test="paid == 'Yes'">
+        AND NVL(
+        	NVL2(
+        		A.DISCOUNT_RATE, A.FEE_TOT - (A.FEE_TOT * (A.DISCOUNT_RATE * 0.01)
+        	), A.FEE_TOT
+    	),0) - 
+    	NVL(OCD.DEPOSIT_AMT, 0) = 0
+    	</if>
+		<if test="sales_dept_cd != null and sales_dept_cd != '' ">
+			AND A.SALES_DEPT_CD = #{sales_dept_cd}
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND A.DEPT_CD = #{dept_cd}
+		</if>
+		<if test="tax_invoice_flag != null and tax_invoice_flag != ''" >
+		    AND OCD.TAX_INVOICE_FLAG = #{tax_invoice_flag}
+		</if>
+		<if test="sales_user_id != null and sales_user_id != '' ">
+			AND A.SALES_USER_ID = #{sales_user_id}
+		</if>
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				AND TO_CHAR(TO_DATE(A.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate}
+			</if>
+		</if>
+		<if test="taxSdate != null and taxSdate != ''">
+			<if test="taxEdate != null and taxEdate != ''">
+				AND TO_CHAR(TO_DATE(OCD.TAX_INVOICE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') BETWEEN #{taxSdate} AND #{taxEdate}
+			</if>
+		</if>
+		<!-- 업체조회 -->
+		<if test="org_nm != null and org_nm != ''">
+			<if test="org_cls == 'TAX'">
+				AND UPPER(RO3.ORG_NM) LIKE '%' || UPPER(#{org_nm}) || '%'
+			</if>
+			<if test="org_cls == 'REQ'">
+				AND UPPER(RO.ORG_NM) LIKE '%' || UPPER(#{org_nm}) || '%'
+			</if>
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY A.TEST_REQ_SEQ DESC
+		</if>
+	</select>
+	
+
+
+	<!-- 수수료 미납업체(시험) 목록 조회 -->
+	<select id="selectUnpaidTestList" parameterType="CommissionCheckVO" resultType="CommissionCheckVO">
+        SELECT
+        A.TEST_REQ_NO,
+        A.TEST_REQ_SEQ,
+        A.TITLE,
+        B.PRDLST_NM,
+        DECODE(A.EXPRESS_FLAG,'Y','특급','일반') AS EXPRESS_FLAG,
+        TO_CHAR(TO_DATE(A.SAMPLE_ARRIVAL_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS SAMPLE_ARRIVAL_DATE,
+        TO_CHAR(A.REPORT_LAST_DATE, 'YYYY-MM-DD') AS LAST_REPORT_DATE,
+        (SELECT SIMPLE_PRC_NM FROM PROCESS WHERE PRC_CD = A.STATE) AS STATE,
+        GET_COMMON_CODE(A.REQ_CLASS,'') AS REQ_CLASS,
+        RO.ORG_NM,
+        RO3.ORG_NM AS TAX_REQ_ORG_NM,
+        RO3.BIZ_NO1 || '-' || RO3.BIZ_NO2 || '-' || RO3.BIZ_NO3 AS TAX_BIZ_NO,
+        GET_DEPT_NM(S1.DEPT_CD) AS DEPT_NM,
+        DECODE(OCD.TAX_INVOICE_FLAG,'Y','발행','미발행') AS TAX_INVOICE_FLAG,
+        TO_CHAR(TO_DATE(OCD.TAX_INVOICE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') AS TAX_INVOICE_DATE,
+        GET_DEPT_NM(A.SALES_DEPT_CD) AS SALES_DEPT_CD, 
+        GET_USER_NM(A.SALES_USER_ID) AS SALES_USER_ID,
+        S1.ITEM_CNT,
+        S1.COMMISSION_AMT_DET,
+        S1.DEPOSIT_AMT,
+        S1.DEFAULT_AMT
+        FROM TEST_REQ A
+        INNER JOIN REQ_ORG RO ON RO.REQ_ORG_NO = A.REQ_ORG_NO
+        INNER JOIN REQ_ORG RO3 ON RO3.REQ_ORG_NO = A.REQ_ORG_NO3
+        INNER JOIN ORG_COMMISSION_DEPOSIT OCD ON OCD.REQ_ORG_NO = A.REQ_ORG_NO AND OCD.TEST_REQ_SEQ = A.TEST_REQ_SEQ
+        INNER JOIN 
+		(
+			SELECT TEST_REQ_SEQ, MAX(IB.KOR_NM) AS PRDLST_NM, COUNT(IA.TEST_SAMPLE_SEQ) AS SAMPLE_CNT
+		  FROM TEST_SAMPLE IA 
+		  INNER JOIN PRDLST_CL IB ON IA.PRDLST_CD = IB.PRDLST_CD
+		  GROUP BY IA.TEST_REQ_SEQ
+		) B ON A.TEST_REQ_SEQ = B.TEST_REQ_SEQ
+        INNER JOIN (
+            SELECT A.TEST_REQ_SEQ, I.DEPT_CD,
+            SUM(1) AS ITEM_CNT,
+            SUM(
+                NVL(
+                	NVL2(
+                		A.DISCOUNT_RATE, 
+                		I.FEE - (
+                			CASE WHEN A.DISCOUNT_FLAG = 'Y' THEN I.FEE * (A.DISCOUNT_RATE * 0.01) ELSE 0 END
+                		), 
+                	I.FEE),0
+            	)
+            ) AS COMMISSION_AMT_DET,
+            SUM(0) AS DEPOSIT_AMT,
+            SUM(
+                NVL(
+                	NVL2(
+                		A.DISCOUNT_RATE, I.FEE - 
+                		(
+                			CASE WHEN A.DISCOUNT_FLAG = 'Y' THEN I.FEE * (A.DISCOUNT_RATE * 0.01) ELSE 0 END
+                		), I.FEE
+                	) - 0,0
+                )
+            ) AS DEFAULT_AMT
+            FROM TEST_REQ A
+            INNER JOIN TEST_SAMPLE_ITEM I ON A.TEST_REQ_SEQ = I.TEST_REQ_SEQ
+            INNER JOIN ORG_COMMISSION_DEPOSIT OCD ON OCD.REQ_ORG_NO = A.REQ_ORG_NO AND OCD.TEST_REQ_SEQ = A.TEST_REQ_SEQ
+            WHERE 
+            NVL(
+                NVL2(
+                	A.DISCOUNT_RATE, A.FEE_TOT - (A.FEE_TOT * (A.DISCOUNT_RATE * 0.01)
+                ), A.FEE_TOT
+            ),0) - 
+            NVL(OCD.DEPOSIT_AMT, 0) > 0
+			<if test="dept_cd != null and dept_cd != '' ">
+				AND I.DEPT_CD = #{dept_cd}
+			</if>
+			<if test="startDate != null and startDate != ''">
+				<if test="endDate != null and endDate != ''">
+					AND TO_CHAR(TO_DATE(A.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate}
+				</if>
+			</if>
+			<if test="taxSdate != null and taxSdate != ''">
+				<if test="taxEdate != null and taxEdate != ''">
+					AND TO_CHAR(TO_DATE(OCD.TAX_INVOICE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') BETWEEN #{taxSdate} AND #{taxEdate}
+				</if>
+			</if>
+            GROUP BY A.TEST_REQ_SEQ, I.DEPT_CD
+    	) S1 ON A.TEST_REQ_SEQ = S1.TEST_REQ_SEQ
+    	WHERE 1=1
+    	
+		<!-- 업체조회 -->
+		<if test="org_nm != null and org_nm != ''">
+			<if test="org_cls == 'TAX'">
+				AND UPPER(RO3.ORG_NM) LIKE '%' || UPPER(#{org_nm}) || '%'
+			</if>
+			<if test="org_cls == 'REQ'">
+				AND UPPER(RO.ORG_NM LIKE) '%' || UPPER(#{org_nm}) || '%'
+			</if>
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY A.TEST_REQ_SEQ DESC, S1.DEPT_CD ASC
+		</if>
+	</select>
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	<!-- 수수료 미납업체(영업) 상세 목록 조회 -->
+	<select id="selectUnpaidSalesDetailList" parameterType="CommissionCheckVO" resultType="CommissionCheckVO">
+		SELECT 
+        A.TEST_REQ_NO,
+        A.TEST_REQ_SEQ,
+        A.TITLE,
+        TO_CHAR(TO_DATE(A.REQ_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS REQ_DATE,
+        (SELECT SIMPLE_PRC_NM FROM PROCESS WHERE PRC_CD = A.STATE) AS STATE,
+        NVL(
+        	NVL2(
+        		A.DISCOUNT_RATE, 
+        		A.FEE_TOT - (
+        			CASE WHEN A.DISCOUNT_FLAG = 'Y' THEN A.FEE_TOT * (A.DISCOUNT_RATE * 0.01) ELSE 0 END
+        		), 
+        	A.FEE_TOT),0
+        ) AS COMMISSION_AMT_DET,
+        NVL(OCD.DEPOSIT_AMT,0) AS DEPOSIT_AMT,
+        NVL(
+        	NVL2(
+        		A.DISCOUNT_RATE, A.FEE_TOT - 
+        		(
+        			CASE WHEN A.DISCOUNT_FLAG = 'Y' THEN A.FEE_TOT * (A.DISCOUNT_RATE * 0.01) ELSE 0 END
+        		), A.FEE_TOT
+        	) - 
+        	NVL(OCD.DEPOSIT_AMT,0),0
+        ) AS DEFAULT_AMT
+        FROM TEST_REQ A
+        INNER JOIN ORG_COMMISSION_DEPOSIT OCD ON OCD.REQ_ORG_NO = A.REQ_ORG_NO AND OCD.TEST_REQ_SEQ = A.TEST_REQ_SEQ
+        WHERE 
+        NVL(
+        	NVL2(
+        		A.DISCOUNT_RATE, A.FEE_TOT - (A.FEE_TOT * (A.DISCOUNT_RATE * 0.01)
+        	), A.FEE_TOT
+    	),0) - 
+    	NVL(OCD.DEPOSIT_AMT, 0) > 0
+		AND A.REQ_ORG_NO = #{req_org_no}
+		<if test="sales_dept_cd != null and sales_dept_cd != '' ">
+			AND A.SALES_DEPT_CD = #{sales_dept_cd}
+		</if>
+		<if test="sales_user_id != null and sales_user_id != '' ">
+			AND A.SALES_USER_ID = #{sales_user_id}
+		</if>
+		<if test="test_req_no != null and test_req_no != ''">
+			AND A.TEST_REQ_NO LIKE '%' || #{test_req_no} || '%'
+		</if>
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				AND TO_CHAR(TO_DATE(A.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate}
+			</if>
+		</if>
+		<if test="state != null and state != ''">
+			AND A.STATE = #{state}
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY A.TEST_REQ_SEQ DESC
+		</if>
+	</select>
+	
+	
+	<!-- 수수료 미납업체(시험) 상세 목록 조회 -->
+	<select id="selectUnpaidTestDetailList" parameterType="CommissionCheckVO" resultType="CommissionCheckVO">
+        SELECT
+        A.TEST_REQ_NO,
+        A.TEST_REQ_SEQ,
+        A.TITLE,
+        TO_CHAR(TO_DATE(A.REQ_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS REQ_DATE,
+        (SELECT SIMPLE_PRC_NM FROM PROCESS WHERE PRC_CD = A.STATE) AS STATE,
+        S1.COMMISSION_AMT_DET,
+        S1.DEPOSIT_AMT,
+        S1.DEFAULT_AMT
+        FROM TEST_REQ A,
+        (
+            SELECT A.TEST_REQ_SEQ,
+            SUM(
+                NVL(
+                	NVL2(
+                		A.DISCOUNT_RATE, 
+                		I.FEE - (
+                			CASE WHEN A.DISCOUNT_FLAG = 'Y' THEN I.FEE * (A.DISCOUNT_RATE * 0.01) ELSE 0 END
+                		), 
+                	I.FEE),0
+            	)
+            ) AS COMMISSION_AMT_DET,
+            SUM(0) AS DEPOSIT_AMT,
+            SUM(
+                NVL(
+                	NVL2(
+                		A.DISCOUNT_RATE, I.FEE - 
+                		(
+                			CASE WHEN A.DISCOUNT_FLAG = 'Y' THEN I.FEE * (A.DISCOUNT_RATE * 0.01) ELSE 0 END
+                		), I.FEE
+                	) - 0,0
+                )
+            ) AS DEFAULT_AMT
+            FROM TEST_REQ A
+            INNER JOIN TEST_SAMPLE_ITEM I ON A.TEST_REQ_SEQ = I.TEST_REQ_SEQ
+            INNER JOIN ORG_COMMISSION_DEPOSIT OCD ON OCD.REQ_ORG_NO = A.REQ_ORG_NO AND OCD.TEST_REQ_SEQ = A.TEST_REQ_SEQ
+            WHERE 
+            NVL(
+                NVL2(
+                	A.DISCOUNT_RATE, A.FEE_TOT - (A.FEE_TOT * (A.DISCOUNT_RATE * 0.01)
+                ), A.FEE_TOT
+            ),0) - 
+            NVL(OCD.DEPOSIT_AMT, 0) > 0
+            AND A.REQ_ORG_NO = #{req_org_no}
+			<if test="dept_cd != null and dept_cd != '' ">
+				AND I.DEPT_CD = #{dept_cd}
+			</if>
+			<if test="test_req_no != null and test_req_no != ''">
+				AND A.TEST_REQ_NO LIKE '%' || #{test_req_no} || '%'
+			</if>
+			<if test="startDate != null and startDate != ''">
+				<if test="endDate != null and endDate != ''">
+					AND TO_CHAR(TO_DATE(A.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate}
+				</if>
+			</if>
+			<if test="state != null and state != ''">
+				AND A.STATE = #{state}
+			</if>
+            GROUP BY A.TEST_REQ_SEQ
+    	) S1
+    	WHERE A.TEST_REQ_SEQ = S1.TEST_REQ_SEQ
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY A.TEST_REQ_SEQ DESC
+		</if>
+	</select>
+	
+</mapper>

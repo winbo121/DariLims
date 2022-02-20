@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="testReport">
+
+	<!-- 시료 목록 조회 -->
+	<select id="selectTestReportSampleList" parameterType="TestReportVO" resultType="TestReportVO">
+		SELECT 
+			REC_REQ_NO
+            ,TR.REQ_NM
+            ,TR.TITLE 
+			,TR.TEST_REQ_NO AS TEST_REQ_NO
+			,TEST_SAMPLE_SEQ
+			,TEST_SAMPLE_NO
+			,(SELECT ORG_NM FROM REQ_ORG WHERE REQ_ORG_NO = TR.REQ_ORG_NO) AS REQ_ORG_NM
+			,SAMPLE_REG_NM
+			,(SELECT SIMPLE_PRC_NM FROM PROCESS WHERE PRC_CD = TR.STATE) AS STATE_NM
+			,TR.STATE
+			,TO_CHAR(TO_DATE(SAMPLE_ARRIVAL_DATE,'YYYYMMDD'),'YYYY-MM-DD') SAMPLE_ARRIVAL_DATE
+		FROM TEST_REQ TR
+		RIGHT OUTER JOIN TEST_SAMPLE TS ON TR.TEST_REQ_SEQ = TS.TEST_REQ_SEQ
+		WHERE TR.STATE NOT IN ('A','O','P','Z','S')
+		AND STOP_FLAG = 'N'
+		<if test="test_req_no != '' and test_req_no != null">
+			AND UPPER(TR.TEST_REQ_NO) LIKE '%' || UPPER(#{test_req_no}) || '%'
+		</if>
+		<if test="req_org_nm != '' and req_org_nm != null">
+			AND (SELECT ORG_NM FROM REQ_ORG WHERE REQ_ORG_NO = REQ_ORG_NO) LIKE '%' || #{req_org_nm} || '%'
+		</if>
+		<if test="test_sample_seq != '' and test_sample_seq != null">
+			AND TEST_SAMPLE_SEQ LIKE '%' || #{test_sample_seq} || '%'
+		</if>		
+		<if test="sample_reg_nm != '' and sample_reg_nm != null">
+			AND SAMPLE_REG_NM LIKE '%' || #{sample_reg_nm} || '%'
+		</if>
+		<if test="startDate != '' and startDate != null">
+			<if test="endDate != '' and endDate != null">
+				AND TO_CHAR(TO_DATE(TR.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate}
+			</if>
+		</if>
+		<if test="state != '' and state != null">
+			<if test="state == 'Y'.toString()">
+				AND TR.STATE IN ('B','C')
+			</if>			
+			<if test="state == 'N'.toString()">
+				AND TR.STATE NOT IN ('B','C')
+			</if>
+		</if>
+		<if test="user_id != '' and user_id != null">
+			AND EXISTS(SELECT 'X' FROM TEST_SAMPLE_ITEM WHERE TEST_SAMPLE_SEQ = TS.TEST_SAMPLE_SEQ AND TESTER_ID = #{user_id} )
+		</if>
+		
+		ORDER BY TEST_REQ_NO, TEST_SAMPLE_SEQ 
+	</select>
+	
+	<!-- 항목 목록 조회 -->
+	<select id="selectTestReportItemList" parameterType="TestReportVO" resultType="TestReportVO">
+		SELECT 
+             TEST_ITEM_CD
+            ,(SELECT TESTITM_NM FROM ANALYSIS WHERE TESTITM_CD = TSI.TEST_ITEM_CD) TEST_ITEM_NM
+        FROM TEST_SAMPLE_ITEM TSI
+		WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+		ORDER BY TEST_ITEM_CD
+	</select>
+	
+	<!-- 시료 상세 데이터 조회 -->
+	<select id="selectTestReportSampleDetail" parameterType="TestReportVO" resultType="TestReportVO">
+		SELECT 
+			 TS.TEST_SAMPLE_SEQ
+			,TS.SAMPLE_REG_NM
+			,(SELECT SAMPLE_NM FROM SAMPLE IA WHERE IA.SAMPLE_CD = TS.SAMPLE_CD) AS SAMPLE_NM
+			,(SELECT TEST_STD_NM FROM TEST_STD IB WHERE IB.TEST_STD_NO = TS.TEST_STD_NO) AS TEST_STD_NM
+			,TS.TEST_STD_NO AS TEST_STD_NO
+			,TS.TEST_SAMPLE_NO AS TEST_SAMPLE_NO_X
+			,TR.TEST_REQ_NO AS TEST_SAMPLE_NO
+			,TO_CHAR(TO_DATE(TR.REQ_DATE,'YYYY-MM-DD'),'YYYY-MM-DD') AS REQ_DATE
+			,TO_CHAR(TR.ACT_DATE,'YYYY-MM-DD') AS ACT_DATE
+			,NVL(TO_CHAR(TO_DATE(TR.DEPT_APPR_DATE,'YYYY-MM-DD'),'YYYY-MM-DD'),'') AS DEPT_APPR_DATE
+			,(SELECT USER_NM FROM USER_INFO IC WHERE IC.USER_ID = TR.DEPT_APPR_ID) AS APPR_NM
+			<if test="test_item_cd != '' and test_item_cd  != null">
+			,(SELECT TESTITM_NM FROM ANALYSIS XA WHERE XA.TESTITM_CD = #{test_item_cd}) AS ITEM_NM
+			,(
+				SELECT
+					(SELECT XC.USER_NM FROM USER_INFO XC WHERE XC.USER_ID = XB.TESTER_ID)   
+				FROM TEST_SAMPLE_ITEM XB 
+				WHERE XB.TEST_SAMPLE_SEQ = TS.TEST_SAMPLE_SEQ AND XB.TEST_ITEM_CD = #{test_item_cd}
+			) AS TESTER_NM
+			</if>
+			FROM TEST_SAMPLE TS
+	    JOIN TEST_REQ TR ON TS.TEST_REQ_SEQ = TR.TEST_REQ_SEQ
+		WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+	</select>
+	
+	<!-- 시험일지 중복확인 -->
+	<select id="selectTestReportCount" parameterType="AcceptVO" resultType="int">
+		SELECT 
+			COUNT(*) 
+		FROM TEST_REPORT
+		WHERE 1=1
+		<if test="test_req_no != '' and test_req_no  != null">		
+			AND SUBSTR(TEST_SAMPLE_SEQ, 1, 7) = #{test_req_no}
+		</if>
+		<if test="test_sample_seq != '' and test_sample_seq  != null">		
+			AND TEST_SAMPLE_SEQ = #{test_sample_seq}
+		</if>
+		<if test="test_item_cd != '' and test_item_cd  != null">
+			AND TEST_ITEM_CD = #{test_item_cd}
+		</if>
+	</select>
+	
+	<!-- 시험일지 작성 0704 제일분석 양식 변경으로 이부분 일지에 안찍음 -->
+	<insert id="insertTestReport" parameterType="TestReportVO">
+		INSERT INTO TEST_REPORT
+			(
+			  TEST_SAMPLE_SEQ
+			 ,TEST_ITEM_CD
+			 <if test="test_method_no != '' and test_method_no != null">
+			 ,TEST_METHOD_NO
+			 </if>
+			 <if test="test_inst_no != '' and test_inst_no != null">
+			 ,INST_NO
+			 </if>
+			 <if test="account_no != '' and account_no != null">
+			 ,ACCOUNT_NO
+			 </if>
+			 <if test="test_report_content != '' and test_report_content != null">
+			 ,TEST_REPORT_CONTENT
+			 </if>
+			 <if test="user_id != '' and user_id != null">
+			 ,CREATER_ID
+			 </if>
+			 ,CREATE_DATE
+			 ,UPDATER_ID
+			 ,UPDATE_DATE
+		)VALUES(
+			 #{test_sample_seq}
+			,#{test_item_cd}
+			<if test="test_method_no != '' and test_method_no != null">
+			,#{test_method_no}
+			</if>
+			<if test="test_inst_no != '' and test_inst_no != null">
+			,#{test_inst_no}
+			</if>
+			<if test="inst_no != '' and inst_no != null">
+			,#{inst_no}
+			</if>
+			<if test="account_no != '' and account_no != null">
+			,#{account_no}
+			</if>
+			<if test="test_report_content != '' and test_report_content != null">
+			,#{test_report_content}
+			</if>
+			<if test="user_id != '' and user_id != null">
+			,#{user_id}
+			</if>
+			,SYSDATE
+			,''
+			,''
+				)
+	</insert>
+	
+	<!-- 시험일지 수정 -->
+	<update id="updateTestReport" parameterType="TestReportVO">
+		UPDATE TEST_REPORT SET
+			<if test="test_method_no != null">
+			 TEST_METHOD_NO = #{test_method_no}
+			</if>
+			<if test="inst_no != null">
+			,INST_NO = #{inst_no}
+			</if>
+			<if test="account_no != null and account_no != ''">
+			,ACCOUNT_NO = #{account_no}
+			</if>
+			<if test="test_report_content != '' and test_report_content != null">
+			,TEST_REPORT_CONTENT = #{test_report_content}
+			</if>
+			,UPDATER_ID = #{user_id}
+			,UPDATE_DATE = SYSDATE
+		WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+		AND TEST_ITEM_CD = #{test_item_cd}
+	</update>
+	
+	<!-- 시험일지 불러오기 -->
+	<select id="selectTestReport" parameterType="TestReportVO" resultType="TestReportVO">
+		SELECT 
+             TR.TEST_METHOD_NO
+            ,(SELECT TEST_METHOD_NM FROM TEST_METHOD WHERE TEST_METHOD_NO = TR.TEST_METHOD_NO) AS TEST_METHOD_NM
+            ,(SELECT TEST_METHOD_PRECLEAN FROM TEST_METHOD WHERE TEST_METHOD_NO = TR.TEST_METHOD_NO) AS TEST_METHOD_PRECLEAN
+            ,(SELECT TEST_METHOD_CONTENT FROM TEST_METHOD WHERE TEST_METHOD_NO = TR.TEST_METHOD_NO) AS TEST_METHOD_CONTENT
+            ,TR.INST_NO
+            ,(SELECT INST_KOR_NM FROM INSTRUMENT WHERE INST_NO = TR.INST_NO) AS INST_KOR_NM
+            ,(SELECT INST_ENG_NM FROM INSTRUMENT WHERE INST_NO = TR.INST_NO) AS INST_ENG_NM
+            ,TEST_REPORT_CONTENT
+            ,TR.ACCOUNT_NO
+            ,AC.ACCOUNT_NM
+            ,AC.ACCOUNT_VAL_DESC
+            ,AC.ACCOUNT_TOT_DISP
+            ,TSI.ACCOUNT_TOT_CAL_DISP
+            ,TSI.ACCOUNT_VAL_DESC_TOT
+            ,TSI.RESULT_VAL
+        FROM TEST_REPORT TR 
+        LEFT OUTER JOIN ACCOUNT AC ON TR.ACCOUNT_NO = AC.ACCOUNT_NO
+        LEFT OUTER JOIN TEST_SAMPLE_ITEM TSI ON TR.TEST_SAMPLE_SEQ = TSI.TEST_SAMPLE_SEQ AND TR.TEST_ITEM_CD = TSI.TEST_ITEM_CD
+		WHERE TSI.TEST_SAMPLE_SEQ = #{test_sample_seq}
+		AND TSI.TEST_ITEM_CD = #{test_item_cd}
+	</select>
+	
+	<!-- 시험일지 초기값 -->
+	<select id="selectTestReportInit" parameterType="TestReportVO" resultType="TestReportVO">
+		SELECT 
+             (SELECT INST_NO FROM TEST_ITEM_INST WHERE TEST_ITEM_CD = #{test_item_cd} AND DEFAULT_FLAG = 'Y' AND TEST_STD_NO = #{test_std_no}) AS TEST_INST_NO
+            ,(SELECT INST_KOR_NM FROM INSTRUMENT WHERE INST_NO = (SELECT INST_NO FROM TEST_ITEM_INST WHERE TEST_ITEM_CD = #{test_item_cd} AND DEFAULT_FLAG = 'Y' AND TEST_STD_NO = #{test_std_no})) AS TEST_INST_KORNM
+            ,(SELECT TEST_METHOD_NO FROM TEST_ITEM_METHOD WHERE TEST_ITEM_CD = #{test_item_cd} AND DEFAULT_FLAG = 'Y' AND TEST_STD_NO = #{test_std_no} ) AS TEST_METHOD_NO
+            ,(SELECT TEST_METHOD_NM FROM TEST_METHOD WHERE TEST_METHOD_NO = (SELECT TEST_METHOD_NO FROM TEST_ITEM_METHOD WHERE TEST_ITEM_CD = #{test_item_cd} AND DEFAULT_FLAG = 'Y' AND TEST_STD_NO = #{test_std_no})) AS TEST_METHOD_NM
+            ,(SELECT TEST_METHOD_PRECLEAN FROM TEST_METHOD WHERE TEST_METHOD_NO = (SELECT TEST_METHOD_NO FROM TEST_ITEM_METHOD WHERE TEST_ITEM_CD = #{test_item_cd} AND DEFAULT_FLAG = 'Y' AND TEST_STD_NO = #{test_std_no})) AS TEST_METHOD_PRECLEAN
+            ,(SELECT TEST_METHOD_CONTENT FROM TEST_METHOD WHERE TEST_METHOD_NO = (SELECT TEST_METHOD_NO FROM TEST_ITEM_METHOD WHERE TEST_ITEM_CD = #{test_item_cd} AND DEFAULT_FLAG = 'Y' AND TEST_STD_NO = #{test_std_no})) AS TEST_METHOD_CONTENT
+        FROM TEST_SAMPLE_ITEM A
+        WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+        AND TEST_ITEM_CD = #{test_item_cd}
+	</select>
+	
+	<!-- 시험일지 삭제 -->
+	<delete id="deleteTestReport" parameterType="AcceptVO">
+		DELETE FROM TEST_REPORT
+		WHERE 1=1
+		<if test="test_req_no != '' and test_req_no  != null">
+			AND SUBSTR(TEST_SAMPLE_SEQ, 1, 7) = #{test_req_no}
+		</if>
+		<if test="test_sample_seq != '' and test_sample_seq  != null">
+			AND TEST_SAMPLE_SEQ = #{test_sample_seq}
+		</if>
+		<if test="test_item_cd != '' and test_item_cd  != null">
+			AND TEST_ITEM_CD = #{test_item_cd}
+		</if>
+	</delete>	
+</mapper>

@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="sms">
+
+	<select id="selectSmsTarget" parameterType="SmsVO" resultType="SmsVO">
+		SELECT
+        RO.ORG_NM AS REQ_ORG_NM,
+        NVL((SELECT MAX(PRODUCER_NM) FROM TEST_SAMPLE WHERE R.TEST_REQ_SEQ = TEST_REQ_SEQ),R.REQ_NM) AS REQ_NM,
+		SF_SAMPLE_LST(R.TEST_REQ_SEQ) AS SAMPLE_REG_NM,
+		R.SMS_FLAG,
+		REPLACE(R.SMS_TARGET,'-') AS SMS_TARGET,
+		R.SMS_TYPE,
+		R.FEE_TOT
+		FROM TEST_REQ R
+        INNER JOIN REQ_ORG RO ON RO.REQ_ORG_NO = R.REQ_ORG_NO
+		WHERE TEST_REQ_SEQ = #{test_req_seq}
+	</select>
+	
+	<insert id="insertSmsLog" parameterType="SmsVO">
+		INSERT INTO SMS_LOG(
+			SMS_TARGET,
+			SMS_DATE,
+			SMS_RESULT,
+			MESSAGE
+		) VALUES(
+			#{sms_target},
+			SYSDATE,
+			#{sms_result},
+			#{message}
+		)
+	</insert>
+	
+	<select id="selectSmsManage" parameterType="SmsVO" resultType="SmsVO">
+		SELECT 
+			A.SMS_TYPE || A.PROCESS AS SMS_KEY,
+			A.SMS_TYPE,
+			CASE WHEN A.SMS_TYPE = 'A' THEN '일반' ELSE '잔류농약' END AS SMS_TYPE_NM,
+			A.PROCESS,
+			CASE WHEN A.PROCESS = 'A' THEN '민원접수완료' ELSE '결과승인완료' END AS PROCESS_NM,
+			A.MSG,
+			A.SEND_TEL_NO 
+		FROM SMS_MANAGE A
+		<if test="sortName != null and sortName != '' ">
+				ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY SMS_KEY
+		</if>
+	</select>
+
+	<select id="selectSmsManageDetail" parameterType="SmsVO" resultType="SmsVO">
+		SELECT 
+			A.SMS_TYPE || A.PROCESS AS SMS_KEY,
+			A.SMS_TYPE,
+			A.PROCESS,
+			A.MSG,
+			A.SEND_TEL_NO 
+		FROM SMS_MANAGE A
+		WHERE A.SMS_TYPE = #{sms_type}
+		AND A.PROCESS = #{process} 
+	</select>
+	
+	<insert id="insertSmsManage" parameterType="SmsVO">
+		INSERT INTO SMS_MANAGE(
+			SMS_TYPE
+			,PROCESS
+			,MSG
+			,CREATER_ID
+			,CREATE_DATE
+			,UPDATER_ID
+			,UPDATER_DATE
+			,SEND_TEL_NO
+		) VALUES (
+			#{sms_type}
+			, #{process}
+			, #{msg}
+			, #{creater_id}
+			, SYSDATE
+			, #{creater_id}
+			, SYSDATE			
+			, #{send_tel_no}
+		)
+	</insert>
+	
+	<update id="updateSmsManage" parameterType="SmsVO">
+		UPDATE SMS_MANAGE SET
+			MSG = #{msg}
+			, UPDATER_ID = #{updater_id}
+			, UPDATER_DATE = SYSDATE
+			, SEND_TEL_NO = #{send_tel_no}
+		WHERE SMS_TYPE = #{sms_type}
+		AND PROCESS = #{process}
+	</update>
+	
+	<select id="selectSmsKeyCheck" parameterType="SmsVO" resultType="String">
+		SELECT 
+			COUNT(*) AS CNT
+		FROM SMS_MANAGE
+		WHERE SMS_TYPE = #{sms_type}
+		AND PROCESS = #{process} 
+	</select>
+	
+	<select id="deleteSmsManage" parameterType="SmsVO" resultType="SmsVO">
+		DELETE FROM SMS_MANAGE
+		WHERE SMS_TYPE = #{sms_type}
+		AND PROCESS = #{process} 
+	</select>
+	
+	<select id="selectSmsCont" parameterType="SmsVO" resultType="String">
+		SELECT
+			MSG
+		FROM SMS_MANAGE
+		WHERE SMS_TYPE = #{sms_type}
+		AND PROCESS = #{process} 
+	</select>
+</mapper>

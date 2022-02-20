@@ -1,0 +1,389 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="resultCheck">
+	<!-- 기본결재선 조회 -->
+	<select id="selectApprLineDefaultList" parameterType="ResultInputVO" resultType="ResultInputVO">
+		SELECT AM.APPR_MST_SEQ ,
+		AM.APPR_LINE_NM || '[' || REPLACE(DM.USER_NM , ',' , '▶') || ']' AS APPR_LINE_NM
+		FROM APPR_DEPT_MST AM
+		INNER JOIN
+		(SELECT AD.APPR_MST_SEQ,
+		SUBSTR(XMLAGG(XMLELEMENT(A,','
+		|| U.USER_NM)
+		ORDER BY AD.APPR_DTL_SEQ).EXTRACT('//text()'), 2) USER_NM
+		FROM APPR_DEPT_DTL AD
+		INNER JOIN USER_INFO U
+		ON U.USER_ID = AD.APPR_ID
+		GROUP BY AD.APPR_MST_SEQ
+		) DM ON AM.APPR_MST_SEQ = DM.APPR_MST_SEQ
+		WHERE APPR_DEFAULT = 'Y'
+		AND APPR_DEPT_CD = #{dept_cd}
+	</select>
+
+	<!-- 시험부서 확인 -->
+	<select id="selectCheckReqList" parameterType="ResultInputVO" resultType="ResultInputVO">
+		SELECT
+			DISTINCT R.TEST_REQ_NO
+			, R.TEST_REQ_SEQ
+			, TO_CHAR(TO_DATE(R.SAMPLE_ARRIVAL_DATE, 'YYYY-MM-DD'), 'YYYY-MM-DD') SAMPLE_ARRIVAL_DATE
+			, TO_CHAR(TO_DATE(R.DEADLINE_DATE, 'YYYY-MM-DD'), 'YYYY-MM-DD') DEADLINE_DATE
+			, GET_COMMON_CODE(R.REQ_TYPE, 'EX1') REQ_TYPE
+			, R.REQ_NM
+			, R.DEPT_CD
+			, R.SUPV_DEPT_CD
+			, D.DEPT_NM
+			, R.REQ_MESSAGE
+			, R.TITLE
+			, NVL2(RO.ORG_NM , RO.ORG_NM, RD.DEPT_NM ) REQ_ORG_NM
+			, C1.CODE_NAME TEST_GOAL
+			, UW.UNIT_WORK_NM UNIT_WORK_CD
+			, U.USER_NM
+			, U2.USER_NM CREATER_NM
+			, R.STATE
+			, R.BACKUP_STATE
+			, R.STOP_FLAG
+ 			<!--, ( 
+					SELECT 
+						LISTAGG(EXCEED_REASON, ', ') WITHIN GROUP (ORDER BY r.test_req_no) 
+					FROM 
+						TEST_SAMPLE_ITEM TSI 
+					WHERE 
+						ts.TEST_SAMPLE_SEQ = TSI.TEST_SAMPLE_SEQ 
+				) AS EXCEED_REASON  = 지연 사유 
+				해당 쿼리는 시험결과조회임. 사용하지 않음 
+				쓸려면 아래처럼
+			, ( 
+					SELECT 
+						LISTAGG(EXCEED_REASON, ', ') WITHIN GROUP (ORDER BY r.test_req_no) 
+					FROM 
+						TEST_SAMPLE_ITEM TSI 
+					WHERE 
+						R.TEST_REQ_SEQ = TSI.TEST_REQ_SEQ
+				) AS EXCEED_REASON-->
+		FROM TEST_SAMPLE TS
+		INNER JOIN TEST_REQ R ON R.TEST_REQ_SEQ = TS.TEST_REQ_SEQ
+		LEFT OUTER JOIN DEPART D ON D.DEPT_CD = R.DEPT_CD
+		LEFT OUTER JOIN COMMON_CODE_DETAIL C1 ON C1.CODE = R.TEST_GOAL
+		LEFT OUTER JOIN UNIT_WORK UW ON UW.UNIT_WORK_CD = R.UNIT_WORK_CD
+		LEFT OUTER JOIN USER_INFO U ON U.USER_ID = R.ACT_USER_ID
+		LEFT OUTER JOIN USER_INFO U2 ON U2.USER_ID = R.CREATER_ID
+		LEFT OUTER JOIN DEPART RD ON RD.DEPT_CD = R.REQ_ORG_NO
+		LEFT OUTER JOIN REQ_ORG RO ON RO.REQ_ORG_NO = R.REQ_ORG_NO
+		<if test="user_id != null and user_id != '' ">
+		LEFT OUTER JOIN DEPT_TEAM DT ON DT.DEPT_CD = R.DEPT_CD
+		LEFT OUTER JOIN DEPT_TEAM_USER DTU ON DT.TEAM_CD = DTU.TEAM_CD AND DTU.USER_ID = #{user_id}
+		</if>
+		WHERE R.STATE = #{state}
+		<!-- 시험결과 확인은 주관부서에서 하도록  -->
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND R.DEPT_CD = #{dept_cd}
+		</if>
+		<!-- <if test="state == 'F'.toString() or state == 'O'.toString()">
+			AND R.SUPV_DEPT_CD = #{supv_dept_cd}
+		</if> -->
+		<if test="test_req_no != null and test_req_no != '' ">
+			AND UPPER(R.TEST_REQ_NO) like '%' || UPPER(#{test_req_no}) || '%'
+		</if>
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				AND TO_CHAR(TO_DATE(R.TEST_END, 'YYYYmmdd'), 'YYYY-mm-dd') BETWEEN #{startDate} AND #{endDate}
+			</if>
+		</if>
+		<if test="req_nm != null and req_nm != '' ">
+			AND UPPER(R.REQ_NM) LIKE '%' || UPPER(#{req_nm}) || '%'
+		</if>
+		<if test="req_type != null and req_type != '' ">
+			AND R.REQ_TYPE = #{req_type}
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY R.TEST_REQ_NO DESC
+		</if>
+	</select>
+
+	<!-- 시료 판정 값 수정 -->
+	<update id="updateSampleResult" parameterType="ResultInputVO">
+		UPDATE TEST_SAMPLE SET
+			TEST_SAMPLE_RESULT = #{test_sample_result}
+		WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+	</update>
+
+	<!-- -->
+	<select id="selectApprLineList" parameterType="ResultInputVO" resultType="ResultInputVO">
+		SELECT APPR_MST_SEQ
+		,APPR_LINE_NM
+		,APPR_LINE_RMK
+		,APPR_DEPT_CD
+		,APPR_DEFAULT
+		FROM APPR_DEPT_MST
+		WHERE APPR_DEPT_CD = #{dept_cd}
+		ORDER BY APPR_LINE_NM
+	</select>
+
+	<!-- -->
+	<insert id="insertApprLine" parameterType="ResultInputVO">
+		<selectKey resultType="string" keyProperty="appr_mst_seq" order="BEFORE">
+			SELECT LPAD(NVL(MAX(APPR_MST_SEQ),0)+1, 4,'0') FROM APPR_DEPT_MST
+		</selectKey>
+		BEGIN
+
+		INSERT INTO APPR_DEPT_MST (
+		APPR_MST_SEQ
+		,APPR_LINE_NM
+		,APPR_LINE_RMK
+		,APPR_DEPT_CD
+		,APPR_DEFAULT
+		,CREATER_ID
+		,CREATE_DATE
+		)VALUES(
+		#{appr_mst_seq}
+		,#{appr_line_nm}
+		,#{appr_line_rmk}
+		,#{dept_cd}
+		,DECODE((SELECT COUNT(*) FROM APPR_DEPT_MST WHERE APPR_DEPT_CD = #{dept_cd}),0,'Y','N')
+		,#{user_id}
+		,SYSDATE
+		);
+
+		END;
+	</insert>
+
+	<update id="updateApprLine" parameterType="ResultInputVO">
+		BEGIN
+
+		UPDATE APPR_DEPT_MST
+		SET APPR_LINE_NM = #{appr_line_nm}
+		,APPR_LINE_RMK = #{appr_line_rmk}
+		,UPDATER_ID = #{user_id}
+		,UPDATE_DATE = SYSDATE
+		WHERE APPR_MST_SEQ = #{appr_mst_seq};
+
+		END;
+	</update>
+
+	<!-- 기본결제 지정 -->
+	<update id="updateApprDefault" parameterType="ResultInputVO">
+		BEGIN
+
+		UPDATE APPR_DEPT_MST SET APPR_DEFAULT = 'N'
+		WHERE APPR_DEPT_CD = #{dept_cd};
+		
+		UPDATE APPR_DEPT_MST SET 
+		APPR_DEFAULT = 'Y',
+		UPDATER_ID = #{user_id},
+		UPDATE_DATE = SYSDATE
+		WHERE APPR_MST_SEQ = #{appr_mst_seq};
+
+		END;
+	</update>
+
+	<!-- 결제선 삭제 -->
+	<delete id="deleteApprLine" parameterType="ResultInputVO">
+		BEGIN
+		
+		DELETE APPR_DEPT_DTL
+		WHERE APPR_MST_SEQ = #{appr_mst_seq};
+		
+		DELETE APPR_DEPT_MST
+		WHERE APPR_MST_SEQ = #{appr_mst_seq};
+		
+		END;
+	</delete>
+	
+	<!-- 전체 사용자 -->
+	<select id="selectUserList" parameterType="ResultInputVO" resultType="ResultInputVO">
+		SELECT UI.USER_NM
+		,UI.USER_ID
+		,UI.DEPT_CD
+		,DP.DEPT_NM
+		FROM USER_INFO UI
+		LEFT JOIN DEPART DP ON DP.DEPT_CD = UI.DEPT_CD
+		WHERE USER_ID NOT IN (
+		SELECT APPR_ID
+		FROM APPR_DEPT_DTL
+		WHERE APPR_MST_SEQ = #{appr_mst_seq}
+		)
+		AND UI.USE_FLAG = 'Y'
+		<if test="user_nm != null and user_nm != '' ">
+			AND UI.USER_NM like '%'|| #{user_nm} ||'%'
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND UI.DEPT_CD = #{dept_cd}
+		</if>
+		ORDER BY DP.DEPT_NM, UI.USER_NM
+	</select>
+
+	<!-- 결제선 사용자 -->
+	<select id="selectApprLineUserList" parameterType="ResultInputVO" resultType="ResultInputVO">
+		SELECT UI.USER_NM
+			,UI.USER_ID
+			,UI.DEPT_CD
+			,DP.DEPT_NM
+			,AD.APPR_MST_SEQ
+			,AD.APPR_DTL_SEQ
+			,AD.APPR_NO
+		FROM APPR_DEPT_DTL AD
+		JOIN USER_INFO UI ON UI.USER_ID = AD.APPR_ID
+		LEFT JOIN DEPART DP ON DP.DEPT_CD = UI.DEPT_CD
+<!-- 		JOIN DEPART DP ON DP.DEPT_CD = UI.DEPT_CD -->
+		WHERE AD.APPR_MST_SEQ = #{appr_mst_seq}
+		ORDER BY AD.APPR_DTL_SEQ
+	</select>
+
+	<insert id="insertApprovalUser" parameterType="ResultInputVO">
+		<selectKey resultType="string" keyProperty="appr_dtl_seq" order="BEFORE">
+			SELECT LPAD(NVL(MAX(APPR_DTL_SEQ),0)+1, 4,'0') FROM APPR_DEPT_DTL
+		</selectKey>
+		INSERT INTO APPR_DEPT_DTL (
+			APPR_MST_SEQ
+			,APPR_DTL_SEQ
+			,APPR_NO
+			,APPR_ID
+			,CREATER_ID
+			,CREATE_DATE
+		)VALUES(
+			#{appr_mst_seq}
+			,#{appr_dtl_seq}
+			,#{disp_order}
+			,#{user_id}
+			,#{creater_id}
+			,SYSDATE
+		)
+	</insert>
+
+	<!-- 결제선 삭제 -->
+	<delete id="deleteApprovalUser" parameterType="ResultInputVO">
+		DELETE APPR_DEPT_DTL
+		WHERE APPR_MST_SEQ = #{appr_mst_seq}
+	</delete>
+
+	<!-- 시험부서 결재선 저장 -->
+	<insert id="insertApprRequest" parameterType="ResultInputVO">
+		<selectKey resultType="string" keyProperty="appr_seq" order="BEFORE">
+			SELECT LPAD(NVL(MAX(APPR_SEQ), 0)+1, 8,'0') FROM APPR_LINE
+		</selectKey>
+		INSERT INTO APPR_LINE ( APPR_SEQ
+		,APPR_NO
+		,APPR_ID
+		,APPR_TEST_DEPT_CD
+		,APPR_DEPT_FLAG
+		,APPR_DT
+		,APPR_STATE
+		,TEST_REQ_SEQ
+		,APPR_MST_SEQ
+		,CREATER_ID
+		,CREATE_DATE
+		)VALUES( #{appr_seq}
+		,#{appr_no}
+		,#{user_id}
+		,#{dept_cd}
+		,'N'
+		,SYSDATE
+		,#{state}
+		,#{test_req_seq}
+		,#{appr_mst_seq}
+		,#{creater_id}
+		,SYSDATE
+		)
+	</insert>
+
+	<!-- 시험부서 결재자 지정 -->
+	<update id="updateApprNowPos" parameterType="ResultInputVO">
+		UPDATE APPR_LINE
+		SET APPR_NOWPOS = 'Y'
+		<if test="state == 'D'.toString() ">
+			,APPR_STATE = 'E'
+		</if>
+		<if test="state == 'A'.toString() ">
+			,APPR_STATE = 'Y'
+		</if>
+		WHERE APPR_NO = #{appr_no}
+		AND TEST_REQ_SEQ = #{test_req_seq}
+		AND APPR_STATE = #{state}
+	</update>
+	
+	<!-- 시험부서 결재자 조회 -->
+	<select id="selectApprNowPos" parameterType="ResultInputVO" resultType="ResultInputVO">
+		SELECT APPR_NO , APPR_ID
+		FROM APPR_LINE
+		WHERE APPR_NO = (SELECT MIN(APPR_NO) FROM APPR_LINE WHERE TEST_REQ_SEQ = #{test_req_seq} AND APPR_STATE = #{state})
+		AND TEST_REQ_SEQ = #{test_req_seq} AND APPR_STATE = #{state}
+		ORDER BY APPR_NO
+	</select>
+
+	<!-- 상신할 리스트 -->
+	<select id="selectCheckList" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT
+			SI.TEST_REQ_SEQ,
+			SI.TEST_SAMPLE_SEQ,
+			SI.TEST_ITEM_SEQ,
+			ANAL.TESTITM_NM AS TEST_ITEM_NM,
+			R.DEPT_CD
+		FROM TEST_SAMPLE_ITEM SI
+		INNER JOIN TEST_SAMPLE TS ON TS.TEST_SAMPLE_SEQ = SI.TEST_SAMPLE_SEQ
+		INNER JOIN TEST_REQ R ON R.TEST_REQ_SEQ = TS.TEST_REQ_SEQ
+		LEFT OUTER JOIN ANALYSIS ANAL ON ANAL.TESTITM_CD = SI.TEST_ITEM_CD
+		WHERE TS.TEST_REQ_SEQ = #{test_req_seq}
+		ORDER BY SI.TEST_SAMPLE_SEQ , SI.TEST_ITEM_SEQ
+	</select>
+	
+	<!-- 시험 확인 > 시료판정 값 수정 -->
+	<update id="updateSampleJdg" parameterType="ResultInputVO">
+		UPDATE TEST_SAMPLE SET 
+			TEST_SAMPLE_RESULT = #{jdg_type}
+			<if test="test_sample_result_reason != null and test_sample_result_reason != '' ">
+			, TEST_SAMPLE_RESULT_REASON = #{test_sample_result_reason}
+			</if>
+			<if test="jdg_etc != null and jdg_etc != '' ">
+			, JDG_ETC = #{jdg_etc}
+			</if>
+		WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+	</update>
+	
+	<!-- 항목별 결과 리스트 -->
+	<select id="selectItemResultHistoryPop" parameterType="ResultInputVO" resultType="ResultInputVO">
+		SELECT 
+		     TEST_SAMPLE_SEQ
+		    , ( SELECT SAMPLE_REG_NM FROM TEST_SAMPLE WHERE HIS.TEST_SAMPLE_SEQ = TEST_SAMPLE_SEQ ) AS SAMPLE_REG_NM
+		    , ( SELECT TESTITM_NM FROM ANALYSIS WHERE HIS.TEST_ITEM_CD = TESTITM_CD ) AS TEST_ITEM_CD
+		    , ( SELECT USER_NM FROM USER_INFO WHERE HIS.TESTER_ID = USER_ID ) AS TESTER_ID
+		    , ( SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE HIS.STD_TYPE = CODE ) AS STD_TYPE
+		    , ( SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE HIS.RESULT_TYPE = CODE ) AS RESULT_TYPE 
+		    , ( SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE HIS.STD_HVAL = CODE ) AS STD_HVAL 
+		    , ( SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE HIS.STD_LVAL = CODE ) AS STD_LVAL 
+		    , ( SELECT USER_NM FROM USER_INFO WHERE HIS.CREATER_ID = USER_ID ) AS CREATER_ID
+		    , CREATE_DATE
+		    , ( SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE HIS.UNIT = CODE ) AS UNIT
+		    , VALID_POSITION
+		    , ( SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE HIS.JDG_TYPE = CODE ) AS JDG_TYPE
+		    , RESULT_VAL
+		    , STD_FIT
+		    , STD_UNFIT
+		    , ( SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE HIS.HVAL_TYPE = CODE ) AS HVAL_TYPE
+		    , ( SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE HIS.LVAL_TYPE = CODE ) AS LVAL_TYPE
+		    , STD_VAL
+		    , REPORT_DISP_VAL 
+		    , ( SELECT INST_KOR_NM FROM INSTRUMENT WHERE HIS.TEST_INST = INST_NO ) AS TEST_INST
+		    , ( SELECT TEST_METHOD_NM FROM TEST_METHOD WHERE HIS.TEST_METHOD = TEST_METHOD_NO ) AS TEST_METHOD
+		    , ( SELECT DEPT_NM FROM DEPART WHERE HIS.TEST_DEPT_CD = DEPT_CD ) AS TEST_DEPT_CD
+		    , LOQ_HVAL
+		    , DECODE(SUBSTR(HIS.RESULT_CD, 0, 2), 'C3', (SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE HIS.RESULT_CD = CODE), HIS.RESULT_CD ) AS RESULT_CD
+		    , ( SELECT TEAM_NM FROM DEPT_TEAM WHERE HIS.TEAM_CD = TEAM_CD ) AS TEAM_CD
+		    , ACCOUNT_NO
+		    , ACCOUNT_TOT_CAL_DISP
+		    , ACCOUNT_VAL_DESC_TOT
+		    , ( SELECT FILE_NM FROM TEST_REPORT_ATTACH WHERE HIS.TEST_SAMPLE_SEQ = TEST_SAMPLE_SEQ AND HIS.TEST_ITEM_CD = TEST_ITEM_CD ) AS FILE_NM 
+		    , ( SELECT ATT_SEQ FROM TEST_REPORT_ATTACH WHERE HIS.TEST_SAMPLE_SEQ = TEST_SAMPLE_SEQ AND HIS.TEST_ITEM_CD = TEST_ITEM_CD ) AS ATT_SEQ
+		    , ITEM_HIS_SEQ
+		FROM TEST_SAMPLE_ITEM_HISTORY HIS
+		WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY HIS.TEST_SAMPLE_SEQ, HIS.TEST_ITEM_CD, HIS.ITEM_HIS_SEQ DESC
+		</if>
+	</select>	
+</mapper>

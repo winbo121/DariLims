@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="resultInputGrade">
+	<update id="updateItemResult" parameterType="ResultInputVO">
+		UPDATE TEST_SAMPLE_ITEM SET
+		STD_TYPE = #{std_type}
+		, RESULT_TYPE = #{result_type}
+		<if test="unit != null ">
+			,UNIT = #{unit}
+		</if>
+		<if test="valid_position != null ">
+			,VALID_POSITION = #{valid_position}
+		</if>
+		<if test="result_val != null ">
+			,RESULT_VAL = #{result_val}
+		</if>
+		<if test="std_hval != null ">
+			,STD_HVAL = #{std_hval}
+		</if>
+		<if test="lval_type != null ">
+			,LVAL_TYPE = #{lval_type}
+		</if>
+		<if test="std_lval != null ">
+			,STD_LVAL = #{std_lval}
+		</if>
+		<if test="hval_type != null ">
+			,HVAL_TYPE = #{hval_type}
+		</if>
+		<if test="std_val != null ">
+			,STD_VAL = #{std_val}
+		</if>
+		<if test="std_fit_val != null ">
+			,STD_FIT = #{std_fit_val}
+		</if>
+		<if test="std_unfit_val != null ">
+			,STD_UNFIT = #{std_unfit_val}
+		</if>
+		<if test="jdg_type != null ">
+			,JDG_TYPE = #{jdg_type}
+		</if>
+		<if test="test_method_no != null ">
+			,TEST_METHOD = #{test_method_no}
+		</if>
+		<if test="inst_no != null ">
+			,TEST_INST = #{inst_no}
+		</if>
+		<if test="report_disp_val != null ">
+			,REPORT_DISP_VAL = #{report_disp_val}
+		</if>
+		<if test="result_cd != null ">
+			,RESULT_CD = #{result_cd}
+		</if>
+		<if test="formula_no != null ">
+			,ACCOUNT_NO = #{formula_no}
+		</if>
+		<if test="formula_disp != null ">
+			,ACCOUNT_TOT_CAL_DISP = #{formula_disp}
+		</if>
+		<if test="formula_result_disp != null ">
+			,ACCOUNT_VAL_DESC_TOT = #{formula_result_disp}
+		</if>
+		<if test="exceed_reason != null ">
+			,EXCEED_REASON = #{exceed_reason}
+		</if>
+		,TEST_END_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+		, UPDATE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+		, UPDATER_ID = #{user_id}
+		, TESTER_ID = #{user_id}
+		WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+		AND TEST_ITEM_SEQ = #{test_item_seq}
+	</update>
+	
+	
+	<!-- 결과입력 상세리스트[시료별] -->
+	<select id="selectSampleList" parameterType="ResultInputVO" resultType="ResultInputVO">
+		SELECT
+		    DISTINCT TS.TEST_SAMPLE_SEQ ,
+		    TS.SAMPLE_REG_NM ,
+		    C1.CODE_NAME SAMPLING_METHOD ,
+		    TS.SAMPLING_ID ,
+		    TS.ETC_DESC ,
+		    S.SAMPLE_NM ,
+		    STD.TEST_STD_NM ,
+		    STD.TEST_STD_NO ,
+		    TR.REQ_MESSAGE,
+		    GET_COMMON_CODE(TS.TEST_SAMPLE_RESULT,'') AS TEST_SAMPLE_RESULT_NM,
+			TS.TEST_SAMPLE_RESULT AS TEST_SAMPLE_RESULT_CD,
+			TS.TEST_SAMPLE_RESULT_REASON,
+			TS.JDG_ETC
+		FROM  TEST_SAMPLE TS
+		INNER JOIN TEST_REQ TR ON TS.TEST_REQ_SEQ = TR.TEST_REQ_SEQ
+		INNER JOIN TEST_SAMPLE_ITEM TSI ON TSI.TEST_SAMPLE_SEQ = TS.TEST_SAMPLE_SEQ
+		LEFT OUTER JOIN SAMPLE S ON TS.SAMPLE_CD = S.SAMPLE_CD
+		LEFT OUTER JOIN COMMON_CODE_DETAIL C1 ON C1.CODE = TS.SAMPLING_METHOD
+		LEFT OUTER JOIN TEST_STD STD ON STD.TEST_STD_NO = TS.TEST_STD_NO
+		WHERE TS.TEST_REQ_SEQ = #{test_req_seq}
+		ORDER BY TS.TEST_SAMPLE_SEQ
+	</select>
+	
+	
+</mapper>

@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="reportApproval">
+
+	<!-- 성적서 승인 리스트 -->
+	<select id="selectReportApprovalList" parameterType="ReportVO" resultType="ReportVO">
+		SELECT
+			RD.REPORT_DOC_SEQ
+			, RD.TITLE
+			, O4.ORG_NM AS DESTINATION_NM
+			, O4.ZIP_CODE
+			, O4.ADDR1 AS REQ_ORG_ADDR
+			, RD.TEST_REQ_SEQ
+			, RD.TEST_REQ_NO
+			, GET_COMMON_CODE(RD.REQ_TYPE, 'EX1') REQ_TYPE
+			, C2.CODE_NAME TEST_GOAL
+			, UW.UNIT_WORK_NM UNIT_WORK_CD
+			, TO_CHAR(TO_DATE(RD.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') SAMPLE_ARRIVAL_DATE
+			, RD.REQ_BASIS
+			, RD.REQ_TEL
+			, RD.REQ_NM
+			, D.DEPT_NM DEPT_NM
+			, U.USER_NM USER_NM
+			, RD.REPORT_MAKE_ID
+			, NVL2(O1.ORG_NM, O1.ORG_NM, O2.DEPT_NM) REQ_ORG_NM
+			, GET_VERIFY_ID(RD.VERIFY_ID) AS VERIFY_ID
+			,RD.REPORT_NO
+			,SP.PICK_NO
+			,(SELECT LISTAGG(TEST_SAMPLE_SEQ, ',') WITHIN GROUP(ORDER BY TEST_SAMPLE_SEQ) FROM REPORT_SAMPLE WHERE REPORT_DOC_SEQ = RD.REPORT_DOC_SEQ) AS TEST_SAMPLE_SEQ
+			,RD.SEPARATION
+			,F.FORM_SEQ
+			,F.FORM_NAME
+			,D2.DOC_REVISION_SEQ
+			,RD.REPORT_APPR_YN
+			,TO_CHAR(TO_DATE(RD.DEADLINE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') AS DEADLINE_DATE
+		FROM REPORT_DOC RD
+		LEFT OUTER JOIN DEPART D ON D.DEPT_CD = RD.DEPT_CD
+		LEFT OUTER JOIN USER_INFO U ON U.USER_ID = RD.REPORT_MAKE_ID
+		LEFT OUTER JOIN REQ_ORG O1 ON O1.REQ_ORG_NO = RD.REQ_ORG_NO
+		LEFT OUTER JOIN REQ_ORG O4 ON O4.REQ_ORG_NO = RD.REQ_ORG_NO4
+		LEFT OUTER JOIN DEPART O2 ON O2.DEPT_CD = RD.REQ_ORG_NO
+		LEFT OUTER JOIN UNIT_WORK UW ON UW.UNIT_WORK_CD = RD.UNIT_WORK_CD
+		LEFT OUTER JOIN COMMON_CODE_DETAIL C2 ON C2.CODE = RD.TEST_GOAL
+		LEFT OUTER JOIN ORG_COMMISSION_DEPOSIT OCD ON OCD.REQ_ORG_NO = RD.REQ_ORG_NO AND OCD.TEST_REQ_SEQ = RD.TEST_REQ_SEQ
+		LEFT OUTER JOIN SPLORE_PICK SP ON RD.TEST_REQ_SEQ = SP.TEST_REQ_SEQ
+		LEFT JOIN FORM F ON RD.FORM_SEQ = F.FORM_SEQ
+	    LEFT JOIN DOCUMENT D2 ON RD.DOC_SEQ = D2.DOC_SEQ
+		WHERE RD.REPORT_APPR_YN = #{report_appr_yn}
+		<if test="test_req_no != null and test_req_no != '' ">
+			AND UPPER(RD.TEST_REQ_NO) like '%' || UPPER( #{test_req_no} ) || '%'
+		</if>
+		<if test="title != null and title != '' ">
+			AND UPPER(RD.TITLE) like '%' || UPPER( #{title} ) || '%'
+		</if>
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				AND TO_CHAR(TO_DATE(RD.DEADLINE_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') BETWEEN #{startDate} AND #{endDate}
+			</if>
+		</if>
+		<if test="req_org_nm != null and req_org_nm != '' ">
+			AND (UPPER(O1.ORG_NM) like '%' || UPPER( #{req_org_nm} ) || '%' OR UPPER(O2.DEPT_NM) like '%' || UPPER( #{req_org_nm} ) || '%' )
+		</if>
+		<if test="req_nm != null and req_nm != '' ">
+			AND UPPER(RD.REQ_NM) LIKE '%' || UPPER(#{req_nm}) || '%'
+		</if>
+		<if test="test_goal != null and test_goal != '' ">
+			AND RD.TEST_GOAL = #{test_goal}
+		</if>
+		<if test="req_type != null and req_type != '' ">
+			AND RD.REQ_TYPE = #{req_type}
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND RD.DEPT_CD = #{dept_cd}
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY RD.TEST_REQ_NO DESC, RD.DEGREE DESC
+		</if>
+	</select>
+
+	<!-- 성적서 승인 - 시료 목록 -->
+	<select id="selectReportApprovalSampleList" parameterType="ReportVO" resultType="ReportVO">
+		SELECT
+			RS.TEST_SAMPLE_SEQ
+			, TO_CHAR(TO_DATE(RS.SAMPLING_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') SAMPLING_DATE
+			, LPAD(RS.SAMPLING_HOUR, 2, '0') SAMPLING_HOUR
+			, LPAD(RS.SAMPLING_MIN, 2, '0') SAMPLING_MIN
+			, TO_CHAR(TO_DATE(RD.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') REQ_DATE
+			, TO_CHAR(TO_DATE(RD.DEADLINE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') DEADLINE_DATE
+			, RS.SAMPLE_REG_NM
+			, S.SAMPLE_NM SAMPLE_NM
+			, RS.SAMPLING_ID
+			, SP.SAMPLING_POINT_NM SAMPLING_POINT_NM
+			, C1.CODE_NAME SAMPLING_METHOD
+			, C2.CODE_NAME TEST_SAMPLE_RESULT
+			, RS.ETC_DESC
+			, STD.TEST_STD_NM TEST_STD_NM
+		FROM REPORT_SAMPLE RS
+		INNER JOIN REPORT_DOC RD ON RD.TEST_REQ_SEQ = RS.TEST_REQ_SEQ AND RD.REPORT_DOC_SEQ = RS.REPORT_DOC_SEQ
+		LEFT OUTER JOIN COMMON_CODE_DETAIL C1 ON C1.CODE = RS.SAMPLING_METHOD
+		LEFT OUTER JOIN COMMON_CODE_DETAIL C2 ON C2.CODE = RS.TEST_SAMPLE_RESULT
+		LEFT OUTER JOIN SAMPLE S ON S.SAMPLE_CD = RS.SAMPLE_CD
+		LEFT OUTER JOIN SAMPLING_POINT SP ON SP.SAMPLING_POINT_NO = RS.SAMPLING_POINT_NO
+		LEFT OUTER JOIN TEST_STD STD ON STD.TEST_STD_NO = RS.TEST_STD_NO
+		WHERE RS.REPORT_DOC_SEQ = #{report_doc_seq}
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY RS.TEST_SAMPLE_SEQ
+		</if>
+	</select>
+
+	<!-- 성적서 승인 - 항목 목록 -->
+	<select id="selectReportApprovalItemList" parameterType="ReportVO" resultType="ReportVO">
+		SELECT 
+			RD.REPORT_DOC_SEQ
+			,RS.REPORT_SEQ
+			,RS.TEST_SAMPLE_SEQ
+			,RS.SAMPLE_REG_NM
+			,RSI.TEST_ITEM_SEQ
+			,RSI.TEST_ITEM_CD
+			,RSI.STD_VAL
+			,RSI.RESULT_VAL
+			,RSI.REPORT_DISP_VAL
+			,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = RSI.JDG_TYPE) AS JDG_TYPE
+			,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = RSI.UNIT) AS UNIT
+			,ANAL.TESTITM_NM AS TEST_ITEM_NM
+			,NVL2(RSI.TEST_ITEM_SEQ,'','제외') AS EXCEPT_FLAG
+		FROM REPORT_DOC RD
+		INNER JOIN REPORT_SAMPLE RS ON RS.REPORT_DOC_SEQ = RD.REPORT_DOC_SEQ AND RS.TEST_REQ_SEQ = RD.TEST_REQ_SEQ
+		INNER JOIN REPORT_SAMPLE_ITEM RSI ON RSI.TEST_SAMPLE_SEQ = RS.TEST_SAMPLE_SEQ AND RSI.REPORT_DOC_SEQ = RS.REPORT_DOC_SEQ
+		INNER JOIN ANALYSIS ANAL ON RSI.TEST_ITEM_CD = ANAL.TESTITM_CD
+		WHERE RD.REPORT_DOC_SEQ = #{report_doc_seq}
+		AND RS.TEST_SAMPLE_SEQ = #{test_sample_seq}
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY RSI.TEST_SAMPLE_SEQ, RSI.TEST_ITEM_CD
+		</if>
+	</select>
+	
+	<!-- 성적서 승인 -->
+	<update id="updateReportApproval" parameterType="ReportVO">
+ 		BEGIN
+			UPDATE REPORT_DOC SET
+					REPORT_APPR_YN = 'Y'
+					,REPORT_SIGN_ID = #{user_id}
+			WHERE REPORT_DOC_SEQ = #{report_doc_seq}
+			;
+			
+			UPDATE TEST_REQ SET
+					STATE = 'I'
+			WHERE TEST_REQ_SEQ = #{test_req_seq}
+			;
+			
+		END; 
+	</update>
+	
+	<!-- 성적서 반려 -->
+	<delete id="deleteReportReturn" parameterType="ReportVO">
+		BEGIN
+			
+			DELETE REPORT_SAMPLE_ITEM
+			WHERE REPORT_DOC_SEQ = #{report_doc_seq}
+			;
+			
+			DELETE REPORT_SAMPLE
+			WHERE REPORT_DOC_SEQ = #{report_doc_seq}
+			;
+			
+			DELETE REPORT_DOC
+			WHERE REPORT_DOC_SEQ = #{report_doc_seq}
+			;
+		
+			UPDATE TEST_REQ SET
+				RETURN_FLAG = 'Y', 
+				RETURN_COMMENT = #{return_comment}
+			WHERE TEST_REQ_SEQ = #{test_req_seq}
+			;
+		
+		END;
+	</delete>
+</mapper>

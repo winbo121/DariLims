@@ -1,0 +1,424 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="system">
+
+	<insert id="insertCommonCode" parameterType="commonCodeVO">
+		INSERT INTO COMMON_CODE(CODE, CODE_NAME, USE_FLAG, disp_order)
+		VALUES(
+		(SELECT SUBSTR(#{key}, 1, 2) || LPAD(MAX(SUBSTR(CODE, 3, 2))+1, 2, 0) FROM COMMON_CODE
+		WHERE SUBSTR(CODE, 1, 2) = SUBSTR(#{key}, 1, 2))
+		, #{code_Name}
+		, #{use_flag}
+		, #{disp_order}
+		)
+	</insert>
+	<update id="updateCommonCode" parameterType="commonCodeVO">
+		UPDATE COMMON_CODE SET CODE_NAME = #{code_Name}, USE_FLAG = #{use_flag}, disp_order = #{disp_order}
+		WHERE CODE = #{code}
+	</update>
+	<delete id="deleteCommonCode" parameterType="commonCodeVO">
+		DELETE FROM COMMON_CODE
+		WHERE CODE = #{code}
+	</delete>
+
+	<select id="zipCodeCnt" parameterType="ZipCodeVO" resultType="int">
+		<if test="mode == 2">
+			SELECT COUNT(*)
+			FROM ZIP_CODE_BUNJI_DORO
+			WHERE OLD_SEARCH_NAME LIKE #{searchName} || '%'
+		</if>
+		<if test="mode == 1">
+			SELECT COUNT(*)
+			FROM(
+			SELECT DISTINCT SIDO || ' ' || SIGUGUN || ' ' || NEW_DONG || ' ' || DORO || ' ' || DECODE(BU, '', BON, BON || '-' || BU) || DECODE(BUILDING, '', '', ' ' || BUILDING) ADDR
+			, ZIPCODE
+			FROM ZIP_CODE_BUNJI_DORO
+			WHERE NEW_SEARCH_NAME LIKE #{searchName} || '%'
+			)
+		</if>
+	</select>
+	<select id="zipCodeList" parameterType="ZipCodeVO" resultType="zipCodeVO">
+		SELECT z.*
+		FROM
+		( SELECT a.*,
+		ROWNUM rNum
+		FROM (
+		<if test="mode == 2">
+			SELECT SIDO || ' ' || SIGUGUN || ' ' || NEW_DONG || ' ' || DORO || ' ' || DECODE(BU, '', BON, BON || '-' || BU) || DECODE(BUILDING, '', '', ' ' || BUILDING) ADDR
+			, SIDO || ' ' || SIGUGUN || ' ' || OLD_DONG || ' ' || DECODE(JIBUN_BU, '' ,JIBUN_BON, JIBUN_BON || '-' || JIBUN_BU) ADDR2
+			, ZIPCODE
+			FROM ZIP_CODE_BUNJI_DORO
+			WHERE OLD_SEARCH_NAME LIKE #{searchName} || '%'
+			<if test="sortName != null and sortName != '' ">
+				ORDER BY ${sortName} ${sortType}
+			</if>
+			<if test="sortName == null or sortName == '' ">
+				ORDER BY ADDR2, ADDR
+			</if>
+		</if>
+		<if test="mode == 1">
+			SELECT DISTINCT SIDO || ' ' || SIGUGUN || ' ' || NEW_DONG || ' ' || DORO || ' ' || DECODE(BU, '', BON, BON || '-' || BU) || DECODE(BUILDING, '', '', ' ' || BUILDING) ADDR
+			, ZIPCODE
+			FROM ZIP_CODE_BUNJI_DORO
+			WHERE NEW_SEARCH_NAME LIKE #{searchName} || '%'
+			<if test="sortName != null and sortName != '' ">
+				ORDER BY ${sortName} ${sortType}
+			</if>
+			<if test="sortName == null or sortName == '' ">
+				ORDER BY ADDR
+			</if>
+		</if>
+		)a
+		)z
+		WHERE rNum BETWEEN #{firstIndex} +1 AND #{lastIndex}
+		ORDER BY rNum
+	</select>
+	<select id="dept" parameterType="deptVO" resultType="deptVO">
+		SELECT A.DEPT_CD
+		<!-- ,COUNT(*) OVER (PARTITION BY A.PRE_DEPT_CD) preCnt -->
+		, B.DEPT_NAME PRE_DEPT_CD
+		,A.DEPT_NAME
+		,A.DEPT_DESC
+		,A.CHARGER_CD
+		,DECODE(A.USE_FLAG, 1, '사용', '사용안함') USE_FLAG
+		,A.DISP_ORDER
+		,C.USER_NAME
+		FROM DEPART A
+		inner join depart B on A.PRE_DEPT_CD = B.PRE_DEPT_CD AND SUBSTR(B.DEPT_CD, 7, 2) = '00'
+		LEFT OUTER JOIN USER_INFO C ON A.CHARGER_CD = C.USER_ID
+		WHERE 1=1
+		<if test="pre_dept_cd != null and pre_dept_cd != '' ">
+			AND UPPER(B.DEPT_NAME) LIKE '%' ||
+			UPPER(#{pre_dept_cd}) || '%'
+		</if>
+		<if test="dept_nm != null and dept_nm != '' ">
+			AND UPPER(A.DEPT_NAME) LIKE '%' ||
+			UPPER(#{dept_nm}) || '%'
+		</if>
+		<if test="user_nm != null and user_nm != '' ">
+			AND UPPER(C.USER_NAME) LIKE '%' ||
+			UPPER(#{user_nm}) || '%'
+		</if>
+		<if test="dept_desc != null and dept_desc != '' ">
+			AND UPPER(A.DEPT_DESC) LIKE '%' ||
+			UPPER(#{dept_desc}) || '%'
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY PRE_DEPT_CD , DEPT_CD, DEPT_NAME
+		</if>
+
+	</select>
+	<insert id="insertDept" parameterType="deptVO">
+		INSERT INTO DEPART(
+		DEPT_NAME
+		,DEPT_CD
+		,DEPT_DESC
+		,CHARGER_CD
+		,USE_FLAG
+		,DISP_ORDER
+		,PRE_DEPT_CD
+		)VALUES(
+		#{dept_nm}
+		,#{dept_cd}
+		,#{dept_desc}
+		,#{charger_cd}
+		,#{use_flag}
+		,#{disp_order}
+		,#{pre_dept_cd}
+		)
+	</insert>
+	<update id="updateDept" parameterType="deptVO">
+		UPDATE DEPART SET
+		DEPT_NAME = #{dept_nm}
+		,DEPT_DESC = #{dept_desc}
+		,CHARGER_CD = #{charger_cd}
+		,USE_FLAG = #{use_flag}
+		,DISP_ORDER = #{disp_order}
+		,PRE_DEPT_CD = #{pre_dept_cd}
+		WHERE DEPT_CD = #{dept_cd}
+	</update>
+	<delete id="deleteDept" parameterType="deptVO">
+		DELETE FROM DEPART
+		WHERE DEPT_CD = #{dept_cd}
+	</delete>
+	<select id="deptCode" parameterType="commonVO" resultType="commonCodeVO">
+		SELECT DEPT_CD CODE, DEPT_NAME CODE_NAME
+		FROM DEPART
+		WHERE
+		<if test="mode == 1">
+			SUBSTR(DEPT_CD, 7, 2) = '00'
+		</if>
+		<if test="mode != 1">
+			SUBSTR(DEPT_CD, 7, 2) != '00'
+		</if>
+		ORDER BY CODE_NAME
+	</select>
+
+
+	<select id="notice" parameterType="noticeVO" resultType="noticeVO">
+		SELECT z.*
+		FROM
+		( SELECT a.*,
+		ROWNUM rNum
+		FROM (
+		SELECT NOTICE_TITLE, NOTICE_NO
+		,TO_CHAR(WRITE_DATE, 'YYYY-MM-DD HH24:MI:SS') WRITE_DATE
+		,TO_CHAR(NOTICE_SDATE, 'YYYY-MM-DD') || ' ~ ' || TO_CHAR(NOTICE_EDATE, 'YYYY-MM-DD') notice_Start
+		FROM NOTICE
+		WHERE 1=1
+		<if test="notice_Title != null and notice_Title != '' ">
+			AND UPPER(notice_Title) like '%' || UPPER( #{notice_Title} ) || '%'
+		</if>
+		<if test="startDate != null and startDate != '' ">
+			<if test="endDate != null and endDate != '' ">
+				AND TO_CHAR(WRITE_DATE, 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate}
+			</if>
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY WRITE_DATE DESC
+		</if>
+		)a
+		)z
+		WHERE rNum BETWEEN #{firstIndex} +1 AND #{lastIndex}
+		ORDER BY rNum
+	</select>
+	<select id="noticeCnt" parameterType="noticeVO" resultType="int">
+		SELECT COUNT(*) FROM NOTICE
+		WHERE 1=1
+		<if test="notice_Title != null and notice_Title != '' ">
+			AND UPPER(notice_Title) like '%' || UPPER( #{notice_Title} ) || '%'
+		</if>
+		<if test="startDate != null and startDate != '' ">
+			<if test="endDate != null and endDate != '' ">
+				AND WRITE_DATE BETWEEN #{startDate} AND #{endDate}
+			</if>
+		</if>
+	</select>
+	<select id="noticeDetail" parameterType="noticeVO" resultType="noticeVO">
+		SELECT NOTICE_TITLE, NOTICE_DESC, NOTICE_NO
+		,TO_CHAR(WRITE_DATE, 'YYYY-MM-DD HH24:MI:SS') WRITE_DATE
+		,TO_CHAR(NOTICE_SDATE, 'YYYY-MM-DD') NOTICE_SDATE
+		,TO_CHAR(NOTICE_EDATE, 'YYYY-MM-DD') NOTICE_EDATE
+		,WRITER
+		FROM NOTICE
+		WHERE NOTICE_NO = #{key}
+	</select>
+	<insert id="insertNotice" parameterType="noticeVO">
+		INSERT INTO NOTICE(
+		NOTICE_NO
+		,NOTICE_TITLE
+		,NOTICE_DESC
+		,WRITE_DATE
+		,NOTICE_SDATE
+		,NOTICE_EDATE
+		,WRITER
+		)VALUES(
+		(SELECT NVL(MAX(NOTICE_NO), 0)+1 from NOTICE)
+		,#{notice_Title}
+		,#{notice_Desc}
+		,SYSDATE
+		,#{notice_Start}
+		,#{notice_End}
+		,#{writer}
+		)
+	</insert>
+	<update id="updateNotice" parameterType="noticeVO">
+		UPDATE NOTICE SET
+		NOTICE_TITLE = #{notice_Title}
+		,NOTICE_DESC = #{notice_Desc}
+		,NOTICE_SDATE = #{notice_Start}
+		,NOTICE_EDATE = #{notice_End}
+		,WRITER = #{writer}
+		WHERE NOTICE_NO = #{notice_No}
+	</update>
+	<delete id="deleteNotice" parameterType="noticeVO">
+		DELETE FROM NOTICE
+		WHERE NOTICE_NO = #{notice_No}
+	</delete>
+	<select id="mainNotice" resultType="noticeVO">
+		SELECT * from(
+		SELECT A.*, rownum rNum FROM
+		(
+		SELECT NOTICE_TITLE, NOTICE_NO
+		,TO_CHAR(WRITE_DATE, 'YYYY-MM-DD') WRITE_DATE
+		,WRITE_DATE c_date
+		FROM NOTICE
+		WHERE TO_CHAR(SYSDATE, 'YYYY-MM-DD') BETWEEN TO_CHAR(NOTICE_SDATE, 'YYYY-MM-DD') AND TO_CHAR(NOTICE_EDATE, 'YYYY-MM-DD')
+		ORDER BY c_date DESC
+		)A
+		) WHERE rNum <![CDATA[ < ]]>
+		6
+	</select>
+
+	<select id="role" parameterType="roleVO" resultType="roleVO">
+		SELECT ROLE_NO
+		,ROLE_GROUP_NAME
+		,ROLE_DESC
+		,DECODE(USE_FLAG, 1, '사용', '사용안함') USE_FLAG
+		,DISP_ORDER
+		FROM ROLE_GROUP
+		WHERE 1=1
+		<if test="role_group_Name != null and role_group_Name != '' ">
+			AND UPPER(ROLE_GROUP_NAME) like '%' || UPPER( #{role_group_Name} ) || '%'
+		</if>
+		<if test="role_No != null and role_No != '' ">
+			AND UPPER(ROLE_NO) like '%' || UPPER( #{role_No} ) || '%'
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY DISP_ORDER
+		</if>
+	</select>
+
+	<insert id="insertRole" parameterType="roleVO">
+		INSERT INTO ROLE_GROUP(ROLE_NO, ROLE_GROUP_NAME, ROLE_DESC, USE_FLAG, DISP_ORDER
+		)VALUES(
+		(SELECT NVL(MAX(role_No), 0)+1 FROM ROLE_GROUP
+		)
+		, #{role_group_Name}
+		, #{role_Desc}
+		,#{use_flag}
+		,#{disp_order}
+		)
+	</insert>
+	<update id="updateRole" parameterType="roleVO">
+		UPDATE ROLE_GROUP SET ROLE_GROUP_NAME = #{role_group_Name}, ROLE_DESC = #{role_Desc}, USE_FLAG = #{use_flag}, DISP_ORDER = #{disp_order}
+		WHERE ROLE_NO = #{role_No}
+	</update>
+	<delete id="deleteRole" parameterType="roleVO">
+		DELETE FROM ROLE_GROUP
+		WHERE ROLE_NO = #{role_No}
+	</delete>
+
+	<select id="roleMenu" parameterType="roleVO" resultType="roleVO">
+		SELECT
+		A.MENU_NAME pre_Menu_Name,
+		B.MENU_CD,
+		B.MENU_NAME
+		FROM
+		(SELECT M.MENU_CD,
+		M.MENU_NAME,
+		M.DISP_ORDER
+		FROM menu M
+		WHERE SUBSTR(M.menu_cd, 3, 4) = '0000'
+		)A,
+		(SELECT M.MENU_CD,
+		M.MENU_NAME,
+		M.DISP_ORDER
+		FROM menu M
+		inner join ROLE_GROUP_MENU R ON R.MENU_CD = M.MENU_CD AND R.ROLE_NO = #{key}
+		WHERE SUBSTR(M.menu_cd, 3, 2) != '00'
+		AND SUBSTR(M.menu_cd, 5, 2) = '00'
+		)B
+		WHERE SUBSTR(A.menu_cd, 1, 2) = SUBSTR(B.menu_cd, 1, 2)
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY A.DISP_ORDER, B.DISP_ORDER
+		</if>
+	</select>
+	<select id="allMenu" parameterType="roleVO" resultType="roleVO">
+		SELECT A.MENU_NAME pre_Menu_Name,
+			B.MENU_CD,
+			B.MENU_NAME ,
+			B.USE_FLAG
+		FROM
+			(SELECT M.MENU_CD,
+			M.MENU_NAME,
+			M.DISP_ORDER
+			FROM menu M
+			WHERE SUBSTR(M.menu_cd, 3, 4) = '0000'
+			)A,
+			
+			(SELECT M.MENU_CD,
+					M.MENU_NAME,
+					M.DISP_ORDER,
+					(  SELECT DECODE(COUNT(*), 0 , 'false', 'true' )
+						FROM ROLE_GROUP_MENU R
+						WHERE R.MENU_CD = M.MENU_CD
+						AND R.ROLE_NO = #{key} ) USE_FLAG
+				FROM menu M
+				WHERE SUBSTR(M.menu_cd, 3, 2) != '00'
+				AND SUBSTR(M.menu_cd, 5, 2) = '00'
+				)B
+				
+		WHERE SUBSTR(A.menu_cd, 1, 2) = SUBSTR(B.menu_cd, 1, 2)
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY A.DISP_ORDER, B.DISP_ORDER
+		</if>
+	</select>
+	<insert id="insertRoleMenu" parameterType="roleVO">
+		INSERT INTO ROLE_GROUP_MENU(
+		ROLE_NO,
+		MENU_CD
+		)VALUES(
+		#{role_No},
+		#{menu_Cd}
+		)
+	</insert>
+	<delete id="deleteRoleMenu" parameterType="roleVO">
+		DELETE FROM ROLE_GROUP_MENU
+		WHERE ROLE_NO = #{role_No}
+		<if test="menu_Cd != null and menu_Cd != '' ">
+			AND MENU_CD = #{menu_Cd}
+		</if>
+	</delete>
+
+	<select id="userRole" parameterType="roleVO" resultType="roleVO">
+		select A.user_nm, A.USER_ID, A.dept_cd, B.ROLE_NO
+		from USER_INFO A, ROLE_GROUP_USER B
+		where B.ROLE_NO = #{key}
+		and A.USER_ID = B.USER_ID
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY A.user_nm
+		</if>
+	</select>
+	<select id="allUserRole" parameterType="roleVO" resultType="roleVO">
+		SELECT A.user_nm,
+		A.USER_ID,
+		A.dept_cd ,
+		(SELECT DECODE(COUNT(*), 0 , 'false', 'true' )
+		FROM ROLE_GROUP_USER
+		WHERE USER_ID=A.USER_ID
+		AND role_no = #{key}
+		) use_flag
+		FROM USER_INFO A
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY A.user_nm
+		</if>
+	</select>
+	<insert id="insertUserRole" parameterType="roleVO">
+		INSERT INTO ROLE_GROUP_USER(
+		ROLE_NO,
+		USER_ID
+		)VALUES(
+		#{role_No},
+		#{user_id}
+		)
+	</insert>
+	<delete id="deleteUserRole" parameterType="roleVO">
+		DELETE FROM ROLE_GROUP_USER
+		WHERE ROLE_NO = #{role_No}
+		<if test="user_id != null and user_id != '' ">
+			AND USER_ID = #{user_id}
+		</if>
+	</delete>
+</mapper>

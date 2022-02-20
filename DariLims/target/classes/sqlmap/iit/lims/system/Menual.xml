@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="Menual">
+	<select id="menual" parameterType="BoardVO" resultType="BoardVO">
+		SELECT LAST.*
+		FROM (
+		    SELECT LPAD('ㄶ',2*(LEVEL - 1)) || FB.TITLE AS TITLE
+		        , FB.BOARD_NO
+		        , FB.CONTENTS
+		        , FB.CREATE_DATE
+		        , FB.CREATER_ID
+		        , FB.PRE_BOARD_NO
+		        , FB.FILE_NM
+		        , FB.ADD_FILE
+		        , ROWNUM rNum
+	            , #{user_id} USER_ID
+	            , FB.BOARD_TYPE
+		    FROM
+		        (                
+		        SELECT
+		            DISTINCT BOARD_NO
+		            ,TITLE
+		            ,CONTENTS
+		            ,TO_CHAR(CREATE_DATE, 'YYYY-MM-DD') CREATE_DATE
+		            ,CREATER_ID
+		            ,PRE_BOARD_NO
+		            ,FILE_NM
+		            ,ADD_FILE
+		            ,BOARD_TYPE
+		        FROM BOARD
+		        WHERE BOARD_TYPE = #{board_type}
+		        )FB
+		    WHERE 1=1
+		    <if test="title != null and title != ''">
+				AND UPPER(TITLE) like '%' || UPPER( #{title} ) || '%'
+			</if>
+			<if test="creater_id != null and creater_id != ''">
+				AND UPPER(CREATER_ID) like '%' || UPPER( #{creater_id} ) || '%'
+			</if>
+			<if test="startDate != null and startDate != ''">
+				<if test="endDate != null and endDate != ''">
+					AND CREATE_DATE BETWEEN #{startDate} AND #{endDate}
+				</if>
+			</if>
+		    START WITH PRE_BOARD_NO = '00000000'
+		    CONNECT BY PRIOR BOARD_NO = PRE_BOARD_NO
+		    ORDER SIBLINGS BY FB.PRE_BOARD_NO , FB.BOARD_NO    
+		)LAST
+		WHERE rNum BETWEEN #{firstIndex} +1 AND #{firstIndex} + #{recordCountPerPage}
+		ORDER BY rNum
+	</select>
+	
+	<!-- 상세보기 -->
+	<select id="menualDetail" parameterType="BoardVO" resultType="BoardVO">
+		SELECT 
+			BOARD_NO
+			,TITLE
+			,CONTENTS
+			,TO_CHAR(CREATE_DATE, 'YYYY-MM-DD') CREATE_DATE
+			,CREATER_ID
+			,PRE_BOARD_NO
+			,FILE_NM
+			,ADD_FILE
+			,BOARD_TYPE
+		FROM BOARD
+		WHERE BOARD_NO = #{key}
+	</select>
+	
+	<!-- 덧글 상세보기 -->
+	<select id="menualRepleDetail" parameterType="BoardVO" resultType="BoardVO">
+		SELECT 
+			BOARD_NO
+			,TITLE
+			,CONTENTS
+			,TO_CHAR(CREATE_DATE, 'YYYY-MM-DD') CREATE_DATE
+			,CREATER_ID
+			,PRE_BOARD_NO
+			,FILE_NM
+			,ADD_FILE
+			,BOARD_TYPE
+		FROM BOARD
+		WHERE BOARD_NO = #{board_no}
+	</select>
+	
+	<!-- 덧글 신규추가  -->
+	<select id="menualDetailInsert" parameterType="BoardVO" resultType="BoardVO">
+		SELECT
+			<if test='board_type == "F" '>
+			'[덧글] ' || TITLE TITLE
+			</if>
+			<if test='board_type == "Q" '>
+			'[답변] ' || TITLE TITLE
+			</if>
+    		,CONTENTS
+		FROM BOARD
+		WHERE BOARD_NO = #{key}
+	</select>
+	
+	<insert id="insertMenual" parameterType="BoardVO">
+		INSERT INTO BOARD (
+			BOARD_NO,
+			TITLE,
+			CONTENTS,
+			PRE_BOARD_NO,
+			<if test="add_file != null and add_file != '' ">
+				FILE_NM,
+				ADD_FILE,
+			</if>
+			CREATER_ID,
+			CREATE_DATE,
+			BOARD_TYPE
+		) VALUES (
+			(SELECT	LPAD(NVL(MAX(BOARD_NO),0)+1 ,8 ,0) FROM BOARD),
+			#{title},
+			#{contents},
+			<if test="pre_board_no_flag == 'true' ">
+				#{pre_board_no},
+			</if>
+			<if test="pre_board_no_flag == 'false' ">
+				'00000000',
+			</if>
+			<if test="add_file != null and add_file != '' ">
+				#{file_nm},
+				#{add_file},
+			</if>
+			#{user_id},
+			SYSDATE,
+			#{board_type}
+		)
+	</insert>
+	
+	<update id="updateMenual" parameterType="BoardVO">
+		UPDATE BOARD SET
+			TITLE = #{title},
+			CONTENTS = #{contents},
+			<if test="add_file != null and add_file != '' ">
+				FILE_NM = #{file_nm},
+				ADD_FILE = #{add_file},
+			</if>
+			UPDATER_ID = #{user_id},
+			UPDATE_DATE = SYSDATE
+		WHERE BOARD_NO = #{board_no}
+	</update>
+	
+	<select id="menualDown" parameterType="BoardVO" resultType="BoardVO">
+		SELECT ADD_FILE, FILE_NM
+		FROM BOARD
+		WHERE BOARD_NO = #{board_no}		
+	</select>
+	
+	<select id="menualCnt" parameterType="pagingVO" resultType="int">
+		SELECT COUNT(*) 
+		FROM BOARD
+		WHERE 1=1
+			AND BOARD_TYPE = #{board_type} 
+			<if test="title != null and title != '' ">
+				AND UPPER(title) like '%' || UPPER( #{title} ) || '%'
+			</if>
+			<if test="startDate != null and startDate != '' ">
+				<if test="endDate != null and endDate != '' ">
+					AND TO_CHAR(CREATE_DATE, 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate}
+				</if>
+			</if>
+	</select>
+</mapper>

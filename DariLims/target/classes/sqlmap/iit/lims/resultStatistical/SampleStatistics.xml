@@ -1,0 +1,494 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="resultStatistical">
+
+	<!-- 그리드 컬럼용(head) -->
+	<select id="selectSampleStatisticsColumn" parameterType="MakeGridVO" resultType="String">
+		<if test="type == 'C54002'.toString() "> 
+		WITH TEST AS
+		(
+			SELECT '1분기' STR FROM DUAL
+			UNION ALL
+			SELECT '2분기' STR FROM DUAL
+			UNION ALL
+			SELECT '3분기' STR FROM DUAL
+			UNION ALL
+			SELECT '4분기' STR FROM DUAL
+		)
+		SELECT * FROM TEST
+		</if>
+	
+		<if test="type != 'C54002'.toString() ">	
+		SELECT         
+		       G.REQ_DATE
+		   FROM (
+		      SELECT
+		      		<if test="type == 'C54001'.toString() "> <!-- 년 -->
+		            	TO_CHAR(TO_DATE(TR.REQ_DATE, 'YYYYMMDD'), 'YYYY') REQ_DATE 
+		            </if>
+		            <if test="type == 'C54003'.toString()"> <!-- 월 -->
+		            	TO_CHAR(TO_DATE(TR.REQ_DATE, 'YYYYMMDD'), 'YYYY-mm') REQ_DATE 
+		            </if>
+		      FROM TEST_SAMPLE_ITEM TSI
+		      INNER JOIN TEST_SAMPLE TS ON TS.TEST_SAMPLE_SEQ = TSI.TEST_SAMPLE_SEQ
+		      INNER JOIN TEST_REQ TR ON TR.TEST_REQ_NO = TS.TEST_REQ_NO
+		      INNER JOIN ANALYSIS ANAL ON ANAL.TESTITM_CD = TSI.TEST_ITEM_CD
+		      INNER JOIN SAMPLING_POINT SP ON TS.SAMPLING_POINT_NO = SP.SAMPLING_POINT_NO
+		      WHERE 1 = 1
+		      		<if test="unit_work_cd != null and unit_work_cd != '' "> 
+		            AND TR.UNIT_WORK_CD IN ( ${unit_work_cd} )
+		            </if>
+		            AND TR.STATE IN ('F','G','H')	            	            
+		            <if test="type == 'C54001'.toString() "> <!-- 년 -->
+			            <if test="startYear != null and startYear != ''">
+							<if test="endYear != null and endYear != ''">
+			            		AND TO_CHAR(TO_DATE(TR.REQ_DATE, 'YYYYmmdd'), 'YYYY') BETWEEN #{startYear} AND #{endYear}
+			            	</if>
+			            </if>
+		            </if>
+		            
+		            <if test="type == 'C54003'.toString() "> <!-- 월 -->
+			            AND TO_CHAR(TO_DATE(TR.REQ_DATE, 'YYYYmmdd'), 'YYYY') = #{year}		            	
+		            </if>
+		            
+		            <if test="type == 'C54004'.toString() "> <!-- 주 -->
+			            <if test="startDate != null and startDate != ''">
+							<if test="endDate != null and endDate != ''">
+			            	AND TO_CHAR(TO_DATE(TR.REQ_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') BETWEEN #{startDate} AND #{endDate}
+			            	</if>
+			            </if>
+		            </if>      
+		            <if test="sample_cd == '001'.toString() ">
+	            	    AND SP.SAMPLING_POINT_NO IN ('001292', '001299', '001366', '001297', '001401', '001311' 
+					    , '001286', '001287', '001298'
+					    , '001330', '001331', '001309'
+					    , '001329', '001392', '001367', '001393', '001319'
+					    , '111111')
+		            </if>     
+		            <if test="sample_cd == '002'.toString() ">
+		            	AND SP.WATER_SYSTEM IN ('C02003', 'C02002', 'C02006', 'C02005', 'C02007')
+		            </if>
+		            <if test="sample_cd == '003'.toString() ">
+		            	AND SP.SAMPLING_POINT_NO IN ('001284', '001273', '001326', '001289', '001301', '001336')
+		            </if>
+		            <if test="test_item_cd != null and test_item_cd != '' and test_item_cd != 'undefined'">
+						AND ANAL.TESTITM_CD IN ( ${test_item_cd} )
+				    </if>
+		    )G
+		GROUP BY REQ_DATE
+		ORDER BY REQ_DATE
+		</if>
+	</select>
+	
+	<!--  그리드 내용(body) -->
+	<select id="selectSampleStatistics" parameterType="MakeGridVO" resultType="Hashmap">		
+		WITH TT AS(
+			SELECT
+		<if test="sample_cd == '001'.toString() ">
+             <if test="type == 'C54001'.toString()">
+		      <foreach collection="head" item="item" index="idx">
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN001292 , '0')), 3) AS A01${idx}, 
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN001299 , '0')), 3) AS A02${idx}, 
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN001366 , '0')), 3) AS A03${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN001297 , '0')), 3) AS A04${idx}, 
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN001401 , '0')), 3) AS A05${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN001311 , '0')), 3) AS A06${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN111111 , '0')), 3) AS A07${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN111111 , '0')), 3) AS A08${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN111111 , '0')), 3) AS A09${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN001286 , '0')), 3) AS A10${idx}, 
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN001287 , '0')), 3) AS A11${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN001298 , '0')), 3) AS A12${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN111111 , '0')), 3) AS A13${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN001330 , '0')), 3) AS A14${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN111111 , '0')), 3) AS A15${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN001331 , '0')), 3) AS A16${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN111111 , '0')), 3) AS A17${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN001309 , '0')), 3) AS A18${idx}, 
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN001329 , '0')), 3) AS A19${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN111111 , '0')), 3) AS A20${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN001392 , '0')), 3) AS A21${idx}, 
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN001367 , '0')), 3) AS A22${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN001393 , '0')), 3) AS A23${idx}, 
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN001319 , '0')), 3) AS A24${idx},
+			  </foreach>
+			  </if>
+			  <if test="type == 'C54002'.toString()">
+		      <foreach collection="head" item="item" index="idx">
+		      	TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN001292 , '0')), 3) AS A01${idx},
+		      	TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN001299 , '0')), 3) AS A02${idx},
+		      	TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN001366 , '0')), 3) AS A03${idx},
+		      	TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN001297 , '0')), 3) AS A04${idx},
+		      	TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN001401 , '0')), 3) AS A05${idx},
+		      	TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN001311 , '0')), 3) AS A06${idx},
+		      	TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN111111 , '0')), 3) AS A07${idx},
+		      	TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN111111 , '0')), 3) AS A08${idx},
+		      	TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN111111 , '0')), 3) AS A09${idx},
+		      	TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN001286 , '0')), 3) AS A10${idx},
+		      	TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN001287 , '0')), 3) AS A11${idx},
+		      	TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN001298 , '0')), 3) AS A12${idx},
+		      	TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN111111 , '0')), 3) AS A13${idx},
+		      	TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN001330 , '0')), 3) AS A14${idx},
+		      	TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN111111 , '0')), 3) AS A15${idx},
+		      	TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN001331 , '0')), 3) AS A16${idx},
+		      	TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN111111 , '0')), 3) AS A17${idx},
+		      	TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN001309 , '0')), 3) AS A18${idx},
+		      	TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN001329 , '0')), 3) AS A19${idx},
+		      	TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN111111 , '0')), 3) AS A20${idx},
+		      	TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN001392 , '0')), 3) AS A21${idx},
+		      	TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN001367 , '0')), 3) AS A22${idx},
+		      	TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN001393 , '0')), 3) AS A23${idx},
+		      	TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN001319 , '0')), 3) AS A24${idx},
+			  </foreach>
+			  </if>
+			  <if test="type == 'C54003'.toString()">
+		      <foreach collection="head" item="item" index="idx">
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001292 , '0')), 3) AS A01${idx}, 
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001299 , '0')), 3) AS A02${idx}, 
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001366 , '0')), 3) AS A03${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001297 , '0')), 3) AS A04${idx}, 
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001401 , '0')), 3) AS A05${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001311 , '0')), 3) AS A06${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN111111 , '0')), 3) AS A07${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN111111 , '0')), 3) AS A08${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN111111 , '0')), 3) AS A09${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001286 , '0')), 3) AS A10${idx}, 
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001287 , '0')), 3) AS A11${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001298 , '0')), 3) AS A12${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN111111 , '0')), 3) AS A13${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001330 , '0')), 3) AS A14${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN111111 , '0')), 3) AS A15${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001331 , '0')), 3) AS A16${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN111111 , '0')), 3) AS A17${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001309 , '0')), 3) AS A18${idx}, 
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001329 , '0')), 3) AS A19${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN111111 , '0')), 3) AS A20${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001392 , '0')), 3) AS A21${idx}, 
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001367 , '0')), 3) AS A22${idx},
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001393 , '0')), 3) AS A23${idx}, 
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001319 , '0')), 3) AS A24${idx},
+			  </foreach>
+			  </if>
+			  <!-- 		  
+			  <if test="type == 'C54004'.toString()">
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001292)), 3) AS A01, 
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001299)), 3) AS A02, 
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001366)), 3) AS A03,
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001297)), 3) AS A04, 
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001401)), 3) AS A05,
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001311)), 3) AS A06,
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN111111)), 3) AS A07,
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN111111)), 3) AS A08,
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN111111)), 3) AS A09,
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001286)), 3) AS A10, 
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001287)), 3) AS A11,
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001298)), 3) AS A12,
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN111111)), 3) AS A13,
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001330)), 3) AS A14,
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN111111)), 3) AS A15,
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001331)), 3) AS A16,
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN111111)), 3) AS A17,
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001309)), 3) AS A18, 
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001329)), 3) AS A19,
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN111111)), 3) AS A20,
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001392)), 3) AS A21, 
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001367)), 3) AS A22,
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001393)), 3) AS A23, 
+				TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001319)), 3) AS A24,
+			  </if>
+			  -->
+			  Z.TEST_ITEM_NM,
+			  Z.TEST_ITEM_CD
+		</if>
+		<if test="sample_cd == '002'.toString() ">
+             <if test="type == 'C54001'.toString()">
+		      <foreach collection="head" item="item" index="idx">
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.C02003 , '0')), 3) AS A01${idx}, 
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.C02002 , '0')), 3) AS A02${idx}, 
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.C02006 , '0')), 3) AS A03${idx},
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.C02005 , '0')), 3) AS A04${idx}, 
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.C02007 , '0')), 3) AS A05${idx},
+			  </foreach>
+			 </if>
+			 <if test="type == 'C54002'.toString()">
+		      <foreach collection="head" item="item" index="idx">
+		      TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.C02003 , '0')), 3) AS A01${idx},
+		      TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.C02002 , '0')), 3) AS A02${idx},
+		      TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.C02006 , '0')), 3) AS A03${idx},
+		      TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.C02005 , '0')), 3) AS A04${idx},
+		      TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.C02007 , '0')), 3) AS A05${idx},
+		      </foreach>
+			 </if>
+			 <if test="type == 'C54003'.toString()">
+		      <foreach collection="head" item="item" index="idx">
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.C02003 , '0')), 3) AS A01${idx}, 
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.C02002 , '0')), 3) AS A02${idx}, 
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.C02006 , '0')), 3) AS A03${idx},
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.C02005 , '0')), 3) AS A04${idx}, 
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.C02007 , '0')), 3) AS A05${idx},
+			  </foreach>
+			 </if>
+			 <!-- 
+			 <if test="type == 'C54004'.toString()">
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.C02003)), 3) AS A01, 
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.C02002)), 3) AS A02, 
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.C02006)), 3) AS A03,
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.C02005)), 3) AS A04, 
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.C02007)), 3) AS A05,
+			 </if>
+			  -->
+			  Z.TEST_ITEM_NM,
+			  Z.TEST_ITEM_CD
+		</if>
+		<if test="sample_cd == '003'.toString() ">
+            <if test="type == 'C54001'.toString()">
+		      <foreach collection="head" item="item" index="idx">
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN001284 , '0')), 3) AS A01${idx}, 
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN001273 , '0')), 3) AS A02${idx}, 
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN001326 , '0')), 3) AS A03${idx},
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN001289 , '0')), 3) AS A04${idx}, 
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN001301 , '0')), 3) AS A05${idx},
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY'), #{item}, Z.SPN001336 , '0')), 3) AS A06${idx},
+			  </foreach>
+			</if>
+			<if test="type == 'C54002'.toString()">
+		      <foreach collection="head" item="item" index="idx">
+		      TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN001284 , '0')), 3) AS A01${idx},
+		      TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN001273 , '0')), 3) AS A02${idx},
+		      TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN001326 , '0')), 3) AS A03${idx},
+		      TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN001289 , '0')), 3) AS A04${idx},
+		      TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN001301 , '0')), 3) AS A05${idx},
+		      TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YY/MM/DD'), 'q'), TO_NUMBER(#{idx})+1, Z.SPN001336 , '0')), 3) AS A06${idx},
+		      </foreach>
+			 </if>
+			 <if test="type == 'C54003'.toString()">
+		      <foreach collection="head" item="item" index="idx">
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001284 , '0')), 3) AS A01${idx}, 
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001273 , '0')), 3) AS A02${idx}, 
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001326 , '0')), 3) AS A03${idx},
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001289 , '0')), 3) AS A04${idx}, 
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001301 , '0')), 3) AS A05${idx},
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.SPN001336 , '0')), 3) AS A06${idx},
+			  </foreach>
+			 </if>
+			 <!-- 
+			 <if test="type == 'C54004'.toString()">
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.C02003)), 3) AS A01, 
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.C02002)), 3) AS A02, 
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.C02006)), 3) AS A03,
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.C02005)), 3) AS A04, 
+			  TRUNC(AVG(DECODE(TO_CHAR(TO_DATE(Z.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM'), #{item}, Z.C02007)), 3) AS A05,
+			 </if>
+			  -->
+			  Z.TEST_ITEM_NM,
+			  Z.TEST_ITEM_CD
+		</if>
+			FROM (
+			SELECT
+			   <if test="sample_cd == '001'.toString() ">
+				TO_NUMBER( NVL(AVG(DECODE(G.SAMPLING_POINT_NO, '001292', G.RESULT_VAL)),0)) AS SPN001292 ,
+				TO_NUMBER( NVL(AVG(DECODE(G.SAMPLING_POINT_NO, '001299', G.RESULT_VAL)),0)) AS SPN001299 ,
+				TO_NUMBER( NVL(AVG(DECODE(G.SAMPLING_POINT_NO, '001366', G.RESULT_VAL)),0)) AS SPN001366 ,
+				TO_NUMBER( NVL(AVG(DECODE(G.SAMPLING_POINT_NO, '001297', G.RESULT_VAL)),0)) AS SPN001297 ,
+				TO_NUMBER( NVL(AVG(DECODE(G.SAMPLING_POINT_NO, '001401', G.RESULT_VAL)),0)) AS SPN001401 ,
+				TO_NUMBER( NVL(AVG(DECODE(G.SAMPLING_POINT_NO, '001311', G.RESULT_VAL)),0)) AS SPN001311 ,
+				TO_NUMBER( NVL(AVG(DECODE(G.SAMPLING_POINT_NO, '001286', G.RESULT_VAL)),0)) AS SPN001286 ,
+				TO_NUMBER( NVL(AVG(DECODE(G.SAMPLING_POINT_NO, '001287', G.RESULT_VAL)),0)) AS SPN001287 ,
+				TO_NUMBER( NVL(AVG(DECODE(G.SAMPLING_POINT_NO, '001298', G.RESULT_VAL)),0)) AS SPN001298 ,
+				TO_NUMBER( NVL(AVG(DECODE(G.SAMPLING_POINT_NO, '001330', G.RESULT_VAL)),0)) AS SPN001330 ,
+				TO_NUMBER( NVL(AVG(DECODE(G.SAMPLING_POINT_NO, '001331', G.RESULT_VAL)),0)) AS SPN001331 ,
+				TO_NUMBER( NVL(AVG(DECODE(G.SAMPLING_POINT_NO, '001309', G.RESULT_VAL)),0)) AS SPN001309 ,
+				TO_NUMBER( NVL(AVG(DECODE(G.SAMPLING_POINT_NO, '001329', G.RESULT_VAL)),0)) AS SPN001329 ,
+				TO_NUMBER( NVL(AVG(DECODE(G.SAMPLING_POINT_NO, '001392', G.RESULT_VAL)),0)) AS SPN001392 ,
+				TO_NUMBER( NVL(AVG(DECODE(G.SAMPLING_POINT_NO, '001367', G.RESULT_VAL)),0)) AS SPN001367 ,   
+				TO_NUMBER( NVL(AVG(DECODE(G.SAMPLING_POINT_NO, '001393', G.RESULT_VAL)),0)) AS SPN001393 ,
+				TO_NUMBER( NVL(AVG(DECODE(G.SAMPLING_POINT_NO, '001319', G.RESULT_VAL)),0)) AS SPN001319 ,   
+				TO_NUMBER( NVL(AVG(DECODE(G.SAMPLING_POINT_NO, '111111', G.RESULT_VAL)),0)) AS SPN111111 ,
+			   </if>
+			   <if test="sample_cd == '002'.toString() ">
+				TO_NUMBER( NVL(AVG(DECODE(G.WATER_SYSTEM, 'C02003', G.RESULT_VAL)),0)) AS C02003 ,
+				TO_NUMBER( NVL(AVG(DECODE(G.WATER_SYSTEM, 'C02002', G.RESULT_VAL)),0)) AS C02002 ,
+				TO_NUMBER( NVL(AVG(DECODE(G.WATER_SYSTEM, 'C02006', G.RESULT_VAL)),0)) AS C02006 ,
+				TO_NUMBER( NVL(AVG(DECODE(G.WATER_SYSTEM, 'C02005', G.RESULT_VAL)),0)) AS C02005 ,
+				TO_NUMBER( NVL(AVG(DECODE(G.WATER_SYSTEM, 'C02007', G.RESULT_VAL)),0)) AS C02007 ,
+			   </if>
+			   <if test="sample_cd == '003'.toString() ">
+				TO_NUMBER( NVL(AVG(DECODE(G.SAMPLING_POINT_NO, '001284', G.RESULT_VAL)),0)) AS SPN001284 ,
+				TO_NUMBER( NVL(AVG(DECODE(G.SAMPLING_POINT_NO, '001273', G.RESULT_VAL)),0)) AS SPN001273 ,
+				TO_NUMBER( NVL(AVG(DECODE(G.SAMPLING_POINT_NO, '001326', G.RESULT_VAL)),0)) AS SPN001326 ,
+				TO_NUMBER( NVL(AVG(DECODE(G.SAMPLING_POINT_NO, '001289', G.RESULT_VAL)),0)) AS SPN001289 ,
+				TO_NUMBER( NVL(AVG(DECODE(G.SAMPLING_POINT_NO, '001301', G.RESULT_VAL)),0)) AS SPN001301 ,
+				TO_NUMBER( NVL(AVG(DECODE(G.SAMPLING_POINT_NO, '001336', G.RESULT_VAL)),0)) AS SPN001336 ,
+			   </if>
+			   G.TEST_ITEM_NM,
+			   G.TEST_ITEM_CD,
+			   G.REQ_DATE
+			  FROM (
+			    SELECT 
+			      ANAL.TESTITM_NM AS TEST_ITEM_NM,
+			      ANAL.TESTITM_CD AS TEST_ITEM_CD,
+			      GET_RESULT_NUMBER(TSI.TEST_SAMPLE_SEQ, TSI.TEST_ITEM_SEQ) RESULT_VAL,
+			      TSI.RESULT_CD,
+			      SP.SAMPLING_POINT_NO,
+			      SP.WATER_SYSTEM,
+			      TR.REQ_DATE
+			    FROM TEST_SAMPLE_ITEM TSI
+			    INNER JOIN TEST_SAMPLE TS ON TS.TEST_SAMPLE_SEQ = TSI.TEST_SAMPLE_SEQ
+			    INNER JOIN TEST_REQ TR ON TR.TEST_REQ_NO = TS.TEST_REQ_NO
+			    INNER JOIN ANALYSIS ANAL ON ANAL.TESTITM_CD = TSI.TEST_ITEM_CD
+			    INNER JOIN SAMPLING_POINT SP ON TS.SAMPLING_POINT_NO = SP.SAMPLING_POINT_NO
+			    WHERE 1 = 1
+			    <if test="unit_work_cd != null and unit_work_cd != '' "> 
+		            AND TR.UNIT_WORK_CD IN ( ${unit_work_cd} )
+		        </if>
+			    AND TR.STATE IN ('F','G','H')
+			    <if test="sample_cd == '001'.toString() ">
+				AND SP.SAMPLING_POINT_NO IN ('001292', '001299', '001366', '001297', '001401', '001311' 
+				, '001286', '001287', '001298'
+				, '001330', '001331', '001309'
+				, '001329', '001392', '001367', '001393', '001319'
+				, '111111')
+			    </if>
+			    <if test="sample_cd == '002'.toString() ">
+			    AND SP.WATER_SYSTEM IN ('C02003', 'C02002', 'C02006', 'C02005', 'C02007')
+			    </if>
+			    <if test="sample_cd == '003'.toString() ">
+			    AND SP.SAMPLING_POINT_NO IN ('001284', '001273', '001326', '001289', '001301', '001336')
+<!-- 			    AND SP.SAMPLING_POINT_NO IN ('001283', '001272', '001325', '001288', '001300', '001335') -->
+			    </if>
+			    <if test="type == 'C54002'.toString()">
+			    AND SUBSTR(TR.REQ_DATE, 1, 4) = #{year}
+			    </if>
+			    <if test="test_item_cd != null and test_item_cd != '' and test_item_cd != 'undefined'">
+				AND ANAL.TESTITM_CD IN ( ${test_item_cd} )
+			    </if>		    
+			    )G
+			  GROUP BY TEST_ITEM_NM, TEST_ITEM_CD, REQ_DATE 
+			<if test="sortName != null and sortName != '' ">
+				ORDER BY ${sortName} ${sortType}
+			</if>
+			<if test="sortName == null or sortName == '' ">
+				ORDER BY TEST_ITEM_NM
+			</if>
+			)Z
+			GROUP BY TEST_ITEM_NM, TEST_ITEM_CD
+			)
+			SELECT 
+			  T.TEST_ITEM_NM, 
+			  T.TEST_ITEM_CD,
+			  <foreach collection="head" item="item" index="idx">
+			  <if test="sample_cd == '001'.toString() ">
+			  T.A01${idx},
+			  T.A02${idx},
+			  T.A03${idx},
+			  T.A04${idx},
+			  T.A05${idx},
+			  T.A06${idx},
+			  T.A07${idx},
+			  T.A08${idx},
+			  T.A09${idx},
+			  T.A10${idx},
+			  T.A11${idx},
+			  T.A12${idx},
+			  T.A13${idx},
+			  T.A14${idx},
+			  T.A15${idx},
+			  T.A16${idx},
+			  T.A17${idx},
+			  T.A18${idx},
+			  T.A19${idx},
+			  T.A20${idx},
+			  T.A21${idx},
+			  T.A22${idx},
+			  T.A23${idx},
+			  T.A24${idx},
+			  </if>
+			  <if test="sample_cd == '002'.toString() ">
+			  T.A01${idx},
+			  T.A02${idx},
+			  T.A03${idx},
+			  T.A04${idx},
+			  T.A05${idx},
+			  </if>
+			  <if test="sample_cd == '003'.toString() ">
+			  T.A01${idx},
+			  T.A02${idx},
+			  T.A03${idx},
+			  T.A04${idx},
+			  T.A05${idx},
+			  T.A06${idx},
+			  </if>
+			  </foreach>
+			  SUM(VW.RESULT) AS SUM,
+			  ROUND(AVG(VW.RESULT),3) AS AVG,
+			  MIN(VW.RESULT) AS MIN,
+			  MAX(VW.RESULT) AS MAX
+			FROM TT T JOIN
+			  (SELECT TEST_ITEM_NM, TEST_ITEM_CD, RESULT
+			  FROM
+			    (
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A01${idx} AS RESULT FROM TT
+			    <foreach collection="head" item="item" index="idx">
+			    <if test="sample_cd == '001'.toString() ">
+			    UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A01${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A02${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A03${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A04${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A05${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A06${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A07${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A08${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A09${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A10${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A11${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A12${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A13${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A14${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A15${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A16${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A17${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A18${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A19${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A20${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A21${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A22${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A23${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A24${idx} AS RESULT FROM TT
+			    </if>
+			    <if test="sample_cd == '002'.toString() ">
+			    UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A01${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A02${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A03${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A04${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A05${idx} AS RESULT FROM TT
+			    </if>
+			    <if test="sample_cd == '003'.toString() ">
+			    UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A01${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A02${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A03${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A04${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A05${idx} AS RESULT FROM TT UNION ALL
+			    SELECT TEST_ITEM_NM, TEST_ITEM_CD, A06${idx} AS RESULT FROM TT
+			    </if>
+			    </foreach>
+			    ) VW
+			  ) VW ON T.TEST_ITEM_CD = VW.TEST_ITEM_CD 
+			GROUP BY T.TEST_ITEM_NM, T.TEST_ITEM_CD
+			<foreach collection="head" item="item" index="idx">
+			<if test="sample_cd == '001'.toString() ">
+			, A01${idx}, A02${idx}, A03${idx}, A04${idx}, A05${idx}, A06${idx}, A07${idx}, A08${idx}
+			, A09${idx}, A10${idx}, A11${idx}, A12${idx}, A13${idx}, A14${idx}, A15${idx}, A16${idx}
+			, A17${idx}, A18${idx}, A19${idx}, A20${idx}, A21${idx}, A22${idx}, A23${idx}, A24${idx}
+			</if>
+			<if test="sample_cd == '002'.toString() ">
+			, A01${idx},  A02${idx},  A03${idx},  A04${idx},  A05${idx}
+			</if>
+			<if test="sample_cd == '003'.toString() ">
+			, A01${idx},  A02${idx},  A03${idx},  A04${idx},  A05${idx},  A06${idx}
+			</if>		
+			</foreach>
+	</select>
+</mapper>

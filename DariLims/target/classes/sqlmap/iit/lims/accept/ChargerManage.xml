@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="chargerManage">
+	
+	<!-- 사용자 이름 찾기 -->
+	<select id="selectUserId" parameterType="ResultInputVO" resultType="String">
+		SELECT USER_ID FROM USER_INFO WHERE USER_NM = #{tester_id}	
+	</select>
+	
+	<!-- 시험담당자변경 접수목록 조회 -->
+	<select id="selectChargerManageReqList" parameterType="ResultInputVO" resultType="ResultInputVO">
+	SELECT * FROM (
+		SELECT
+			DISTINCT R.TEST_REQ_SEQ
+			, R.TEST_REQ_NO
+			, TO_CHAR(TO_DATE(R.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') SAMPLE_ARRIVAL_DATE
+			, TO_CHAR(TO_DATE(R.DEADLINE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') DEADLINE_DATE
+			, GET_COMMON_CODE(R.REQ_TYPE, 'EX1') REQ_TYPE
+			, R.REQ_NM
+			, R.DEPT_CD
+			, R.SUPV_DEPT_CD
+			, D.DEPT_NM
+			, R.REQ_MESSAGE
+			, R.TITLE
+			, NVL2(RO.ORG_NM , RO.ORG_NM, RD.DEPT_NM ) REQ_ORG_NM
+			, C1.CODE_NAME TEST_GOAL
+			, UW.UNIT_WORK_NM UNIT_WORK_CD
+			, U.USER_NM
+			, U2.USER_NM CREATER_NM
+			, (	SELECT NVL(COUNT(*), 0) 
+				FROM TEST_SAMPLE_ITEM
+				WHERE TEST_REQ_SEQ = R.TEST_REQ_SEQ
+				AND RETURN_FLAG = 'Y' 
+				AND (
+					TESTER_ID = #{user_id} 
+					OR 
+					TESTER_ID IN (SELECT USER_ID FROM ABSENCE WHERE START_DATE <![CDATA[ <= ]]>
+					SYSDATE AND END_DATE <![CDATA[ >= ]]>
+					SYSDATE AND SUBSTITUTE_ID = #{user_id} )
+					OR 
+					TEAM_CD IN
+	                (
+	                    SELECT
+	                        TEAM_CD
+	                    FROM
+	                        DEPT_TEAM_USER
+	                    WHERE
+	                        USER_ID = #{user_id}
+	                )			
+				  )
+				) RETURN_FLAG
+				, 
+				CASE
+                    WHEN
+                    ( NVL2(RO.DISCOUNT_RATE, FEE_TOT - (FEE_TOT * (RO.DISCOUNT_RATE * 0.01)), FEE_TOT)- NVL (
+                        (
+                            SELECT SUM(DEPOSIT_AMT)
+                            FROM ORG_COMMISSION_DEPOSIT
+                            WHERE REQ_ORG_NO  = R.REQ_ORG_NO
+                                    AND TEST_REQ_SEQ = R.TEST_REQ_SEQ
+                                    AND R.COMMISSION_TYPE = 'C61001'
+                        ), 0)
+                    )
+                    = 0
+                    THEN 'Y'
+                    WHEN R.COMMISSION_TYPE NOT IN ('C61001')  THEN 'Y'
+                ELSE 'N'
+            	END COMMISSION_AMT_FLAG 
+		FROM TEST_SAMPLE TS
+		INNER JOIN TEST_REQ R ON R.TEST_REQ_SEQ = TS.TEST_REQ_SEQ
+		LEFT OUTER JOIN DEPART D ON D.DEPT_CD = R.DEPT_CD
+		LEFT OUTER JOIN COMMON_CODE_DETAIL C1 ON C1.CODE = R.TEST_GOAL
+		LEFT OUTER JOIN UNIT_WORK UW ON UW.UNIT_WORK_CD = R.UNIT_WORK_CD
+		LEFT OUTER JOIN USER_INFO U ON U.USER_ID = R.ACT_USER_ID
+		LEFT OUTER JOIN USER_INFO U2 ON U2.USER_ID = R.CREATER_ID
+		LEFT OUTER JOIN DEPART RD ON RD.DEPT_CD = R.REQ_ORG_NO
+		LEFT OUTER JOIN REQ_ORG RO ON RO.REQ_ORG_NO = R.REQ_ORG_NO
+		WHERE EXISTS (
+	          SELECT 'O'
+	          FROM TEST_SAMPLE_ITEM IA 
+	          WHERE IA.TEST_REQ_SEQ = TS.TEST_REQ_SEQ
+	          <if test="dept_cd != null and dept_cd != ''">
+	          AND IA.DEPT_CD = #{dept_cd}
+	          </if>
+	          <if test="state != null and state != ''">
+	          AND IA.STATE = #{state}
+	          </if>
+	          <if test="user_id != null and user_id != '' ">
+				AND (
+					IA.TESTER_ID = #{user_id}
+             		OR IA.TESTER_ID IN
+              	 	(
+	                    SELECT USER_ID
+	                    FROM ABSENCE 
+	                    WHERE
+	                        START_DATE   <![CDATA[ <= ]]> SYSDATE
+	                    AND END_DATE     <![CDATA[ >= ]]> SYSDATE
+	                    AND SUBSTITUTE_ID = #{user_id}
+               		)
+               		OR IA.TEAM_CD IN
+                    (
+                      SELECT TEAM_CD
+                      FROM DEPT_TEAM_USER
+                      WHERE USER_ID = #{user_id}
+                    )
+               ) 
+               </if>
+	      )  
+		
+<!-- 		<if test="state != null and state != '' "> -->
+<!-- 			AND R.STATE = #{state} -->
+<!-- 		</if>		 -->
+		<if test="test_req_no != null and test_req_no != '' ">
+			AND UPPER(TS.TEST_REQ_NO) LIKE '%' || UPPER(#{test_req_no}) || '%'
+		</if>
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				AND TO_CHAR(TO_DATE(R.SAMPLE_ARRIVAL_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') BETWEEN #{startDate} AND #{endDate}
+			</if>
+		</if>
+		<if test="req_org_nm != null and req_org_nm != '' ">
+			AND UPPER(RO.ORG_NM) like '%' || #{req_org_nm} || '%'
+		</if>
+		<if test="req_nm != null and req_nm != '' ">
+			AND UPPER(R.REQ_NM) LIKE '%' || UPPER(#{req_nm}) || '%'
+		</if>
+		<if test="req_type != null and req_type != '' ">
+			AND R.REQ_TYPE = #{req_type}
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY R.TEST_REQ_NO DESC
+		</if>
+	) WHERE 1 = 1
+		<if test="commission_flag == 'Y'.toString()">
+		<!-- 수수료 사용 FLAG (추후작업) -->
+		AND COMMISSION_AMT_FLAG = 'Y'
+		</if>
+	</select>	
+	
+	<!-- 시험담당자변경 시료 정보 조회 -->
+	<select id="selectChargerManageSampleDetail" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT
+		TS.TEST_SAMPLE_SEQ
+		, TS.SAMPLE_REG_NM
+		, TO_CHAR(TO_DATE(TS.SAMPLING_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') SAMPLING_DATE
+		, NVL(TS.SAMPLING_HOUR, '') SAMPLING_HOUR
+		, NVL(TS.SAMPLING_MIN, '') SAMPLING_MIN
+		, SP.SAMPLING_POINT_NM
+		, C1.CODE_NAME SAMPLING_METHOD
+		, TS.SAMPLING_ID
+		, TS.ETC_DESC
+		, S.SAMPLE_NM
+		, STD.TEST_STD_NM
+		, STD.TEST_STD_NO
+		, TC.TEST_CMT
+		, TR.REQ_MESSAGE
+		, DECODE( TS.TEST_SAMPLE_RESULT , null , '시험중' , 'C37004' , ' ' , 'C37003', ' ', 'C37002' , '부적합' , 'C37001' , '적합' ) AS TEST_SAMPLE_RESULT
+		<!-- , (SELECT
+			CASE
+			WHEN NVL(COUNT(BIV2.DOCUMENT_ID), 0) > 0
+			THEN 'Y'
+			ELSE 'N'
+			END RAWDATA
+			FROM RDMS.BINDERITEMVALUE BIV2
+			WHERE TS.TEST_SAMPLE_SEQ = SUBSTR(BIV2.UDF1 , 1, 9)
+			) AS RAWDATA -->
+		FROM TEST_SAMPLE TS
+		INNER JOIN TEST_REQ TR ON TS.TEST_REQ_SEQ = TR.TEST_REQ_SEQ
+		LEFT OUTER JOIN SAMPLE S ON TS.SAMPLE_CD = S.SAMPLE_CD
+		LEFT OUTER JOIN SAMPLING_POINT SP ON SP.SAMPLING_POINT_NO = TS.SAMPLING_POINT_NO
+		LEFT OUTER JOIN COMMON_CODE_DETAIL C1 ON C1.CODE = TS.SAMPLING_METHOD
+		LEFT OUTER
+		JOIN (
+		SELECT TEST_STD_NO, MAX (REV_NO) REV_NO FROM TEST_STD_REV GROUP BY TEST_STD_NO
+		) T ON T.TEST_STD_NO
+		= TS.TEST_STD_NO
+		LEFT OUTER JOIN TEST_STD STD ON STD.TEST_STD_NO = T.TEST_STD_NO
+		LEFT OUTER JOIN TEST_COMMENT TC ON TS.TEST_REQ_SEQ = TC.TEST_REQ_SEQ AND TC.TESTER_ID = #{user_id}
+		WHERE TS.TEST_REQ_SEQ = #{test_req_seq}
+		AND TS.TEST_SAMPLE_SEQ = #{test_sample_seq}
+	</select>	
+	
+	<!-- 시험담당자변경 항목 조회 -->
+	<select id="selectChargerManageItemList" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT
+			I.TEST_SAMPLE_SEQ ,
+			I.TEST_ITEM_SEQ ,
+			I.TEST_ITEM_CD ,
+			I.DEPT_CD,	
+			(SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = I.DEPT_CD) DEPT_NM,			
+			I.TEAM_CD,
+			(SELECT TEAM_NM FROM DEPT_TEAM WHERE TEAM_CD = I.TEAM_CD) TEAM_NM,
+			I.TESTER_ID USER_ID,
+			U.USER_NM,
+			ANAL.TESTITM_NM AS TEST_ITEM_NM,
+			ANAL.ENG_NM AS TEST_ITEM_ENG_NM,
+			ANAL.L_KOR_NM AS TEST_ITEM_TYPE,
+			I.DISP_ORDER,
+			I.STATE,
+			I.STATE AS USER_POP
+		FROM TEST_SAMPLE SP
+		INNER JOIN TEST_SAMPLE_ITEM I ON I.TEST_SAMPLE_SEQ = SP.TEST_SAMPLE_SEQ
+		INNER JOIN ANALYSIS ANAL ON ANAL.TESTITM_CD = I.TEST_ITEM_CD
+		LEFT JOIN USER_INFO U ON I.TESTER_ID = U.USER_ID
+		WHERE I.TEST_SAMPLE_SEQ = #{test_sample_seq}
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY DISP_ORDER, TEST_ITEM_NM, DEPT_NM, USER_NM
+		</if>
+	</select>	
+</mapper>

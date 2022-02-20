@@ -1,0 +1,4149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="accept">
+	<!-- 의뢰 리스트 조회 -->
+	<select id="selectAcceptList" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT
+		CASE
+		WHEN P.PRC_CD = 'Q' OR P.PRC_CD = 'R' THEN P.EXT_PRC_NM
+		ELSE P.SIMPLE_PRC_NM
+		END AS STATE
+		,R.TEST_REQ_NO
+		,R.TEST_REQ_SEQ
+		,P.PRC_CD PROCESS
+		,R.TITLE
+		,GET_COMMON_CODE(R.REQ_TYPE,'EX1') REQ_TYPE
+		,GET_COMMON_CODE(R.REQ_CLASS,'') REQ_CLASS
+		,GET_COMMON_CODE(R.SENSORY_TEST,'EX1') SENSORY_TEST
+        ,GET_COMMON_CODE(R.TEST_GOAL,'') TEST_GOAL
+		<!--,TO_CHAR(TO_DATE(R.REQ_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') REQ_DATE -->
+		,TO_CHAR(TO_DATE(R.DEADLINE_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') DEADLINE_DATE
+		,R.REQ_NM
+		,UW.UNIT_WORK_NM UNIT_WORK_CD
+		,R.REQ_TEL 
+		,RD.DEPT_NM
+		, NVL2(RO.ORG_NM , RO.ORG_NM, RD.DEPT_NM ) REQ_ORG_NM
+		,R.DEPT_CD
+		,U.USER_NM
+		,R.ACT_USER_ID
+		,R.ACT_USER_NM
+		,R.REQ_ACT_USER_ID
+		,R.REQ_ACT_USER_NM
+		,U2.USER_NM CREATER_NM
+		,R.CREATER_ID
+		,R.COMMISSION_TYPE
+		,R.SENSORY_TEST
+		,OCD.COMMISSION_AMT_FLAG
+		,TO_CHAR(TO_DATE(R.SAMPLE_ARRIVAL_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') SAMPLE_ARRIVAL_DATE
+		,(
+			SELECT 
+				LTRIM(XMLAGG(XMLELEMENT(A,','|| CASE WHEN INSTR(XA.SAMPLE_REG_NM, '잔류농약') > 0 THEN XA.SAMPLE_REG_NM ELSE XB.KOR_NM END) ORDER BY XA.TEST_SAMPLE_SEQ).EXTRACT('//text()'), ',')
+			FROM TEST_SAMPLE XA
+			INNER JOIN PRDLST_CL XB ON XA.PRDLST_CD = XB.PRDLST_CD 
+			WHERE XA.TEST_REQ_SEQ = R.TEST_REQ_SEQ
+		) AS SAMPLE_NMS
+		,TO_CHAR(TO_DATE(R.DEPT_APPR_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') AS LAST_APPROVAL_DATE
+ 		,TO_CHAR(R.REPORT_LAST_DATE, 'YYYY-MM-DD') AS LAST_REPORT_DATE
+ 		,TO_CHAR(TO_DATE(OCD.TAX_INVOICE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') AS BABO
+ 		,RO.EMAIL
+ 		,R.TEST_END
+ 		,R.SAMPLING_NO
+ 		,R.SAMPLE_NUM
+ 		,TO_CHAR(NVL(R.FEE_TOT,0), '999,999,999,999,999') AS FEE_TOT
+ 		,R.PICK_NO
+ 		,R.ADMIN_MESSAGE <!-- 관리자 메모 추가 -->
+ 		,R.BARCODE_DESC
+		FROM TEST_REQ R
+		INNER JOIN PROCESS P ON P.PRC_CD = R.STATE
+		LEFT OUTER JOIN DEPART RD ON RD.DEPT_CD = R.DEPT_CD
+		LEFT OUTER JOIN REQ_ORG RO ON RO.REQ_ORG_NO = R.REQ_ORG_NO
+		INNER JOIN REQ_ORG RO2 ON RO2.REQ_ORG_NO = R.REQ_ORG_NO3
+		LEFT OUTER JOIN UNIT_WORK UW ON UW.UNIT_WORK_CD = R.UNIT_WORK_CD
+		LEFT OUTER JOIN USER_INFO U ON U.USER_ID = R.ACT_USER_ID
+		LEFT OUTER JOIN USER_INFO U2 ON U2.USER_ID = R.CREATER_ID		
+		LEFT OUTER JOIN ORG_COMMISSION_DEPOSIT OCD ON OCD.REQ_ORG_NO = R.REQ_ORG_NO AND OCD.TEST_REQ_SEQ = R.TEST_REQ_SEQ
+		LEFT OUTER JOIN USER_INFO U3 ON U3.USER_ID = R.SALES_USER_ID
+		WHERE R.STOP_FLAG = 'N'
+		<if test="req_org_nm != null and req_org_nm != '' ">
+			AND UPPER(NVL2(RO.ORG_NM , RO.ORG_NM, RD.DEPT_NM )) like '%' || UPPER( #{req_org_nm} ) || '%'
+		</if>
+		<if test="req_nm != null and req_nm != '' ">
+			AND UPPER(R.REQ_NM) like '%' || UPPER( #{req_nm} ) || '%'
+		</if>
+		<if test="title != null and title != '' ">
+			AND UPPER(R.TITLE) like '%' || UPPER( #{title} ) || '%'
+		</if>
+		<if test="test_req_no != null and test_req_no != '' ">
+			AND UPPER(R.TEST_REQ_NO) like '%' || UPPER(#{test_req_no}) || '%'
+		</if>
+		<if test="state != null and state != '' ">
+			AND R.STATE = #{state}
+		</if>
+		<if test="req_type != null and req_type != '' ">
+			AND R.REQ_TYPE = #{req_type}
+		</if>
+		<if test="sensory_test != null and sensory_test != '' ">
+			AND R.SENSORY_TEST = #{sensory_test}
+		</if>
+		<if test="unit_work_cd != null and unit_work_cd != '' ">
+			AND R.UNIT_WORK_CD = #{unit_work_cd}
+		</if>
+		<if test="test_goal != null and test_goal != '' ">
+			AND R.TEST_GOAL = #{test_goal}
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND R.DEPT_CD = #{dept_cd}
+		</if>
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				AND TO_CHAR(TO_DATE(R.SAMPLE_ARRIVAL_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') BETWEEN #{startDate} AND #{endDate}
+			</if>
+		</if>
+		<if test="startTest != null and startTest != ''">
+			<if test="endTest != null and endTest != ''">
+				AND TO_CHAR(TO_DATE(R.DEADLINE_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') BETWEEN #{startTest} AND #{endTest}
+			</if>
+		</if>
+		<if test="tax_req_org_nm != null and tax_req_org_nm != '' ">
+			AND RO2.ORG_NM like '%' || #{tax_req_org_nm} || '%'
+		</if>
+		<if test="sales_user_id != null and sales_user_id != '' ">
+			AND U3.USER_NM like '%' || #{sales_user_id} || '%'
+		</if>
+		<if test="taxSdate != null and taxSdate != ''">
+			<if test="taxEdate != null and taxEdate != ''">
+				AND TO_CHAR(TO_DATE(OCD.TAX_INVOICE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') BETWEEN #{taxSdate} AND #{taxEdate}
+			</if>
+		</if>
+		<if test="sampling_no != null and sampling_no != '' ">
+			AND UPPER(TRIM(R.SAMPLING_NO)) like '%' || UPPER(TRIM(#{sampling_no})) || '%'
+		</if> 
+		<if test="sample_num != null and sample_num != '' ">
+			AND UPPER(TRIM(R.SAMPLE_NUM)NJSRUR) like '%' || UPPER(TRIM(#{sample_num})) || '%'
+		</if> 
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY R.TEST_REQ_SEQ, R.TEST_REQ_NO DESC
+		</if>
+	</select>
+	
+	<select id="getCollectCodeList" parameterType="AcceptVO" resultType="AcceptVO">
+	SELECT
+		COLLECT_PRE_CODE,
+		COLLECT_CODE,
+		ETC
+	FROM TEST_REQ_COLLECT
+	WHERE TEST_REQ_SEQ = #{test_req_seq}
+	</select>
+	
+	
+	<!-- 의뢰 상세 정보 -->
+	<select id="selectAcceptDetail" parameterType="AcceptVO" resultType="AcceptVO">	
+		SELECT 
+			R.TEST_REQ_SEQ
+			,R.TEST_REQ_NO
+			, R.TITLE
+			, R.REQ_TYPE
+			, R.REQ_CLASS
+			, R.REQ_ID
+			, R.REQ_NM					
+			, (SELECT USER_NM FROM USER_INFO UI WHERE UI.USER_ID = R.CREATER_ID) AS CREATER_NM
+			, R.CREATER_ID
+			, TO_CHAR(TO_DATE(R.REQ_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') REQ_DATE
+			, TO_CHAR(TO_DATE(R.DEADLINE_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') DEADLINE_DATE
+			, TO_CHAR(TO_DATE(R.DEPT_APPR_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') DEPT_APPR_DATE
+			, TO_CHAR(R.ACT_DATE, 'YYYY-mm-dd') ACT_DATE
+			, R.REQ_ORG_NO
+			, R.SENSORY_TEST
+			, R.REQ_ORG_NO2
+			, R.REQ_ORG_NO3
+			, R.REQ_ORG_NO4
+			, R.DISCOUNT_RATE
+			, R.DISCOUNT_FLAG
+			, R.RETURN_FLAG
+			, R.FEE_AUTO_FLAG
+			, R.REQ_BASIS
+			, R.REQ_MESSAGE
+			, R.ADDR_REPORT
+			, R.TEL_REPORT
+			, R.FAX_REPORT
+			, R.SUPV_DEPT_CD
+			, R.UNIT_WORK_CD
+			, R.TEST_GOAL
+			, REPLACE(TO_CHAR( R.FEE_TOT , '999,999,999,999,999'), ' ', '') FEE_TOT
+			, R.FEE_TOT_EST
+			, R.FEE_TOT_ITEM
+			, R.FEE_TOT_PRECOST
+			, REPLACE(TO_CHAR( R.TRAVEL_EXP , '999,999,999,999,999'), ' ', '') TRAVEL_EXP
+			, R.DEPT_CD
+			, P.SIMPLE_PRC_NM STATE
+			, P.PRC_CD PROCESS
+			, NVL2(RO.ORG_NM , RO.ORG_NM, RD.DEPT_NM ) REQ_ORG_NM
+			, NVL2(RO2.ORG_NM , RO2.ORG_NM, RD2.DEPT_NM ) REQ_ORG_NM2
+			, NVL2(RO3.ORG_NM , RO3.ORG_NM, RD3.DEPT_NM ) REQ_ORG_NM3
+			, NVL2(RO4.ORG_NM , RO4.ORG_NM, RD4.DEPT_NM ) REQ_ORG_NM4
+			, NVL(RO.CHARGER_TEL, '') CHARGER_TEL
+			, NVL(RO.ADDR1 || RO.ADDR2, '') REQ_ORG_ADDR
+			, NVL(RO.ZIP_CODE, '') ZIP_CODE
+			, NVL(RO.EMAIL, '') REQ_ORG_EMAIL
+			, NVL(RO2.CHARGER_TEL, '') CHARGER_TEL2
+			, NVL(RO2.ADDR1 || RO2.ADDR2, '') REQ_ORG_ADDR2
+			, NVL(RO2.ZIP_CODE, '') ZIP_CODE2
+            , NVL(RO3.CHARGER_TEL, '') CHARGER_TEL3
+			, NVL(RO3.ADDR1 || RO2.ADDR2, '') REQ_ORG_ADDR3
+			, NVL(RO3.ZIP_CODE, '') ZIP_CODE3
+            , NVL(RO4.CHARGER_TEL, '') CHARGER_TEL4
+			, NVL(RO4.ADDR1 || RO4.ADDR2, '') REQ_ORG_ADDR4
+			, NVL(RO4.ZIP_CODE, '') ZIP_CODE4
+			, R.EST_NO
+			, (SELECT EST_TITLE FROM ESTIMATE EST WHERE EST.EST_NO = R.EST_NO) AS EST_TITLE
+			, R.COMMISSION_TYPE
+			, TO_CHAR(TO_DATE(R.SAMPLE_ARRIVAL_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') SAMPLE_ARRIVAL_DATE
+			, CASE
+				WHEN
+			    ( SELECT COMMISSION_AMT_FLAG
+			             FROM ORG_COMMISSION_DEPOSIT
+			             WHERE REQ_ORG_NO  = R.REQ_ORG_NO
+			                     AND TEST_REQ_SEQ = R.TEST_REQ_SEQ
+			                     AND R.COMMISSION_TYPE = 'C61001'
+			    ) = 'Y'
+				THEN 'Y'
+				WHEN R.COMMISSION_TYPE NOT IN ('C61001')  THEN 'Y'
+				ELSE 'N'
+			END COMMISSION_AMT_FLAG
+			, R.TEST_STD_NO
+			, R.MEMBER_FLAG
+			, R.PRE_TEST_REQ_NO
+			, R.SALES_USER_ID
+      		, R.SALES_DEPT_CD
+			, R.EXPRESS_FLAG
+			, R.SMS_FLAG
+			, R.SMS_TARGET
+			, R.SMS_TYPE
+			, R.TEST_COUNT
+			, R.TEST_PLACE
+			, R.WARE_CLERK
+			, R.WARE_TEL
+			, R.SHIP_PORT
+			, R.UNSHIP_PORT
+			, R.ZIP_CODE
+			, R.ADDR1
+			, R.ADDR2
+			, (SELECT SUM(PRE_COST) FROM TEST_SAMPLE A
+			   LEFT JOIN PRETREATMENT B ON A.PRETREATMENT_CD = B.PRETREATMENT_CD
+			   WHERE TEST_REQ_SEQ = R.TEST_REQ_SEQ) AS PRE_COST
+			, R.ACCEPT_METHOD
+			, R.ORIGIN
+			, R.MANUFACTURER
+			, R.CONTAINER
+			, R.BILL_OF_LADING
+			, R.VESSEL
+			,(SELECT COUNT(*) FROM TEST_SAMPLE WHERE TEST_REQ_SEQ=R.TEST_REQ_SEQ) AS TOT_SAMPLE_COUNT
+			, R.QUALITY_DEPT_CD1
+			, R.QUALITY_DEPT_CD2
+			, R.QUALITY_USER_ID1
+			, R.QUALITY_USER_ID2
+			, R.SAMPLE_NUM
+			, R.SAMPLING_NO
+			, R.BARCODE_DESC
+			, RO.EMAIL
+			, R.REQ_PLANT_NM
+			, R.REQ_PLANT_ADDR
+			, R.REQ_PLANT_TEL
+			, R.TEST_END
+			, R.QR_NM
+			, R.QR_FILE
+			, R.EST_CHECK
+			, R.CALCULATION
+			, R.ADDR1_ENG
+			, R.ADDR2_ENG
+			, R.ACCEPT_METHOD
+			, R.ADMIN_MESSAGE
+			, R.PICK_NO
+		FROM TEST_REQ R
+		INNER JOIN PROCESS P ON P.PRC_CD = R.STATE
+		LEFT OUTER JOIN DEPART D ON R.REQ_ORG_NO = D.DEPT_CD			
+		LEFT OUTER JOIN DEPART RD ON R.REQ_ORG_NO = RD.DEPT_CD
+		LEFT OUTER JOIN REQ_ORG RO ON R.REQ_ORG_NO = RO.REQ_ORG_NO			
+		LEFT OUTER JOIN DEPART RD2 ON R.REQ_ORG_NO2 = RD2.DEPT_CD
+		LEFT OUTER JOIN REQ_ORG RO2 ON R.REQ_ORG_NO2 = RO2.REQ_ORG_NO		
+		LEFT OUTER JOIN DEPART RD3 ON R.REQ_ORG_NO3 = RD3.DEPT_CD
+ 		LEFT OUTER JOIN REQ_ORG RO3 ON R.REQ_ORG_NO3 = RO3.REQ_ORG_NO	
+		LEFT OUTER JOIN DEPART RD4 ON R.REQ_ORG_NO4 = RD4.DEPT_CD
+		LEFT OUTER JOIN REQ_ORG RO4 ON R.REQ_ORG_NO4 = RO4.REQ_ORG_NO	
+		WHERE TEST_REQ_SEQ = #{test_req_seq}
+	</select>
+	
+	<!-- 다음 의뢰 NO 조회 -->
+	<select id="selectReqNo" parameterType="java.util.HashMap" resultType="String">
+		<!-- SELECT GET_TEST_REQ_NO(#{gubun}, #{param}) FROM DUAL -->
+		SELECT GET_ACC_TEST_REQ_NO(#{gubun}, #{param}) FROM DUAL
+	</select>
+
+	<select id="selectReqSeq" resultType="String">
+		SELECT LPAD(NVL(MAX(TEST_REQ_SEQ), 0)+1, 10, 0) TEST_REQ_SEQ FROM TEST_REQ
+	</select>
+	
+	<!-- 의뢰 삽입 -->
+	<insert id="insertAccept" parameterType="AcceptVO">
+		BEGIN
+		
+		INSERT INTO TEST_REQ (
+			TEST_REQ_SEQ
+			<if test="test_req_no != null and test_req_no != '' ">
+			, TEST_REQ_NO
+			</if>
+			, TITLE
+			<if test="req_type != null and req_type != '' ">
+				, REQ_TYPE
+			</if>
+			<if test="req_class != null and req_class != '' ">
+				, REQ_CLASS
+			</if>
+			<if test="sensory_test != null and sensory_test != '' ">
+				, SENSORY_TEST
+			</if>
+			<if test="req_id != null and req_id != '' ">
+				, REQ_ID
+			</if>
+			, REQ_NM
+			, REQ_DATE
+			<if test="deadline_date != null and deadline_date != '' ">
+				, DEADLINE_DATE
+			</if>
+			, REQ_ORG_NO
+			<if test="req_org_no2 != null and req_org_no2 != '' ">
+			, REQ_ORG_NO2
+			</if>
+			<if test="req_org_no3 != null and req_org_no3 != '' ">
+			, REQ_ORG_NO3
+			</if>
+			<if test="req_org_no4 != null and req_org_no4 != '' ">
+			, REQ_ORG_NO4
+			</if>
+			<if test="discount_rate != null and discount_rate != '' ">
+			, DISCOUNT_RATE
+			</if>
+			<if test="discount_flag != null and discount_flag != '' ">
+			, DISCOUNT_FLAG
+			</if>
+			, RETURN_FLAG
+			, FEE_AUTO_FLAG
+			, REQ_BASIS
+			, REQ_MESSAGE
+			<if test="addr_report != null and addr_report != '' ">
+				, ADDR_REPORT
+			</if>
+			<if test="tel_report != null and tel_report != '' ">
+				, TEL_REPORT
+			</if>
+			<if test="fax_report != null and fax_report != '' ">
+				, FAX_REPORT
+			</if>
+			<if test="unit_work_cd != null and unit_work_cd != '' ">
+				, UNIT_WORK_CD
+			</if>
+			<if test="test_goal != null and test_goal != '' ">
+				, TEST_GOAL
+			</if>
+			<if test="travel_exp != null and travel_exp != '' ">
+				, TRAVEL_EXP
+			</if>
+			<if test="dept_cd != null and dept_cd != '' ">
+				, DEPT_CD
+			</if>
+			, STATE
+			, CREATE_DATE
+			, CREATER_ID
+			<if test="req_act_user_id != null and req_act_user_id != '' ">
+				, REQ_ACT_USER_ID
+				, REQ_ACT_USER_NM
+			</if>
+			, EST_NO
+			, COMMISSION_TYPE
+			<if test="sample_arrival_date != null and sample_arrival_date != '' ">
+				, SAMPLE_ARRIVAL_DATE
+			</if>
+			<if test="fee_tot != null ">
+				, FEE_TOT
+			</if>
+			<if test="fee_tot_item != null ">
+				, FEE_TOT_ITEM
+			</if>
+			<if test="fee_tot_est != null ">
+				, FEE_TOT_EST
+			</if>
+			<!-- , TEST_STD_NO -->
+			<!-- , MEMBER_FLAG -->
+			<if test="sales_user_id != null and sales_user_id != '' ">
+				, SALES_USER_ID
+			</if>
+			<if test="sales_dept_cd != null and sales_dept_cd != '' ">
+	      		, SALES_DEPT_CD
+			</if>
+			, EXPRESS_FLAG
+			, SMS_FLAG
+			, SMS_TARGET
+			, SMS_TYPE
+			, TEST_COUNT
+			, TEST_PLACE
+			, WARE_CLERK
+			, WARE_TEL
+			, SHIP_PORT
+			, UNSHIP_PORT
+			, ZIP_CODE
+			, ADDR1
+			, ADDR2
+			<if test="quality_dept_cd1 != null and quality_dept_cd1 != '' ">
+	      		, QUALITY_DEPT_CD1
+			</if>
+			<if test="quality_dept_cd2 != null and quality_dept_cd2 != '' ">
+			, QUALITY_DEPT_CD2
+			</if>
+			<if test="quality_user_id1 != null and quality_user_id1 != '' ">
+			, QUALITY_USER_ID1
+			</if>
+			<if test="quality_user_id2 != null and quality_user_id2 != '' ">
+			, QUALITY_USER_ID2
+			</if>
+			<if test="sample_num != null and sample_num != '' ">
+			, SAMPLE_NUM
+			</if>
+			<if test="sampling_no != null and sampling_no != '' ">
+			, SAMPLING_NO
+			</if>
+			<if test="barcode_desc != null and barcode_desc != '' ">
+			, BARCODE_DESC
+			</if>
+			<if test="req_plant_nm != null and req_plant_nm != '' ">
+			, REQ_PLANT_NM
+			</if>
+			<if test="req_plant_addr != null and req_plant_addr != '' ">
+			, REQ_PLANT_ADDR
+			</if>
+			<if test="req_plant_tel != null and req_plant_tel != '' ">
+			, REQ_PLANT_TEL
+			</if>
+			<if test="test_end != null and test_end != '' ">
+			, TEST_END
+			</if>
+			<if test="QR_nm != null and QR_nm != '' ">
+			, QR_NM
+			</if>
+			<if test="QR_file != null and QR_file != '' ">
+			, QR_FILE
+			</if>
+			<if test="est_check != null and est_check != '' ">
+			, EST_CHECK
+			</if>
+			<if test="calculation != null and calculation != '' ">
+			, CALCULATION
+			</if>
+			<if test="addr1_eng != null and addr1_eng != '' ">
+			, ADDR1_ENG
+			</if>
+			<if test="addr2_eng != null and addr2_eng != '' ">
+			, ADDR2_ENG
+			</if>
+			<if test="accept_method != null and accept_method != '' ">
+			, ACCEPT_METHOD
+			</if>
+			<if test="admin_message != null and admin_message != '' ">
+			, ADMIN_MESSAGE
+			</if>
+			
+		) VALUES (
+			#{test_req_seq}
+			<if test="test_req_no != null and test_req_no != '' ">
+			, #{test_req_no}
+			</if>
+			, #{title}
+			<if test="req_type != null and req_type != '' ">
+				, #{req_type}
+			</if>
+			<if test="req_class != null and req_class != '' ">
+				, #{req_class}
+			</if>
+			<if test="sensory_test != null and sensory_test != '' ">
+				, #{sensory_test}
+			</if>
+			<if test="req_id != null and req_id != '' ">
+				, #{req_id}
+			</if>
+			, #{req_nm}
+			, REPLACE(#{req_date}, '-', '')
+			<if test="deadline_date != null and deadline_date != '' ">
+				, REPLACE(#{deadline_date}, '-', '')
+			</if>
+			, #{req_org_no}
+			<if test="req_org_no2 != null and req_org_no2 != '' ">
+			, #{req_org_no2}
+			</if>
+			<if test="req_org_no3 != null and req_org_no3 != '' ">
+			, #{req_org_no3}
+			</if>
+			<if test="req_org_no4 != null and req_org_no4 != '' ">
+			, #{req_org_no4}
+			</if>
+			<if test="discount_rate != null and discount_rate != '' ">
+			, #{discount_rate}
+			</if>
+			<if test="discount_flag != null and discount_flag != '' ">
+			, #{discount_flag}
+			</if>
+			<if test="return_flag != null and return_flag != '' ">
+			, #{return_flag}
+			</if>
+			<if test="return_flag == null or return_flag == '' ">
+			, ''
+			</if>
+			, #{fee_auto_flag}
+			, #{req_basis}
+			, #{req_message}
+			<if test="addr_report != null and addr_report != '' ">
+				, #{addr_report}
+			</if>
+			<if test="tel_report != null and tel_report != '' ">
+				, #{tel_report}
+			</if>
+			<if test="fax_report != null and fax_report != '' ">
+				, #{fax_report}
+			</if>
+			<if test="unit_work_cd != null and unit_work_cd != '' ">
+				, #{unit_work_cd}
+			</if>
+			<if test="test_goal != null and test_goal != '' ">
+				, #{test_goal}
+			</if>
+			<if test="travel_exp != null and travel_exp != '' ">
+				, #{travel_exp}
+			</if>
+			<if test="dept_cd != null and dept_cd != '' ">
+				, #{dept_cd}
+			</if>
+			, #{state}
+			, SYSDATE
+			, #{user_id}
+			<if test="req_act_user_id != null and req_act_user_id != '' ">
+				, #{req_act_user_id}
+			, GET_USER_NM(#{req_act_user_id})
+			</if>
+			, #{est_no}
+			, #{commission_type}
+			<if test="sample_arrival_date != null and sample_arrival_date != '' ">
+				, REPLACE(#{sample_arrival_date}, '-', '')
+			</if>
+			<if test="fee_tot != null ">
+				, REPLACE(#{fee_tot}, ',' , '')
+			</if>
+			<if test="fee_tot_item != null ">
+				, REPLACE(#{fee_tot_item}, ',' , '')
+			</if>
+			<if test="fee_tot_est != null ">
+				, REPLACE(#{fee_tot_est}, ',' , '')
+			</if>
+			<!-- ,#{test_std_no} -->
+			<!-- ,#{member_flag} -->
+			<if test="sales_user_id != null and sales_user_id != '' ">
+				, #{sales_user_id}
+			</if>
+			<if test="sales_dept_cd != null and sales_dept_cd != '' ">
+				, #{sales_dept_cd}
+			</if>
+			, #{express_flag}
+			, #{sms_flag}
+			, #{sms_target}
+			, #{sms_type}
+			, #{test_count}
+			, #{test_place}
+			, #{ware_clerk}
+			, #{ware_tel}
+			, #{ship_port}
+			, #{unship_port}
+			, #{zip_code}
+			, #{addr1}
+			, #{addr2}
+			<if test="quality_dept_cd1 != null and quality_dept_cd1 != '' ">
+	      	, #{quality_dept_cd1}
+			</if>
+			<if test="quality_dept_cd2 != null and quality_dept_cd2 != '' ">
+			, #{quality_dept_cd2}
+			</if>
+			<if test="quality_user_id1 != null and quality_user_id1 != '' ">
+			, #{quality_user_id1}
+			</if>
+			<if test="quality_user_id2 != null and quality_user_id2 != '' ">
+			, #{quality_user_id2}
+			</if>
+			<if test="sample_num != null and sample_num != '' ">
+			, #{sample_num}
+			</if>
+			<if test="sampling_no != null and sampling_no != '' ">
+			, #{sampling_no}
+			</if>
+			<if test="barcode_desc != null and barcode_desc != '' ">
+			, #{barcode_desc}
+			</if>
+			<if test="req_plant_nm != null and req_plant_nm != '' ">
+			, #{req_plant_nm}
+			</if>
+			<if test="req_plant_addr != null and req_plant_addr != '' ">
+			, #{req_plant_addr}
+			</if>
+			<if test="req_plant_tel != null and req_plant_tel != '' ">
+			, #{req_plant_tel}
+			</if>
+			<if test="test_end != null and test_end != '' ">
+			, #{test_end}
+			</if>
+			<if test="QR_nm != null and QR_nm != '' ">
+			, #{QR_nm}
+			</if>
+			<if test="QR_file != null and QR_file != '' ">
+			, #{QR_file}
+			</if>
+			<if test="est_check != null and est_check != '' ">
+			, #{est_check}
+			</if>
+			<if test="calculation != null and calculation != '' ">
+			, #{calculation}
+			</if>
+			<if test="addr1_eng != null and addr1_eng != '' ">
+			, #{addr1_eng}
+			</if>
+			<if test="addr2_eng != null and addr2_eng != '' ">
+			, #{addr2_eng}
+			</if>
+			<if test="accept_method != null and accept_method != '' ">
+			, #{accept_method}
+			</if>
+			<if test="admin_message != null and admin_message != '' ">
+			, #{admin_message}
+			</if>
+		);
+
+
+		INSERT INTO ORG_COMMISSION_DEPOSIT
+		(
+			DEPOSIT_NO
+			,REQ_ORG_NO
+			<if test="test_req_no != '' and test_req_no != null">
+				,TEST_REQ_NO
+			</if>
+			,DEPOSIT_AMT
+			,COMMISSION_AMT_FLAG
+			,TEST_REQ_SEQ
+		) VALUES (
+			(SELECT NVL(MAX(DEPOSIT_NO)+1,1) FROM ORG_COMMISSION_DEPOSIT)
+			, #{req_org_no}
+			<if test="test_req_no != '' and test_req_no != null">
+				, #{test_req_no}
+			</if>
+			, 0 
+<!-- 		면제,내부사용? = 'Y' 선불,후불? = 'N' commission_type -->
+			, #{commission_amt_flag}
+			, #{test_req_seq}
+		);
+		
+		END;
+	</insert>
+	
+	<!-- 의뢰 수정 -->
+	<update id="updateAccept" parameterType="AcceptVO">
+		UPDATE TEST_REQ SET
+		TITLE = #{title}
+		, REQ_TYPE = #{req_type}
+		<if test="sensory_test != null ">
+			, SENSORY_TEST = #{sensory_test}
+		</if>
+		<if test="req_id != null ">
+			, REQ_ID = #{req_id}
+		</if>
+		, REQ_NM = #{req_nm}
+		<if test="req_date != null ">
+			, REQ_DATE = REPLACE(#{req_date}, '-', '')
+		</if>
+		<if test="deadline_date != null ">
+			, DEADLINE_DATE = REPLACE(#{deadline_date}, '-', '')
+		</if>
+		, REQ_ORG_NO = #{req_org_no}
+		<if test="req_org_no2 != null ">
+		, REQ_ORG_NO2 = #{req_org_no2}
+		</if>
+		<if test="admin_message != null ">
+		, ADMIN_MESSAGE = #{admin_message}
+		</if>
+		<if test="req_org_no3 != null ">
+		, REQ_ORG_NO3 = #{req_org_no3}
+		</if>
+		<if test="req_org_no4 != null ">
+		, REQ_ORG_NO4 = #{req_org_no4}
+		</if>
+		<if test="discount_rate != null ">
+		, DISCOUNT_RATE = #{discount_rate}
+		</if>
+		<if test="discount_flag != null ">
+		, DISCOUNT_FLAG = #{discount_flag}
+		</if>
+		<if test="return_flag != null ">
+		, RETURN_FLAG = #{return_flag}
+		</if>
+		<if test="return_flag == null or return_flag == '' ">
+		, RETURN_FLAG = ''
+		</if>		
+		<if test="fee_auto_flag != null ">
+		, FEE_AUTO_FLAG = #{fee_auto_flag}
+		</if>
+		<if test="req_basis != null ">
+		, REQ_BASIS = #{req_basis}
+		</if>
+		<if test="addr_report != null ">
+		, ADDR_REPORT = #{addr_report}
+		</if>
+		<if test="tel_report != null ">
+		, TEL_REPORT = #{tel_report}
+		</if>
+		<if test="fax_report != null ">
+		, FAX_REPORT = #{fax_report}
+		</if>
+		<if test="req_message != null ">
+		, REQ_MESSAGE = #{req_message}
+		</if>
+		<if test="unit_work_cd != null ">
+			, UNIT_WORK_CD = #{unit_work_cd}
+		</if>
+		<if test="test_goal != null ">
+			, TEST_GOAL = #{test_goal}
+		</if>
+		<if test="fee_tot != null ">
+			, FEE_TOT = REPLACE(#{fee_tot}, ',' , '')
+		</if>
+		<if test="fee_tot_item != null ">
+			, FEE_TOT_ITEM = REPLACE(#{fee_tot_item}, ',' , '') 
+		</if>
+		<if test="fee_tot_est != null ">
+			, FEE_TOT_EST = REPLACE(#{fee_tot_est}, ',' , '')
+		</if>
+		<if test="travel_exp != null  ">
+			, TRAVEL_EXP = REPLACE(#{travel_exp}, ',' , '')
+		</if>
+		<if test="dept_cd != null  ">
+			, DEPT_CD = #{dept_cd}
+		</if>
+		, UPDATE_DATE = SYSDATE
+		, UPDATER_ID = #{user_id}
+		<if test="est_no != null ">
+		, EST_NO = #{est_no}
+		</if>
+		<if test="commission_type != null ">
+		, COMMISSION_TYPE = #{commission_type}
+		</if>
+		<if test="sample_arrival_date != null ">
+			, SAMPLE_ARRIVAL_DATE = REPLACE(#{sample_arrival_date}, '-', '')
+		</if>
+		<if test="test_std_no != null ">
+			, TEST_STD_NO = #{test_std_no}
+		</if>
+		<if test="sales_user_id != null ">
+			, SALES_USER_ID = #{sales_user_id}
+		</if>
+		<if test="sales_dept_cd != null ">
+			, SALES_DEPT_CD = #{sales_dept_cd}
+		</if>
+		<if test="express_flag != null ">
+			, EXPRESS_FLAG = #{express_flag}
+		</if>
+		, SMS_FLAG = #{sms_flag}
+		, SMS_TARGET = #{sms_target}
+		, SMS_TYPE = #{sms_type}
+		, TEST_COUNT = #{test_count}
+		, TEST_PLACE = #{test_place}
+		, WARE_CLERK = #{ware_clerk}
+		, WARE_TEL = #{ware_tel}
+		, SHIP_PORT = #{ship_port}
+		, UNSHIP_PORT = #{unship_port}
+		, ZIP_CODE = #{zip_code}
+		, ADDR1 = #{addr1}
+		, ADDR2 = #{addr2}
+		<if test="quality_dept_cd1 != null ">
+			, QUALITY_DEPT_CD1 = #{quality_dept_cd1}
+		</if>
+		<if test="quality_dept_cd2 != null ">
+			, QUALITY_DEPT_CD2 = #{quality_dept_cd2}
+		</if>
+		<if test="quality_user_id1 != null ">
+			, QUALITY_USER_ID1 = #{quality_user_id1}
+		</if>
+		<if test="quality_user_id2 != null ">
+			, QUALITY_USER_ID2 = #{quality_user_id2}
+		</if>
+		<if test="sampling_no != null ">
+			, SAMPLING_NO = #{sampling_no}
+		</if>
+		<if test="sample_num != null ">
+			, SAMPLE_NUM = #{sample_num}
+		</if>
+		<if test="barcode_desc != null ">
+			, BARCODE_DESC = #{barcode_desc}
+		</if>
+		<if test="req_plant_nm != null ">
+			, REQ_PLANT_NM = #{req_plant_nm}
+		</if>
+		<if test="req_plant_addr != null ">
+			, REQ_PLANT_ADDR = #{req_plant_addr}
+		</if>
+		<if test="req_plant_tel != null ">
+			, REQ_PLANT_TEL = #{req_plant_tel}
+		</if>
+		<if test="test_end != null ">
+			, TEST_END = #{test_end}
+		</if>
+		<if test="QR_nm != null ">
+			, QR_NM = #{QR_nm}
+		</if>
+		<if test="QR_file != null ">
+			, QR_FILE = #{QR_file}
+		</if>
+			, EST_CHECK = #{est_check}
+			, CALCULATION = #{calculation}
+		<if test="addr1_eng != null ">
+		, ADDR1_ENG = #{addr1_eng}
+		</if>
+		<if test="addr2_eng != null ">
+		, ADDR2_ENG = #{addr2_eng}
+		</if>
+		<if test="accept_method != null ">
+		, ACCEPT_METHOD = #{accept_method}
+		</if>
+		WHERE TEST_REQ_SEQ = #{test_req_seq}
+	</update>
+
+	<!-- 다음 접수 접수번호 조회 -->
+	<select id="selectAcceptSampleSeq" parameterType="AcceptVO" resultType="String">
+		SELECT LPAD(NVL(MAX(TEST_SAMPLE_SEQ), 0)+1, 9, 0) FROM TEST_SAMPLE
+	</select>
+	
+	<!-- 시료 삽입 -->
+	<insert id="insertAcceptSample" parameterType="Map">
+		BEGIN
+		
+		INSERT INTO TEST_SAMPLE (
+			TEST_REQ_SEQ
+			, TEST_SAMPLE_SEQ
+			<if test="test_sample_no != null and test_sample_no != '' ">
+			, TEST_SAMPLE_NO
+			</if>
+			<if test="prdlst_cd != null and prdlst_cd != '' ">
+				, PRDLST_CD
+			</if>
+			<if test="prdlst_cd != null and prdlst_cd != '' ">
+				, SAMPLE_REG_NM
+			</if>
+			, STATE
+			, TOT_ITEM_COUNT
+			<if test="kfda_yn != null and kfda_yn != '' ">
+				, KFDA_YN
+			</if>
+			, DEPT_APPR_FLAG
+			, DISUSE_FLAG
+			, TEST_REQ_NO
+			, RESULT_INPUT_TYPE
+			, SM_CODE
+			, MAX_GRADE
+		) VALUES(
+			#{test_req_seq}
+			, #{test_sample_seq}
+			<if test="test_sample_no != null and test_sample_no != '' ">
+				, #{test_sample_seq}
+			</if>
+			<if test="prdlst_cd != null and prdlst_cd != '' ">
+				, #{prdlst_cd}
+			</if>
+			<if test="prdlst_cd != null and prdlst_cd != '' ">
+				, (SELECT KOR_NM FROM PRDLST_CL WHERE PRDLST_CD = #{prdlst_cd})
+			</if>
+			, #{state}
+			,#{tot_item_count}
+			<if test="kfda_yn != null and kfda_yn != '' ">
+				, #{kfda_yn}
+			</if>
+			, 'N'
+			, 'C52003'
+			,(SELECT DISTINCT TEST_REQ_NO FROM TEST_REQ WHERE TEST_REQ_SEQ = #{test_req_seq})
+			, #{result_input_type}
+			, #{sm_code}
+			, #{max_grade}
+		);
+		
+		INSERT INTO TEST_SAMPLE_DISUSE (
+			TEST_SAMPLE_SEQ
+		) VALUES (
+			#{test_sample_seq}
+		);
+		END;
+	</insert>
+	
+	<!-- 검체 복사 -->
+	<insert id="copyTestSample" parameterType="AcceptVO">
+		BEGIN
+		
+		INSERT INTO TEST_SAMPLE (
+			TEST_REQ_SEQ
+			, TEST_SAMPLE_SEQ
+			<if test="test_sample_no != null and test_sample_no != '' ">
+			, TEST_SAMPLE_NO
+			</if>
+			<if test="prdlst_cd != null and prdlst_cd != '' ">
+				, PRDLST_CD
+			</if>
+			<if test="prdlst_cd != null and prdlst_cd != '' ">
+				, SAMPLE_REG_NM
+			</if>
+			, STATE
+			, TOT_ITEM_COUNT
+			<if test="kfda_yn != null and kfda_yn != '' ">
+				, KFDA_YN
+			</if>
+			, DEPT_APPR_FLAG
+			, DISUSE_FLAG
+			, TEST_REQ_NO
+			, RESULT_INPUT_TYPE
+			, SM_CODE
+			, MAX_GRADE
+			, SAMPLE_FEE
+		) VALUES(
+			#{test_req_seq}
+			, #{test_sample_seq}
+			<if test="test_sample_no != null and test_sample_no != '' ">
+				, #{test_sample_seq}
+			</if>
+			<if test="prdlst_cd != null and prdlst_cd != '' ">
+				, #{prdlst_cd}
+			</if>
+			<if test="prdlst_cd != null and prdlst_cd != '' ">
+				, #{sample_reg_nm}
+			</if>
+			, #{state}
+			,#{tot_item_count}
+			<if test="kfda_yn != null and kfda_yn != '' ">
+				, #{kfda_yn}
+			</if>
+			, 'N'
+			, #{disuse_flag}
+			,(SELECT DISTINCT TEST_REQ_NO FROM TEST_REQ WHERE TEST_REQ_SEQ = #{test_req_seq})
+			, #{result_input_type}
+			, #{sm_code}
+			, #{max_grade}
+			, #{sample_fee}
+		);
+		
+		INSERT INTO TEST_SAMPLE_DISUSE (
+			TEST_SAMPLE_SEQ
+		) VALUES (
+			#{test_sample_seq}
+		);
+		END;
+	</insert>
+
+	<!-- 시료 수정 -->
+	<update id="updateAcceptSample" parameterType="AcceptVO">
+		UPDATE TEST_SAMPLE SET
+		ETC_DESC = #{etc_desc}
+		<if test="sampling_hour != null ">
+			,SAMPLING_HOUR = #{sampling_hour}
+		</if>
+		<if test="sampling_min != null ">
+			,SAMPLING_MIN = #{sampling_min}
+		</if>
+		<if test="sample_cd != null ">
+			, SAMPLE_CD = #{sample_cd}
+		</if>
+			, SAMPLE_REG_NM = #{sample_reg_nm}
+		<if test="test_std_no != null ">
+			<if test="test_std_no == '' ">
+				, TEST_STD_NO = NULL
+			</if>
+			<if test="test_std_no != '' ">
+				, TEST_STD_NO = #{test_std_no}
+			</if>
+		</if>
+		,DISUSE_FLAG = #{disuse_flag}
+		,PRODUCE_DATE = REPLACE(#{produce_date}, '-', '')
+		,PRODUCE_NO = #{produce_no}
+		,PRODUCER_NM = #{producer_nm}
+		,PRODUCE_PLACE = #{produce_place}
+		,SAMPLE_ETC_NM = #{sample_etc_nm}
+		,EXPIRY_DATE = REPLACE(#{expiry_date}, '-', '')
+		,SAMPLE_WEIGHT = #{sample_weight}
+		,KEEP_METHOD = #{keep_method}
+		,ORDERER_NM = #{orderer_nm}
+		,BUILDER_NM = #{builder_nm}
+		,JOINER_NM = #{joiner_nm}
+		,COLLECTOR_NM = #{collector_nm}
+		,COLLECT_DATE = REPLACE(#{collect_date}, '-', '')
+		,COLLECT_PLACE = #{collect_place}
+		,SUPPLIER = #{supplier}
+		WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+	</update>
+
+	<!-- 시료 삭제 -->
+	<delete id="deleteAcceptSample" parameterType="AcceptVO">
+		BEGIN 
+		
+		DELETE FROM TEST_SAMPLE
+		WHERE TEST_SAMPLE_SEQ = #{test_sample_seq};
+		
+		DELETE FROM TEST_SAMPLE_DISUSE 
+		WHERE TEST_SAMPLE_SEQ =	#{test_sample_seq}; 
+		
+		END;
+	</delete>
+
+	<!-- 시료에 속한 항목수 수정 -->
+	<update id="updateAcceptSampleTot" parameterType="AcceptVO">
+		UPDATE TEST_SAMPLE SET
+		TOT_ITEM_COUNT = (SELECT COUNT(*) FROM TEST_SAMPLE_ITEM WHERE TEST_SAMPLE_SEQ = #{test_sample_seq})
+		WHERE TEST_SAMPLE_SEQ = #{test_sample_seq} 
+	</update>
+	
+	<!-- 시료정보수정 -->
+	<update id="updateSampleMaxGrade" parameterType="AcceptVO">
+		UPDATE TEST_SAMPLE SET
+		MAX_GRADE = #{max_grade}
+		,RESULT_INPUT_TYPE = 'C85002'
+		,SM_CODE = NULL
+		WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+	</update>
+
+	<!-- 항목 삽입 -->
+	<insert id="insertAcceptItem" parameterType="AcceptVO">
+		<selectKey resultType="string" keyProperty="test_item_seq" order="BEFORE">
+			SELECT LPAD(NVL(MAX(TEST_ITEM_SEQ), 0)+1 , 3, 0) FROM TEST_SAMPLE_ITEM WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+		</selectKey>
+		
+		INSERT INTO TEST_SAMPLE_ITEM 
+		(
+			TEST_SAMPLE_SEQ
+			, TEST_ITEM_SEQ
+			, TEST_ITEM_CD
+			, DISP_ORDER
+			<if test="test_item_group_no != null and test_item_group_no != '' ">
+				, TEST_ITEM_GROUP_NO
+			</if>
+			<if test="fee_group_no != null and fee_group_no != '' ">
+				, FEE_GROUP_NO
+			</if>
+			, STATE
+			, CREATE_DATE
+			, CREATER_ID
+			, RETURN_FLAG
+			, DEPT_CD
+			, TESTER_ID
+			<if test="team_cd != null and team_cd != '' ">
+				, TEAM_CD
+			</if>
+			<if test="test_method_no != null and test_method_no != '' ">
+				, TEST_METHOD
+			</if>
+			<if test="test_inst_no != null and test_inst_no != '' ">
+				, TEST_INST
+			</if>
+			<if test="prdlst_cd != null and prdlst_cd != '' ">
+				, PRDLST_CD
+			</if>
+			, TEST_REQ_SEQ
+			<if test="std_dept_cd != null and std_dept_cd != '' ">
+				, STD_DEPT_CD
+			</if>
+			<if test="std_dept_nm != null and std_dept_nm != '' ">
+				, STD_DEPT_NM
+			</if>
+			<if test="represent_cd != null and represent_cd != '' ">
+				, REPRESENT_CD
+			</if>
+			, STD_TYPE
+			, RESULT_TYPE
+			<if test="grade1 != null and grade1 != '' ">
+				, GRADE1
+			</if>
+			<if test="grade1_range != null and grade1_range != '' ">
+				, GRADE1_RANGE
+			</if>
+			<if test="grade2 != null and grade2 != '' ">
+				, GRADE2
+			</if>
+			<if test="grade2_range != null and grade2_range != '' ">
+				, GRADE2_RANGE
+			</if>
+			<if test="grade3 != null and grade3 != '' ">
+				, GRADE3
+			</if>
+			<if test="grade3_range != null and grade3_range != '' ">
+				, GRADE3_RANGE
+			</if>
+			<if test="grade4 != null and grade4 != '' ">
+				, GRADE4
+			</if>
+			<if test="grade4_range != null and grade4_range != '' ">
+				, GRADE4_RANGE
+			</if>
+			, REPORT_ORDER
+			, TEST_REQ_NO
+			, REPORT_FLAG			
+			<if test="formula_no != null and formula_no != '' ">
+				, ACCOUNT_NO
+			</if>
+			<if test="std_val != null and std_val != '' ">
+				, STD_VAL
+			</if>
+			<if test="unit_cd != null and unit_cd != '' ">
+				, UNIT
+			</if>
+			<if test="oxide_cd != null and oxide_cd != '' ">
+				, OXIDE_CD
+			</if>
+			<if test="loq_lval != null and loq_lval != '' ">
+				, LOQ_LVAL
+			</if>
+			<if test="loq_lval_mark != null and loq_lval_mark != '' ">
+				, LOQ_LVAL_MARK
+			</if>
+			<if test="base_cd != null and base_cd != '' ">
+				, BASE
+			</if>
+			<if test="valid_position != null and valid_position != '' ">
+				, VALID_POSITION
+			</if>
+			    ,FEE
+		) VALUES (
+			#{test_sample_seq}
+			, #{test_item_seq}
+			, #{test_item_cd}
+			, (SELECT NVL(MAX(DISP_ORDER), 0)+1 FROM TEST_SAMPLE_ITEM WHERE TEST_SAMPLE_SEQ = #{test_sample_seq})
+			<if test="test_item_group_no != null and test_item_group_no != '' ">
+				, #{test_item_group_no}
+			</if>
+			<if test="fee_group_no != null and fee_group_no != '' ">
+				, #{fee_group_no}
+			</if>
+			, #{state}
+			, TO_CHAR(SYSDATE,'YYYYMMDD')
+			, #{user_id}
+			, 'N'
+		, (SELECT DEPT_CD FROM DEPT_USER_ITEM WHERE TEST_ITEM_CD = #{test_item_cd})
+			, (SELECT USER_ID FROM DEPT_USER_ITEM WHERE TEST_ITEM_CD = #{test_item_cd}) 
+<!-- 			, #{dept_cd} 
+			, #{tester_id}-->
+			<if test="team_cd != null and team_cd != '' ">
+				, #{team_cd}
+			</if>
+			<if test="test_method_no != null and test_method_no != '' ">
+				, #{test_method_no}
+			</if>
+			<if test="test_inst_no != null and test_inst_no != '' ">
+				, #{test_inst_no}
+			</if>
+			<if test="prdlst_cd != null and prdlst_cd != '' ">
+				, #{prdlst_cd}
+			</if>
+			, #{test_req_seq}
+			<if test="std_dept_cd != null and std_dept_cd != '' ">
+			, #{std_dept_cd}
+			</if>
+			<if test="std_dept_nm != null and std_dept_nm != '' ">
+			, #{std_dept_nm}
+			</if>
+			<if test="represent_cd != null and represent_cd != '' ">
+			, #{represent_cd}
+			</if>
+			<choose>
+			    <when test="std_type != null and std_type != ''">
+			      , #{std_type}
+			    </when>
+			    <otherwise>
+			      , 'C38002'
+			    </otherwise>
+		    </choose>
+		    <choose>
+			    <when test="result_type != null and result_type != ''">
+			      , #{result_type}
+			    </when>
+			    <otherwise>
+			      , 'C31002'
+			    </otherwise>
+		    </choose>
+		    <if test="grade1 != null and grade1 != '' ">
+				, #{grade1}
+			</if>
+			<if test="grade1_range != null and grade1_range != '' ">
+				, #{grade1_range}
+			</if>
+			<if test="grade2 != null and grade2 != '' ">
+				, #{grade2}
+			</if>
+			<if test="grade2_range != null and grade2_range != '' ">
+				, #{grade2_range}
+			</if>
+			<if test="grade3 != null and grade3 != '' ">
+				, #{grade3}
+			</if>
+			<if test="grade3_range != null and grade3_range != '' ">
+				, #{grade3_range}
+			</if>
+			<if test="grade4 != null and grade4 != '' ">
+				, #{grade4}
+			</if>
+			<if test="grade4_range != null and grade4_range != '' ">
+				, #{grade4_range}
+			</if>
+			,(SELECT NVL(MAX(REPORT_ORDER), 0)+1 FROM TEST_SAMPLE_ITEM WHERE TEST_SAMPLE_SEQ = #{test_sample_seq})
+			,(SELECT TEST_REQ_NO FROM TEST_SAMPLE WHERE TEST_SAMPLE_SEQ = #{test_sample_seq})
+			<choose>
+			    <when test="report_flag != null and report_flag != ''">
+			      , #{report_flag}
+			    </when>
+			    <otherwise>
+			      , 'Y'
+			    </otherwise>
+		    </choose>
+		    <if test="formula_no != null and formula_no != '' ">
+				, #{formula_no}
+			</if>
+			<if test="std_val != null and std_val != '' ">
+				, #{std_val}
+			</if>
+			<if test="unit_cd != null and unit_cd != '' ">
+				, #{unit_cd}
+			</if>
+			<if test="oxide_cd != null and oxide_cd != '' ">
+				, #{oxide_cd}
+			</if>
+			<if test="loq_lval != null and loq_lval != '' ">
+				, #{loq_lval}
+			</if>
+			<if test="loq_lval_mark != null and loq_lval_mark != '' ">
+			 	, #{loq_lval_mark}
+			</if>
+			<if test="base_cd != null and base_cd!= '' ">
+			 	, #{base_cd}
+			</if>
+			<if test="valid_position != null and valid_position != '' ">
+				, #{valid_position}
+			</if>
+			    ,(SELECT FEE FROM TEST_STD_DEPT_FEE TSDF WHERE TSDF.TEST_STD_NO = '001'
+					        AND TSDF.DEPT_CD = (SELECT DEPT_CD FROM DEPT_USER_ITEM WHERE TEST_ITEM_CD = #{test_item_cd})
+					        AND TSDF.TESTITM_CD = #{test_item_cd})					
+		)
+	</insert>
+	
+	<!-- 견적 항목 삽입 -->
+	<insert id="insertEstimateItem" parameterType="Map">
+		INSERT INTO ESTIMATE_ITEM 
+		(
+			EST_ITEM_NO
+			,EST_NO
+			,TEST_ITEM_CD
+			,PRDLST_CD
+			,EST_PRICE
+			,EST_QTY
+			,EST_PRICE_TOTAL
+		) VALUES (
+			(SELECT LPAD(NVL(MAX(EST_ITEM_NO),0) +1, 3, 0) FROM ESTIMATE_ITEM WHERE EST_NO = #{est_no})
+			,#{est_no}
+			,#{test_item_cd}
+			,#{prdlst_cd}
+			,#{fee}
+			,'1'
+			,#{fee}
+		)
+	</insert>
+	
+	<!-- 장비대여 항목 삽입 -->
+	<insert id="insertInstRentItem" parameterType="Map">
+		INSERT INTO INST_RENT_ITEM 
+		(
+			 INSTRENT_SAMPLE_NO
+			,TEST_ITEM_CD
+			,TEST_ITEM_TYPE
+		) VALUES (
+			 #{test_sample_seq}
+			,#{test_item_cd}
+			,#{testitm_lclas_nm}
+		)
+	</insert>
+	
+	<!-- 기본 수수료관리 항목 삽입 -->
+	<insert id="insertTestStdItem" parameterType="Map">
+		MERGE INTO TEST_STD_DEPT_FEE A
+		USING DUAL
+		ON (A.TEST_STD_NO = #{test_std_no} AND DEPT_CD = #{sel_dept_cd} AND TESTITM_CD = #{test_item_cd})
+		WHEN MATCHED THEN
+			UPDATE SET
+				 UPDATE_DATE = SYSDATE
+				,UPDATER_ID = #{user_id}
+		WHEN NOT MATCHED THEN
+			INSERT
+				(
+					 TEST_STD_NO
+					,TESTITM_CD 
+					<if test="fee != null and fee != '' ">
+						,FEE
+					</if>
+					,DEPT_CD
+					,CREATER_ID
+					,CREATE_DATE
+				)
+				VALUES
+				(
+					 #{test_std_no}
+					,#{test_item_cd}
+					<if test="fee != null and fee != '' ">
+						,#{fee}
+					</if>
+					,#{sel_dept_cd}
+					,#{user_id}
+					,SYSDATE
+				)
+	</insert>
+	
+	<!-- 품목별 검사기준관리 (& 품목별 수수료관리) 항목 삽입 -->
+	<insert id="insertTestStdPrdItem" parameterType="Map">
+		DECLARE
+		    V_CNT NUMBER;
+		BEGIN
+			SELECT COUNT(*) INTO V_CNT FROM TEST_STD_FEE 
+			WHERE TEST_STD_NO = #{test_std_no} AND PRDLST_CD = #{prdlst_cd} 
+			AND TESTITM_CD = #{test_item_cd} AND DEPT_CD = #{dept_cd};
+			IF V_CNT <![CDATA[< ]]> 1 THEN
+				INSERT INTO TEST_STD_FEE (
+					TEST_STD_NO,
+					PRDLST_CD,
+					TESTITM_CD, 
+					<if test="fee != null and fee != '' ">
+						FEE,
+					</if>
+					DEPT_CD,
+					CREATER_ID,
+					CREATE_DATE
+				) VALUES (
+					#{test_std_no},
+					#{prdlst_cd},
+					#{test_item_cd},
+					<if test="fee != null and fee != '' ">
+						#{fee},
+					</if>
+					#{dept_cd},
+					#{user_id},
+					SYSDATE
+				);
+			END IF;
+		END;
+	</insert>
+	
+	<!-- 항목 수정 -->
+	<update id="updateAcceptItem" parameterType="AcceptVO">
+		UPDATE TEST_SAMPLE_ITEM SET
+			UPDATE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+			, REPORT_FLAG = #{report_flag}
+			, STD_TYPE = CASE WHEN #{report_flag} = 'N' THEN 'C38001' ELSE STD_TYPE END
+			, RESULT_TYPE = CASE WHEN #{report_flag} = 'N' THEN 'C31004' ELSE RESULT_TYPE END
+			, UPDATER_ID = #{user_id}
+			<if test="tester_id != null ">
+			, TESTER_ID = #{tester_id}
+			</if>
+			<if test="team_cd != null ">
+				,TEAM_CD = #{team_cd}
+			</if>
+			<if test="fee != null and fee != '' ">
+				,FEE = #{fee}
+			</if>
+			<if test="prdlst_fee != null">
+				, PRDLST_FEE = #{prdlst_fee}
+			</if>
+			<if test="dept_fee != null">
+				, DEPT_FEE = #{dept_fee}
+			</if>
+			<if test="dept_cd != null and dept_cd != '' ">
+				,DEPT_CD = #{dept_cd}
+			</if>
+		WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+		AND TEST_ITEM_SEQ = #{test_item_seq}
+	</update>
+
+	<!-- 항목 삭제 -->
+	<delete id="deleteAcceptItem" parameterType="AcceptVO">
+		DELETE FROM TEST_SAMPLE_ITEM
+		WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+		<if test="test_item_seq != null and test_item_seq != '' ">
+			AND TEST_ITEM_SEQ = #{test_item_seq}
+		</if>
+	</delete>
+	
+	<!-- 시료 리스트 조회 -->
+	<select id="selectAcceptSampleList" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT 
+			R.TEST_SAMPLE_SEQ
+			, R.TEST_SAMPLE_NO
+			, R.TEST_REQ_SEQ
+			, LPAD(R.SAMPLING_HOUR, 2, '0') SAMPLING_HOUR
+			, LPAD(R.SAMPLING_MIN, 2, '0') SAMPLING_MIN
+			, R.ETC_DESC
+			, R.TOT_ITEM_COUNT
+			, R.SAMPLE_CD
+			, R.SAMPLE_REG_NM
+			, PC.PRDLST_CD
+			, PC.KOR_NM AS PRDLST_NM
+			, R.TEST_STD_NO
+			, R.TOT_ITEM_COUNT
+			, R.DISUSE_FLAG
+			, R.KFDA_YN
+			, (SELECT SUM(FEE) FROM TEST_SAMPLE_ITEM WHERE TEST_SAMPLE_SEQ =  R.TEST_SAMPLE_SEQ) AS SAMPLE_FEE
+			, R.PRODUCE_DATE
+			, R.PRODUCE_NO
+			, R.PRODUCER_NM
+			, R.PRODUCE_PLACE
+			, R.SAMPLE_ETC_NM
+			, TO_CHAR(TO_DATE(R.EXPIRY_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') AS EXPIRY_DATE
+			, R.SAMPLE_WEIGHT
+			, R.KEEP_METHOD
+			, R.ORDERER_NM
+			, R.BUILDER_NM
+			, R.JOINER_NM
+			, R.COLLECTOR_NM
+			, TO_CHAR(TO_DATE(R.COLLECT_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') AS COLLECT_DATE
+			, R.COLLECT_PLACE
+			, R.SM_CODE
+            , SN.SM_NAME
+            , R.PRETREATMENT_CD
+            , P.PRE_COST
+            , R.SUPPLIER
+            , R.RESULT_INPUT_TYPE
+        FROM TEST_SAMPLE R
+		LEFT OUTER JOIN PRDLST_CL PC ON R.PRDLST_CD = PC.PRDLST_CD
+		LEFT OUTER JOIN STANDARD_NAME SN ON R.SM_CODE = SN.SM_CODE
+		LEFT OUTER JOIN PRETREATMENT P ON R.PRDLST_CD = P.PRDLST_CD AND R.PRETREATMENT_CD = P.PRETREATMENT_CD
+		LEFT OUTER JOIN TEST_SAMPLE_DISUSE TSD ON TSD.TEST_SAMPLE_SEQ = R.TEST_SAMPLE_SEQ
+		WHERE TEST_REQ_SEQ = #{test_req_seq}
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY TEST_SAMPLE_SEQ
+		</if>
+	</select>	
+	
+	<!-- 항목 리스트 조회 -->
+	<select id="selectAcceptItemList" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT
+            I.TEST_SAMPLE_SEQ,
+            I.TEST_ITEM_SEQ,
+            I.TEST_ITEM_CD,
+            (SELECT ANAL.ENG_NM FROM ANALYSIS ANAL WHERE ANAL.TESTITM_CD = I.TEST_ITEM_CD) AS TEST_ITEM_ENG_NM,
+            CASE
+                WHEN ANAL.TESTITM_NM IS NOT NULL THEN ANAL.TESTITM_NM                
+                WHEN ANAL.TESTITM_NM IS NULL AND ANAL.KOR_NM IS NOT NULL THEN ANAL.KOR_NM
+                WHEN ANAL.TESTITM_NM IS NULL AND ANAL.KOR_NM IS NULL AND ANAL.ENG_NM IS NOT NULL THEN ANAL.ENG_NM            
+            END AS TEST_ITEM_NM,
+            ANAL.L_KOR_NM AS TEST_ITEM_TYPE,
+            I.UNIT AS UNIT_CD,
+            GET_COMMON_CODE(I.UNIT,'C08') AS UNIT_NM,
+            I.TEST_METHOD AS TEST_METHOD_NO,
+            (SELECT TEST_METHOD_NM FROM TEST_METHOD WHERE TEST_METHOD_NO=I.TEST_METHOD) AS TEST_METHOD_NM,
+            I.TEST_INST AS TEST_INST_NO,
+            I.TEAM_CD,
+            (SELECT TEAM_NM FROM DEPT_TEAM WHERE TEAM_CD = I.TEAM_CD) TEAM_NM,
+            I.DEPT_CD,
+            D.DEPT_NM ,
+            I.TESTER_ID,
+            U.USER_NM AS TESTER_NM,
+            G.TEST_ITEM_GROUP_NM,
+            G.TEST_ITEM_GROUP_NO,
+            I.DISP_ORDER,
+            I.STATE,
+            I.FEE,
+            I.PRDLST_CD,
+            I.PRDLST_FEE,
+            I.DEPT_FEE,	            
+            I.REPORT_ORDER
+            ,I.GRADE1
+            ,I.GRADE1_RANGE
+            ,I.GRADE1 || ' ' || GET_COMMON_CODE(GRADE1_RANGE,'C81') AS GRADE1_NM
+            ,I.GRADE2
+            ,I.GRADE2_RANGE
+            ,I.GRADE2 || ' ' || GET_COMMON_CODE(GRADE2_RANGE,'C81') AS GRADE2_NM
+            ,I.GRADE3
+            ,I.GRADE3_RANGE
+            ,I.GRADE3 || ' ' || GET_COMMON_CODE(GRADE3_RANGE,'C81') AS GRADE3_NM
+            ,I.GRADE4
+            ,I.GRADE4_RANGE
+            ,I.GRADE4 || ' ' || GET_COMMON_CODE(GRADE4_RANGE,'C82') AS GRADE4_NM
+            ,(SELECT OM.OXIDE_CONTENT FROM OXIDE_MARK OM WHERE I.OXIDE_CD = OM.OXIDE_CD) AS OXIDE_CONTENT
+            ,I.OXIDE_CD
+            ,I.REPORT_FLAG            
+            ,I.RESULT_TYPE
+            ,I.BASE AS BASE_CD
+            ,I.STD_VAL
+            ,I.VALID_POSITION
+            ,I.STD_LVAL
+            ,I.LVAL_TYPE
+            ,I.STD_HVAL
+            ,I.HVAL_TYPE
+            ,I.STD_FIT
+            ,I.STD_UNFIT
+            ,I.LOQ_LVAL
+            ,I.LOQ_HVAL
+            ,I.LOQ_LVAL_MARK
+            ,I.LOQ_HVAL_MARK
+            ,I.RESULT_TYPE
+            ,I.STD_TYPE
+            ,CD2.CODE_NAME AS RESULT_TYPE_NM
+            ,CD3.CODE_NAME AS STD_TYPE_NM      
+            ,NVL(GET_COMMON_CODE(ANAL.TESTITM_LCLAS_CD, ''),'') AS TESTITM_LCLAS_NM
+			,NVL(GET_COMMON_CODE(ANAL.TESTITM_MLSFC_CD, ''),'') AS TESTITM_MLSFC_NM
+			,I.ACCOUNT_NO AS FORMULA_NO
+		    ,B.FORMULA_DISP AS FORMULA_NM
+        FROM TEST_SAMPLE SP 
+        INNER JOIN TEST_REQ TR ON SP.TEST_REQ_SEQ = TR.TEST_REQ_SEQ 
+        INNER JOIN TEST_SAMPLE_ITEM I ON I.TEST_SAMPLE_SEQ = SP.TEST_SAMPLE_SEQ        
+        LEFT JOIN ANALYSIS ANAL ON I.TEST_ITEM_CD = ANAL.TESTITM_CD
+        LEFT JOIN USER_INFO U ON I.TESTER_ID = U.USER_ID
+        LEFT OUTER JOIN TEST_ITEM_GROUP G ON I.TEST_ITEM_GROUP_NO = G.TEST_ITEM_GROUP_NO
+        LEFT OUTER JOIN DEPART D ON I.DEPT_CD = D.DEPT_CD
+        LEFT OUTER JOIN COMMON_CODE_DETAIL CD2 ON I.RESULT_TYPE = CD2.CODE
+        LEFT OUTER JOIN COMMON_CODE_DETAIL CD3 ON I.STD_TYPE = CD3.CODE
+        LEFT JOIN FORMULA B ON I.ACCOUNT_NO = B.FORMULA_NO
+		WHERE I.TEST_SAMPLE_SEQ = #{test_sample_seq}
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY REPORT_ORDER, DISP_ORDER, ANAL.TESTITM_NM, DEPT_NM, TESTER_NM
+		</if>
+	</select>
+
+	<!-- 의뢰처 리스트 조회 -->
+	<select id="selectReqOrgList" parameterType="ReqOrgVO" resultType="ReqOrgVO">
+		SELECT * FROM 
+		(
+			SELECT 
+				VW_LIST.*, 
+				ROWNUM AS ROW_NUM, 
+				FLOOR((ROWNUM -1) / #{pageSize} + 1) AS PAGENUM,
+				COUNT(*) OVER() AS TOTALCOUNT, 
+				COUNT(*) OVER() AS TOTAL, 
+				CEIL(COUNT(*) OVER() / #{pageSize}) AS TOTALPAGE
+			FROM 
+			(	
+				SELECT
+					REQ_ORG_NO
+					, ORG_NM
+					, BIZ_NO1 || '-' || BIZ_NO2 || '-' || BIZ_NO3 BIZ_NO
+					, ORG_TYPE AS ORG_TYPE_CD
+					,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = ORG_TYPE) ORG_TYPE
+					, CHARGER req_nm
+					, CHARGER_TEL <!-- req_tel -->
+					, ORG_DESC
+					, ZIP_CODE
+					, ADDR1
+					, ADDR2
+					, DISCOUNT_RATE
+					, DISCOUNT_FLAG
+					, BSNSC
+					, ITEM
+					, COR_NO
+					, EMAIL
+					, pay_nm
+					, PAY_TEL
+					, PAY_EMAIL
+					, PRE_MAN
+					, PRE_TEL_NUM
+					, PRE_FAX_NUM
+				FROM REQ_ORG
+				WHERE 1=1
+				<if test="org_type != null and org_type != '' ">
+					AND ORG_TYPE = #{org_type}
+				</if>
+				<if test="org_nm != null and org_nm != '' ">
+					AND UPPER(ORG_NM) like '%' || UPPER( #{org_nm} ) || '%'
+				</if>
+				<if test="pre_tel_num != null and pre_tel_num != '' ">
+					AND PRE_TEL_NUM like '%' || #{pre_tel_num} || '%'
+				</if>
+				<if test="pre_fax_num != null and pre_fax_num != '' ">
+					AND PRE_FAX_NUM like '%' || #{pre_fax_num} || '%'
+				</if>
+				<if test="req_nm != null and req_nm != '' ">
+					AND UPPER(CHARGER) like '%' || UPPER( #{req_nm} ) || '%'
+				</if>
+				<if test="charger_tel != null and charger_tel != '' ">
+					AND CHARGER_TEL like '%' || #{charger_tel} || '%'
+				</if>
+				<if test="zip_code != null and zip_code != '' ">
+					AND ZIP_CODE like '%' || #{zip_code} || '%'
+				</if>
+				<if test="addr1 != null and addr1 != '' ">
+					AND UPPER(ADDR1) like '%' || UPPER( #{addr1} ) || '%'
+				</if>
+				<if test="addr2 != null and addr2 != '' ">
+					AND UPPER(ADDR2) like '%' || UPPER( #{addr2} ) || '%'
+				</if>
+				<if test="sortName != null and sortName != '' ">
+					ORDER BY ${sortName} ${sortType}
+				</if>
+				<if test="sortName == null or sortName == '' ">
+					ORDER BY ORG_NM
+				</if>
+			) VW_LIST
+	    )  <!-- 
+		WHERE PAGENUM = #{pageNum} -->
+	</select>
+	
+	<!-- 시료에 속한 항목수 조회 -->
+	<select id="selectSampleItemCount" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT 
+			TOT_ITEM_COUNT
+			,NVL(SAMPLE_FEE,0) AS SAMPLE_FEE
+		FROM TEST_SAMPLE
+		WHERE TEST_REQ_SEQ = #{test_req_seq}
+	</select>
+	
+	<!-- 의뢰 전체 수수료 계산 -->
+	<select id="selectFeeTotal" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT 
+			REPLACE(TO_CHAR( NVL(FEE_TOT, 0) , '999,999,999,999,999'),' ', '') FEE_TOT
+			,FEE_TOT_ITEM
+            ,FEE_TOT_EST
+            ,FEE_TOT_PRECOST
+		FROM TEST_REQ
+		WHERE TEST_REQ_SEQ = #{test_req_seq}
+	</select>
+	
+	<!-- 의뢰 항목 수수료 계산 -->
+	<update id="updateAcceptFee" parameterType="AcceptVO">
+		BEGIN	
+		
+			UPDATE TEST_REQ SET
+				FEE_TOT = (
+					SELECT ROUND(NVL(SUM(FEE),0) * 1.1,-1) FEE_TOT
+	           		FROM(
+		                SELECT 
+		                FEE 
+		                FROM TEST_SAMPLE_ITEM 
+		                WHERE TEST_REQ_SEQ = #{test_req_seq}
+					)
+				)
+				,FEE_TOT_ITEM = (
+					SELECT NVL(SUM(FEE),0) FEE_TOT_ITEM
+	           		FROM(
+		                SELECT 
+		                FEE 
+		                FROM TEST_SAMPLE_ITEM 
+		                WHERE TEST_REQ_SEQ = #{test_req_seq}
+					)
+				)
+			WHERE TEST_REQ_SEQ = #{test_req_seq}
+			;
+			
+			UPDATE TEST_SAMPLE SET
+				SAMPLE_FEE = (
+					SELECT NVL(SUM(FEE),0) FEE_TOT
+	           		FROM(
+		                SELECT 
+		                FEE 
+		                FROM TEST_SAMPLE_ITEM 
+		                WHERE TEST_REQ_SEQ = #{test_req_seq}
+		                AND TEST_SAMPLE_SEQ = #{test_sample_seq}
+				)
+			)
+			WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+			;
+			
+		END;	
+			
+	</update>
+
+	<!-- 시료 없는지 체크 -->
+	<select id="checkSampleCount" parameterType="AcceptVO" resultType="int">
+		SELECT COUNT(*)
+		FROM TEST_SAMPLE
+		WHERE TEST_REQ_SEQ = #{test_req_seq}
+	</select>
+	
+	<!-- 항목 없는 시료 조회 -->
+	<select id="checkSampleItemCount" parameterType="AcceptVO" resultType="String">
+		SELECT SAMPLE_REG_NM
+		FROM TEST_SAMPLE
+		WHERE TOT_ITEM_COUNT IS NULL
+		AND TEST_REQ_SEQ = #{test_req_seq}
+	</select>
+	
+	<!-- 시험자&팀 선택여부 -->
+	<select id="checkSampleItemUser" parameterType="AcceptVO" resultType="String">
+		SELECT DISTINCT TS.SAMPLE_REG_NM
+		FROM TEST_SAMPLE_ITEM TSI, TEST_SAMPLE TS
+		WHERE TSI.TEST_SAMPLE_SEQ = TS.TEST_SAMPLE_SEQ
+		AND TSI.TEST_REQ_SEQ = #{test_req_seq}
+		AND TSI.DEPT_CD IS NULL 
+	</select>
+	
+	<!-- 접수처리 : 접수완료 선택시 -->
+	<update id="updateAcceptState" parameterType="AcceptVO">
+		DECLARE
+		    new_test_sample_no VARCHAR2(20);
+		    now_dept_cd VARCHAR2(7);
+		    
+		    CURSOR SAMPLE_LIST IS
+		    SELECT TEST_SAMPLE_SEQ 
+		    FROM TEST_SAMPLE 
+		    WHERE TEST_REQ_SEQ = #{test_req_seq};		
+		
+		BEGIN
+			UPDATE TEST_REQ SET
+			STATE=#{state}
+			<if test="fee_tot != null and fee_tot != '' ">
+				, FEE_TOT = REPLACE(#{fee_tot}, ',' , '')
+			</if>
+			<if test="fee_tot_item != null ">
+				, FEE_TOT_ITEM = REPLACE(#{fee_tot_item}, ',' , '') 
+			</if>
+			<if test="fee_tot_est != null ">
+				, FEE_TOT_EST = REPLACE(#{fee_tot_est}, ',' , '')
+			</if>
+			<if test="state == 'A'.toString() or state == 'Z'.toString()">
+				, REQ_ACT_USER_ID = #{user_id}
+				, REQ_ACT_DATE = SYSDATE
+			</if>
+			<if test="state == 'B'.toString()">
+				, ACT_USER_ID = #{user_id}
+				<if test="act_date == null or act_date == '' or act_date == 'undefined'">
+					, ACT_DATE = SYSDATE 
+				</if>
+			</if>
+			WHERE TEST_REQ_SEQ = #{test_req_seq};
+	
+	
+		    FOR SAMPLE_CNT IN SAMPLE_LIST LOOP
+		        <if test="state == 'B'.toString() ">
+			        SELECT TR.DEPT_CD INTO now_dept_cd
+			        FROM TEST_REQ TR 
+			        WHERE TR.TEST_REQ_SEQ = #{test_req_seq};
+			        
+   		            SELECT 
+						TO_CHAR(SYSDATE, 'yy') || now_dept_cd || '-' || (LPAD(NVL(MAX(SUBSTR(TS.TEST_SAMPLE_NO,11,5)),0) +1 ,5,'0'))
+		            	INTO new_test_sample_no 
+   		            FROM TEST_SAMPLE TS, TEST_REQ TR
+   		            WHERE TS.TEST_REQ_SEQ = TR.TEST_REQ_SEQ
+   		            AND SUBSTR(TR.REQ_DATE,1,4) = TO_CHAR(SYSDATE, 'yyyy')
+   		            AND TR.DEPT_CD = now_dept_cd;
+		        </if>
+		        
+		        UPDATE TEST_SAMPLE SET
+		            STATE = #{state}
+				<if test="state == 'B'.toString() ">
+					 ,TEST_SAMPLE_NO = new_test_sample_no
+				</if>
+		        WHERE TEST_REQ_SEQ = #{test_req_seq}
+		        AND TEST_SAMPLE_SEQ = SAMPLE_CNT.TEST_SAMPLE_SEQ;
+		        
+		    END LOOP;
+	
+			<if test="state == 'A'.toString() ">
+				UPDATE TEST_SAMPLE_ITEM SET
+				STATE='A'
+				WHERE TEST_REQ_SEQ = #{test_req_seq}
+				AND STATE NOT IN ('C','F','G','H');
+			</if>
+		END;
+	</update>
+	
+	<!-- 반려 처리 -->
+	<update id="returnAcceptState" parameterType="AcceptVO">
+		BEGIN
+		UPDATE TEST_REQ SET
+		STATE=#{state}
+		, REQ_ACT_USER_ID = NULL
+		, REQ_ACT_DATE = NULL
+		WHERE TEST_REQ_SEQ = #{test_req_seq};
+
+		UPDATE TEST_SAMPLE SET
+		STATE=#{state}
+		WHERE TEST_REQ_SEQ = #{test_req_seq};
+
+		UPDATE TEST_SAMPLE_ITEM SET
+		STATE=#{state}
+		WHERE TEST_REQ_SEQ = #{test_req_seq}
+		AND STATE NOT IN ('F','G','H');
+
+		END;
+	</update>
+	
+	<!-- 접수할 항목 리스트 조회 -->
+	<select id="selectAcceptItemState" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT
+			<if test="state != null and state != '' ">
+				#{state} STATE,
+			</if>
+			<if test="state == null or state == '' ">
+				'B' STATE,
+			</if>
+			I.TEST_SAMPLE_SEQ ,
+            I.TEST_ITEM_SEQ ,
+            I.TEST_ITEM_CD ,
+            I.TESTER_ID ,
+            DT.TEAM_CD ,
+            /*DECODE(U.DEPT_CD, null , DT.DEPT_CD, U.DEPT_CD) DEPT_CD,*/
+            I.DEPT_CD,
+            I.FEE,
+            I.PRDLST_FEE,
+            I.DEPT_FEE ,
+            TIM.TEST_METHOD_NO,
+            TII.INST_NO AS INST_NO,
+            I.RESULT_VAL,
+            I.COLLA_FLAG
+		FROM TEST_REQ R
+		INNER JOIN TEST_SAMPLE TS ON R.TEST_REQ_SEQ = TS.TEST_REQ_SEQ
+		INNER JOIN TEST_SAMPLE_ITEM I ON I.TEST_SAMPLE_SEQ = TS.TEST_SAMPLE_SEQ
+		INNER JOIN ANALYSIS ANAL ON I.TEST_ITEM_CD = ANAL.TESTITM_CD
+		LEFT JOIN USER_INFO U ON I.TESTER_ID = U.USER_ID
+		LEFT JOIN DEPART D ON D.DEPT_CD = U.DEPT_CD
+		LEFT JOIN DEPT_TEAM DT ON I.TEAM_CD = DT.TEAM_CD
+		LEFT OUTER JOIN TEST_ITEM_METHOD TIM ON TIM.TEST_ITEM_CD = I.TEST_ITEM_CD AND TIM.DEFAULT_FLAG = 'Y' AND TIM.TEST_STD_NO = TS.TEST_STD_NO
+		LEFT OUTER JOIN TEST_ITEM_INST TII ON TII.TEST_ITEM_CD = I.TEST_ITEM_CD AND TII.DEFAULT_FLAG = 'Y' AND TII.TEST_STD_NO = TS.TEST_STD_NO
+		WHERE R.TEST_REQ_SEQ = #{test_req_seq}
+		ORDER BY I.DISP_ORDER
+	</select>
+	
+	<!-- 항목 리스트 접수 처리 -->
+	<update id="updateAcceptItemState" parameterType="AcceptVO">
+		UPDATE TEST_SAMPLE_ITEM SET
+		STATE = #{state}
+		, TEST_SAMPLE_SEQ = #{test_sample_seq}
+		, TEST_ITEM_SEQ = #{test_item_seq}
+		, TEST_ITEM_CD = #{test_item_cd}
+		<if test="tester_id != null and tester_id != '' ">
+			, TESTER_ID = #{tester_id}
+		</if>
+		<if test="team_cd != null and team_cd != '' ">
+			, TEAM_CD = #{team_cd}
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+			,DEPT_CD = #{dept_cd}
+		</if>
+		<if test="fee != null ">
+			, FEE = #{fee}
+		</if>
+		<if test="prdlst_fee != null">
+			, PRDLST_FEE = #{prdlst_fee}
+		</if>
+		<if test="dept_fee != null">
+			, DEPT_FEE = #{dept_fee}
+		</if>
+				
+		<if test="fee_group_no != null ">
+			, FEE_GROUP_NO = #{fee_group_no}
+		</if>
+		<if test="test_method_no != null ">
+			, TEST_METHOD = #{test_method_no}
+		</if>
+		<if test="inst_no != null ">
+			, TEST_INST = #{inst_no}
+		</if>
+		<if test="colla_flag != null and colla_flag != ''">
+			, COLLA_FLAG = #{colla_flag}
+		</if>
+		WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+		AND TEST_ITEM_SEQ = #{test_item_seq}
+		AND STATE NOT IN ('C','F','G','H')
+	</update>
+	
+	<!-- 템플릿 리스트 조회 -->
+	<select id="selectTempleteSampleList" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT 
+			T.SAMPLE_TEMP_NM
+			,T.SAMPLE_CD
+			,S.SAMPLE_NM
+			,T.USE_FLAG
+			,T.ETC
+			,T.SAMPLE_TEMP_CD
+			,D.DEPT_CD
+		FROM SAMPLE_TEMP T
+		INNER JOIN SAMPLE S ON T.SAMPLE_CD = S.SAMPLE_CD
+		INNER JOIN DEPART D ON D.DEPT_CD = T.DEPT_CD
+		WHERE 1=1
+		<if test="sample_temp_nm != null and sample_temp_nm != '' ">
+			AND UPPER(T.SAMPLE_TEMP_NM) like '%' || UPPER( #{sample_temp_nm} ) || '%'
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND D.DEPT_CD = #{dept_cd}
+		</if>
+		<if test="use_flag != null and use_flag != '' ">
+			AND T.USE_FLAG = #{use_flag}
+		</if>
+		ORDER BY S.SAMPLE_NM
+	</select>
+	
+	<!-- 템플릿에 속한 항목 리스트 조회 -->
+	<select id="selectTempleteItemList" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT
+		T.SAMPLE_TEMP_CD
+		, T.TEMP_SEQ
+		, T.TEST_ITEM_CD
+		, T.USER_ID
+		, ANAL.TESTITM_NM AS TEST_ITEM_NM
+		, ANAL.ENG_NM AS TEST_ITEM_ENG_NM
+		, ANAL.L_KOR_NM AS TEST_ITEM_TYPE
+<!-- 		, C.CODE_NAME TEST_ITEM_TYPE -->
+		, D.DEPT_NM DEPT_NM
+		, U.USER_NM
+		, T.DISP_ORDER
+		FROM SAMPLE_TEMP_ITEM T
+		INNER JOIN ANALYSIS ANAL ON ANAL.TESTITM_CD = T.TEST_ITEM_CD
+		LEFT OUTER JOIN USER_INFO U ON U.USER_ID = T.USER_ID
+		LEFT OUTER JOIN DEPART D ON D.DEPT_CD = U.DEPT_CD
+<!-- 		INNER JOIN COMMON_CODE_DETAIL C ON C.CODE = I.TEST_ITEM_TYPE -->
+		WHERE SAMPLE_TEMP_CD = #{sample_temp_cd}
+		ORDER BY T.DISP_ORDER
+	</select>
+	
+	<!-- 다음 템플릿코드 조회 -->
+	<select id="selectTempleteCd" resultType="String">
+		SELECT LPAD(NVL(MAX(SAMPLE_TEMP_CD),0)+1,6,0) FROM SAMPLE_TEMP
+	</select>
+	<!-- 템플릿 삽입 -->
+	<insert id="insertTemplete" parameterType="AcceptVO">
+		INSERT INTO SAMPLE_TEMP(
+		SAMPLE_TEMP_CD
+		,SAMPLE_TEMP_NM
+		,SAMPLE_CD
+		,ETC
+		,USE_FLAG
+		,DEPT_CD
+		, CREATE_DATE
+		, CREATER_ID
+		) VALUES(
+		#{sample_temp_cd}
+		, #{sample_temp_nm}
+		, #{sample_cd}
+		, #{etc}
+		, 'Y'
+		, #{dept_cd}
+		, SYSDATE
+		, #{user_id}
+		)
+
+	</insert>
+	<!-- 템플릿 수정 -->
+	<update id="updateTemplete" parameterType="AcceptVO">
+		UPDATE SAMPLE_TEMP SET SAMPLE_TEMP_NM = #{sample_temp_nm}
+		, SAMPLE_CD = #{sample_cd}
+		,ETC = #{etc}
+		,USE_FLAG = #{use_flag}
+		,DEPT_CD = #{dept_cd}
+		, UPDATE_DATE = SYSDATE
+		, UPDATER_ID = #{user_id}
+		WHERE SAMPLE_TEMP_CD = #{sample_temp_cd}
+	</update>
+	<!-- 템플릿에 속한 항목 삽입 -->
+	<insert id="insertTempleteItem" parameterType="AcceptVO">
+		INSERT INTO SAMPLE_TEMP_ITEM(
+		SAMPLE_TEMP_CD
+		,TEMP_SEQ
+		,TEST_ITEM_CD
+		,USER_ID
+		,DISP_ORDER
+		, CREATE_DATE
+		, CREATER_ID
+		)VALUES(
+		#{sample_temp_cd}
+		, (SELECT LPAD(NVL(MAX(TEMP_SEQ),0)+1,3,0) FROM SAMPLE_TEMP_ITEM WHERE SAMPLE_TEMP_CD = #{sample_temp_cd} )
+		, #{test_item_cd}
+		, #{user_id}
+		, #{disp_order}
+		, SYSDATE
+		, #{user_id}
+		)
+
+	</insert>
+	<!-- 템플릿에 속한 항목 삭제 -->
+	<delete id="deleteTempleteItem" parameterType="AcceptVO">
+		DELETE FROM SAMPLE_TEMP_ITEM
+		WHERE SAMPLE_TEMP_CD = #{sample_temp_cd}
+	</delete>
+
+	<!-- 항목 전체 리스트(팝업) -->
+	<select id="selectPopAllTestItemList" parameterType="AcceptVO" resultType="AcceptVO">
+<!-- 		SELECT * FROM ( -->
+<!-- 		        SELECT VW_LIST.*, ROWNUM AS ROW_NUM, FLOOR((ROWNUM -1) / #{pageSize} + 1) AS PAGENUM, -->
+<!-- 		               COUNT(*) OVER() AS TOTALCOUNT, COUNT(*) OVER() AS TOTAL, CEIL(COUNT(*) OVER() / #{pageSize}) AS TOTALPAGE -->
+<!-- 		        FROM ( -->
+				SELECT
+					ANAL.TESTITM_CD AS TEST_ITEM_CD,
+					UI.USER_ID,
+					U.USER_NM,
+					D.DEPT_NM,
+					CASE
+		                WHEN ANAL.TESTITM_NM IS NOT NULL THEN ANAL.TESTITM_NM                
+						WHEN ANAL.TESTITM_NM IS NULL AND ANAL.KOR_NM IS NOT NULL THEN ANAL.KOR_NM
+		                WHEN ANAL.TESTITM_NM IS NULL AND ANAL.KOR_NM IS NULL AND ANAL.ENG_NM IS NOT NULL THEN ANAL.ENG_NM			
+					END AS TEST_ITEM_NM,
+					ANAL.ENG_NM AS TEST_ITEM_ENG_NM,
+					ANAL.L_KOR_NM AS TEST_ITEM_TYPE,
+					TSF.FEE
+				FROM ANALYSIS ANAL
+				LEFT OUTER JOIN DEPT_USER_ITEM UI ON UI.TEST_ITEM_CD = ANAL.TESTITM_CD
+				LEFT OUTER JOIN USER_INFO U ON UI.USER_ID = U.USER_ID
+				LEFT OUTER JOIN DEPART D ON D.DEPT_CD = U.DEPT_CD
+				LEFT OUTER JOIN TEST_STD_FEE TSF ON TSF.TESTITM_CD = ANAL.TESTITM_CD
+				WHERE 1=1
+					AND ANAL.KFDA_YN = 'Y' <!-- N=자가, Y=식약처 -->
+				<if test="test_item_nm != null and test_item_nm != '' ">
+					AND ( UPPER(ANAL.KOR_NM) LIKE '%' || UPPER(#{test_item_nm}) || '%' OR UPPER(ANAL.ENG_NM) LIKE '%' || UPPER(#{test_item_nm}) || '%' )
+				</if>
+				<if test="user_nm != null and user_nm != '' ">
+					AND UPPER(U.USER_NM) LIKE '%' || UPPER(#{user_nm}) || '%'
+				</if>
+				<if test="dept_cd != null and dept_cd != '' ">
+					AND D.DEPT_CD = #{dept_cd}
+				</if>
+				<if test="testitm_lclas_cd != null and testitm_lclas_cd != '' ">
+					AND ANAL.TESTITM_LCLAS_CD = #{testitm_lclas_cd}
+				</if>
+				<if test="sortName != null and sortName != '' ">
+					ORDER BY ${sortName} ${sortType}
+				</if>
+				<if test="sortName == null or sortName == '' ">
+					ORDER BY ANAL.KOR_NM, D.DEPT_NM , U.USER_NM 
+				</if>
+<!-- 			) VW_LIST -->
+<!-- 		   )   -->
+<!-- 		WHERE PAGENUM = #{pageNum} -->
+	</select>
+	
+	<!-- 기준&품목별 항목 리스트(팝업) -->
+	<select id="selectPopStdTestItemList" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT * FROM (
+	        SELECT VW_LIST.*, ROWNUM AS ROW_NUM, FLOOR((ROWNUM -1) / #{pageSize} + 1) AS PAGENUM,
+	               COUNT(*) OVER() AS TOTALCOUNT, COUNT(*) OVER() AS TOTAL, CEIL(COUNT(*) OVER() / #{pageSize}) AS TOTALPAGE
+	        FROM (	
+			<if test="test_std_no != 'I01'.toString()">
+				SELECT
+				    S.PRDLST_CD,
+				    S.PRDLST_CD_NM AS PRDLST_NM,
+				    (SELECT L_KOR_NM FROM ANALYSIS ANAL WHERE ANAL.TESTITM_CD = S.TESTITM_CD) AS TEST_ITEM_TYPE,
+				    (SELECT ENG_NM FROM ANALYSIS ANAL WHERE ANAL.TESTITM_CD = S.TESTITM_CD) AS TEST_ITEM_ENG_NM,
+				    S.TESTITM_CD AS TEST_ITEM_CD,
+				    S.TESTITM_NM AS TEST_ITEM_NM,
+				    S.UNIT_CD,
+				    DECODE(SUBSTR(S.JDGMNT_FOM_CD,0,1), 'C' , S.JDGMNT_FOM_CD ,(SELECT CODE FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'JDGMNT_FOM_CD' AND CCD.KFDA_CODE = S.JDGMNT_FOM_CD)) JDGMNT_FOM_CD,
+				    VALD_MANLI,
+				    CHOIC_FIT,		    
+				    DECODE(SUBSTR(CHOIC_FIT,0,1), 'C' , CHOIC_FIT ,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'CHOIC' AND CCD.KFDA_CODE = CHOIC_FIT)) CHOIC_FIT_NM,
+				    CHOIC_IMPROPT,
+				    DECODE(SUBSTR(CHOIC_IMPROPT,0,1), 'C' , CHOIC_IMPROPT ,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'CHOIC' AND CCD.KFDA_CODE = CHOIC_IMPROPT)) STD_UNFIT_VAL_NM,
+				    LOQ_LVAL,
+				    LOQ_HVAL,
+				    SPEC_VAL,
+				    MIMM_VAL,
+				    DECODE(SUBSTR(MIMM_VAL_DVS_CD,0,1), 'C' , MIMM_VAL_DVS_CD ,(SELECT CODE FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'MIMM_VAL' AND CCD.KFDA_CODE = MIMM_VAL_DVS_CD)) MIMM_VAL_DVS_CD,
+				    MXMM_VAL,
+				    DECODE(SUBSTR(MXMM_VAL_DVS_CD,0,1), 'C' , MXMM_VAL_DVS_CD ,(SELECT CODE FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'MXMM_VAL' AND CCD.KFDA_CODE = MXMM_VAL_DVS_CD)) MXMM_VAL_DVS_CD,
+				    VALD_BEGN_DT,
+				    DEPT_CD,
+				    INDV_SPEC_SEQ
+				FROM INDV_SPEC S
+				WHERE 1=1
+				<if test="dept_cd != null and dept_cd != '' ">
+					AND S.DEPT_CD = #{dept_cd}
+				</if>
+			</if>
+		
+			<if test="test_std_no == 'I01'.toString()">
+					SELECT
+					    S.PRDLST_CD,
+					    S.PRDLST_CD_NM AS PRDLST_NM,
+					    (SELECT L_KOR_NM FROM ANALYSIS ANAL WHERE ANAL.TESTITM_CD = S.TESTITM_CD) AS TEST_ITEM_TYPE,
+				    	(SELECT ENG_NM FROM ANALYSIS ANAL WHERE ANAL.TESTITM_CD = S.TESTITM_CD) AS TEST_ITEM_ENG_NM,
+					    S.TESTITM_CD AS TEST_ITEM_CD,
+					    S.TESTITM_NM AS TEST_ITEM_NM,
+					    S.UNIT_CD,
+					    DECODE(SUBSTR(S.JDGMNT_FOM_CD,0,1), 'C' , S.JDGMNT_FOM_CD ,(SELECT CODE FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'JDGMNT_FOM_CD' AND CCD.KFDA_CODE = S.JDGMNT_FOM_CD)) JDGMNT_FOM_CD,
+					    VALD_MANLI,
+					    CHOIC_FIT,		    
+					    DECODE(SUBSTR(CHOIC_FIT,0,1), 'C' , CHOIC_FIT ,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'CHOIC' AND CCD.KFDA_CODE = CHOIC_FIT)) CHOIC_FIT_NM,
+					    CHOIC_IMPROPT,
+					    DECODE(SUBSTR(CHOIC_IMPROPT,0,1), 'C' , CHOIC_IMPROPT ,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'CHOIC' AND CCD.KFDA_CODE = CHOIC_IMPROPT)) STD_UNFIT_VAL_NM,
+					    SPEC_VAL,
+					    MIMM_VAL,
+					    DECODE(SUBSTR(MIMM_VAL_DVS_CD,0,1), 'C' , MIMM_VAL_DVS_CD ,(SELECT CODE FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'MIMM_VAL' AND CCD.KFDA_CODE = MIMM_VAL_DVS_CD)) MIMM_VAL_DVS_CD,
+					    MXMM_VAL,
+					    DECODE(SUBSTR(MXMM_VAL_DVS_CD,0,1), 'C' , MXMM_VAL_DVS_CD ,(SELECT CODE FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'MXMM_VAL' AND CCD.KFDA_CODE = MXMM_VAL_DVS_CD)) MXMM_VAL_DVS_CD,
+					    VALD_BEGN_DT,
+					    CMMN_SPEC_SEQ AS INDV_SPEC_SEQ
+					FROM CMMN_SPEC S
+					WHERE 1=1
+			</if>
+			
+				AND VALD_BEGN_DT <![CDATA[<= ]]> TO_CHAR(SYSDATE,'YYYYmmdd')	
+			<if test="prdlst_cd != null and prdlst_cd != '' ">
+				AND S.PRDLST_CD = #{prdlst_cd}
+			</if>		
+			<if test="sortName != null and sortName != '' ">
+				ORDER BY ${sortName} ${sortType}
+			</if>
+			<if test="sortName == null or sortName == '' ">
+				ORDER BY S.PRDLST_CD
+			</if>
+		) VW_LIST
+    )  
+	WHERE PAGENUM = #{pageNum}
+	</select>
+	
+	
+	<!-- 항목 전체 리스트(팝업)_OLD 16.01.04 -->
+	<select id="selectPopAllTestItemList_OLD" parameterType="TestItemVO" resultType="TestItemVO">
+		SELECT
+		<if test="test_item_group_no != null and test_item_group_no != '' ">
+			#{test_item_group_no} TEST_ITEM_GROUP_NO,
+		</if>
+		I.TEST_ITEM_CD ,
+		UI.USER_ID ,
+		U.USER_NM ,
+		D.DEPT_NM ,
+		I.TEST_ITEM_NM ,
+		I.TEST_ITEM_ENG_NM ,
+		C.CODE_NAME TEST_ITEM_TYPE ,
+		DECODE(I.KOLAS_FLAG, 'Y', '예', '아니요') KOLAS_FLAG
+
+		<if test="std_flag == 'Y'.toString() ">
+			<if test="test_std_no != null and test_std_no != '' ">
+				, TIM.TEST_METHOD_NO <!-- 시험방법 -->
+				, TII.INST_NO <!-- 시험기기 -->
+				<!-- 주석처리 15.11.07
+				, CASE
+				WHEN S.FEE IS NULL AND F.FEE IS NULL THEN I.FEE
+				WHEN S.FEE IS NULL AND F.FEE IS NOT NULL THEN F.FEE
+				WHEN S.FEE IS NOT NULL THEN S.FEE
+				END AS FEE
+				 -->
+				, CASE
+			       WHEN S.TEST_STD_NO IS NULL AND F2.FEE IS NULL THEN I.FEE
+			       WHEN S.TEST_STD_NO IS NULL AND F2.FEE IS NOT NULL THEN F2.FEE 
+			       WHEN S.TEST_STD_NO IS NOT NULL THEN S.FEE                                
+			    END AS FEE			
+				, CASE
+				WHEN S.FEE_GROUP_NO IS NULL THEN I.FEE_GROUP_NO
+				ELSE S.FEE_GROUP_NO
+				END AS FEE_GROUP_NO
+				, CASE
+				WHEN S.FEE_GROUP_NO IS NULL THEN F.FEE_GROUP_NM
+				ELSE S.FEE_GROUP_NM
+				END AS FEE_GROUP_NM
+			</if>
+		</if>
+		<if test="std_flag != 'Y'.toString() ">
+			, DECODE(I.FEE_GROUP_NO, NULL , I.FEE, F.FEE) FEE
+			, I.FEE_GROUP_NO
+			, F.FEE_GROUP_NM
+		</if>
+		FROM TEST_ITEM I
+		LEFT OUTER JOIN DEPT_USER_ITEM UI ON UI.TEST_ITEM_CD = I.TEST_ITEM_CD
+		LEFT OUTER JOIN USER_INFO U ON UI.USER_ID = U.USER_ID
+		LEFT OUTER JOIN DEPART D ON D.DEPT_CD = U.DEPT_CD
+		LEFT OUTER JOIN FEE_GROUP F ON I.FEE_GROUP_NO = F.FEE_GROUP_NO		
+		LEFT OUTER JOIN FEE_GROUP F2 ON F2.FEE_GROUP_NO = I.FEE_GROUP_NO <!-- 추가 15.11.07 -->
+		LEFT OUTER JOIN COMMON_CODE_DETAIL C ON I.TEST_ITEM_TYPE = C.CODE
+		<if test="std_flag == 'Y'.toString() ">
+			<if test="test_std_no != null and test_std_no != '' ">
+				INNER JOIN
+				(SELECT
+				STI.TEST_STD_NO,
+				STI.REV_NO,
+				STI.TEST_ITEM_CD ,
+				STI.FEE ,
+				STI.FEE_GROUP_NO,
+				F.FEE_GROUP_NM
+				FROM STD_TEST_ITEM STI
+				LEFT OUTER JOIN FEE_GROUP F ON STI.FEE_GROUP_NO = F.FEE_GROUP_NO
+				WHERE STI.TEST_STD_NO = #{test_std_no}
+				AND STI.REV_NO = (SELECT MAX(REV_NO) FROM TEST_STD_REV WHERE TEST_STD_NO = #{test_std_no})
+				) S ON S.TEST_ITEM_CD = I.TEST_ITEM_CD
+				LEFT JOIN TEST_ITEM_METHOD TIM ON TIM.TEST_ITEM_CD = S.TEST_ITEM_CD AND TIM.DEFAULT_FLAG = 'Y' AND TIM.TEST_STD_NO = #{test_std_no} <!-- 시험방법 조인 -->
+				LEFT JOIN TEST_ITEM_INST TII ON TII.TEST_ITEM_CD = S.TEST_ITEM_CD AND TII.DEFAULT_FLAG = 'Y' AND TII.TEST_STD_NO = #{test_std_no} <!-- 시험기기 조인 -->		
+			</if>
+		</if>
+		WHERE I.USE_FLAG = 'Y'
+		<if test="kolas_flag != null and kolas_flag != '' ">
+			AND KOLAS_FLAG = #{kolas_flag}
+		</if>
+		<if test="test_item_nm != null and test_item_nm != '' ">
+			AND ( UPPER(I.TEST_ITEM_NM) LIKE '%' || UPPER(#{test_item_nm}) || '%' OR UPPER(I.TEST_ITEM_ENG_NM) LIKE '%' || UPPER(#{test_item_nm}) || '%' )
+		</if>
+		<if test="test_item_type != null and test_item_type != '' ">
+			AND I.TEST_ITEM_TYPE = #{test_item_type}
+		</if>
+		<if test="user_nm != null and user_nm != '' ">
+			AND UPPER(U.USER_NM) LIKE '%' || UPPER(#{user_nm}) || '%'
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND D.DEPT_CD = #{dept_cd}
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY TEST_ITEM_NM, D.DEPT_NM , U.USER_NM
+		</if>
+	</select>
+	
+	<!-- 접수 리스트에서 삭제 -->
+	<delete id="deleteAccept" parameterType="AcceptVO">
+		BEGIN
+DELETE FROM SPLORE_PICK_LT WHERE PICK_NO = #{pick_no} ;
+DELETE FROM SPLORE_PICK_MESURE WHERE PICK_NO = #{pick_no} ;
+DELETE FROM SPLORE_PICK WHERE TEST_REQ_SEQ = #{test_req_seq} ;
+
+DELETE FROM APPR_LINE WHERE TEST_REQ_SEQ = #{test_req_seq};
+DELETE FROM AUDIT_TRAIL WHERE TEST_REQ_SEQ = #{test_req_seq};
+DELETE FROM ORG_COMMISSION_DEPOSIT WHERE TEST_REQ_SEQ = #{test_req_seq};
+
+DELETE FROM REPORT_DOC WHERE TEST_REQ_SEQ = #{test_req_seq};
+DELETE FROM REPORT_SAMPLE WHERE REPORT_DOC_SEQ IN (SELECT REPORT_DOC_SEQ FROM REPORT_DOC WHERE TEST_REQ_SEQ = #{test_req_seq});
+DELETE FROM REPORT_SAMPLE_ITEM WHERE REPORT_DOC_SEQ IN (SELECT REPORT_DOC_SEQ FROM REPORT_DOC WHERE TEST_REQ_SEQ = #{test_req_seq});
+DELETE FROM REPORT_PUBLISH_LOG WHERE TEST_REQ_SEQ = #{test_req_seq};
+
+DELETE FROM TEST_REPORT WHERE TEST_SAMPLE_SEQ IN (SELECT TEST_SAMPLE_SEQ FROM TEST_SAMPLE WHERE TEST_REQ_SEQ = #{test_req_seq});
+DELETE FROM TEST_REPORT_ATTACH WHERE TEST_SAMPLE_SEQ IN (SELECT TEST_SAMPLE_SEQ FROM TEST_SAMPLE WHERE TEST_REQ_SEQ = #{test_req_seq});
+
+DELETE FROM SAMPLE_HISTORY WHERE TEST_REQ_SEQ = #{test_req_seq};
+
+DELETE FROM TEST_SAMPLE_ITEM WHERE TEST_REQ_SEQ = #{test_req_seq};
+DELETE FROM TEST_SAMPLE_ITEM_ATTACH WHERE TEST_SAMPLE_SEQ IN (SELECT TEST_SAMPLE_SEQ FROM TEST_SAMPLE WHERE TEST_REQ_SEQ = #{test_req_seq});
+DELETE FROM TEST_SAMPLE_ITEM_HISTORY WHERE TEST_SAMPLE_SEQ IN (SELECT TEST_SAMPLE_SEQ FROM TEST_SAMPLE WHERE TEST_REQ_SEQ = #{test_req_seq});
+
+DELETE FROM TEST_SAMPLE_ATTACH WHERE TEST_SAMPLE_SEQ IN (SELECT TEST_SAMPLE_SEQ FROM TEST_SAMPLE WHERE TEST_REQ_SEQ = #{test_req_seq});
+DELETE FROM TEST_SAMPLE_DISUSE WHERE TEST_SAMPLE_SEQ IN (SELECT TEST_SAMPLE_SEQ FROM TEST_SAMPLE WHERE TEST_REQ_SEQ = #{test_req_seq});
+DELETE FROM TEST_SAMPLE WHERE TEST_REQ_SEQ = #{test_req_seq};
+
+DELETE FROM TEST_COMMENT WHERE TEST_REQ_SEQ = #{test_req_seq};
+DELETE FROM TEST_ENVIRONMENT WHERE TEST_REQ_SEQ = #{test_req_seq};
+DELETE FROM TEST_REQ WHERE TEST_REQ_SEQ = #{test_req_seq};
+
+DELETE FROM TEST_REQ_ATTACH WHERE TEST_REQ_SEQ = #{test_req_seq};
+DELETE FROM TEST_REQ_COLLECT  WHERE TEST_REQ_SEQ = #{test_req_seq};
+<!-- DELETE FROM TEST_SAMPLE_ATTACH WHERE TEST_REQ_SEQ = #{test_req_seq};
+DELETE FROM TEST_SAMPLE_ITEM_ATTACH WHERE TEST_REQ_SEQ = #{test_req_seq}; -->
+		
+		END;
+	</delete>
+
+	<!-- 의뢰(접수) 복사 -->
+	<insert id="copyAccept" parameterType="AcceptVO">
+		
+		DECLARE		
+				new_test_req_seq	VARCHAR2(10);
+				new_test_req_no		VARCHAR2(20);				
+				new_test_sample_seq	VARCHAR2(9);
+				CURSOR SAMPLE_LIST IS
+                SELECT TEST_SAMPLE_SEQ 
+                FROM TEST_SAMPLE 
+                WHERE TEST_REQ_SEQ = #{test_req_seq};
+		BEGIN
+
+			new_test_req_seq := #{new_test_req_seq};
+
+			SELECT GET_ACC_TEST_REQ_NO('2', #{test_req_seq}) INTO new_test_req_no FROM DUAL;			
+			
+			SELECT LPAD(NVL(MAX(TEST_SAMPLE_SEQ), 0)+1, 9, 0) INTO new_test_sample_seq FROM TEST_SAMPLE;
+			
+			<!-- 접수 복사 -->
+			INSERT INTO TEST_REQ (TEST_REQ_NO, TEST_REQ_SEQ, TITLE, REQ_TYPE, REQ_CLASS, REQ_DATE,
+				UNIT_WORK_CD, TEST_GOAL, REQ_BASIS, REQ_NM,	REPORT_TYPE, REQ_MESSAGE,FEE_TOT, STATE, DEPT_CD, 
+				CREATE_DATE, CREATER_ID, REQ_ORG_NO, REQ_ORG_NO2, REQ_ORG_NO3, REQ_ORG_NO4, DEADLINE_DATE, COMMISSION_TYPE, 
+				DISCOUNT_RATE, SAMPLE_ARRIVAL_DATE, RETURN_FLAG, DISCOUNT_FLAG, EST_NO, FEE_AUTO_FLAG, TEST_STD_NO,
+				REQ_ACT_USER_ID, REQ_ACT_DATE, MEMBER_FLAG, SENSORY_TEST,
+				SALES_USER_ID, SALES_DEPT_CD, EXPRESS_FLAG, SAMPLE_NUM, SAMPLING_NO, BARCODE_DESC, 
+				REQ_PLANT_NM, REQ_PLANT_ADDR, REQ_PLANT_TEL, TEST_END, QR_NM, QR_FILE, EST_CHECK, CALCULATION,
+				QUALITY_DEPT_CD1, QUALITY_DEPT_CD2, QUALITY_USER_ID1, QUALITY_USER_ID2, ADMIN_MESSAGE, ACCEPT_METHOD, FEE_TOT_EST, FEE_TOT_ITEM,
+				ADDR_REPORT, TEL_REPORT, FAX_REPORT
+			)
+			SELECT 
+	        	new_test_req_no AS TEST_REQ_NO
+	        	,new_test_req_seq AS TEST_REQ_SEQ
+				, '[복사]'||TITLE AS TITLE
+				, REQ_TYPE
+				, REQ_CLASS
+				, TO_CHAR(SYSDATE, 'YYYYmmdd') AS REQ_DATE
+				, UNIT_WORK_CD
+				, TEST_GOAL
+				, REQ_BASIS
+				, REQ_NM
+				, REPORT_TYPE
+				, REQ_MESSAGE
+				, FEE_TOT
+				, #{state}
+				, DEPT_CD
+				, SYSDATE AS CREATE_DATE
+				, #{user_id} AS CREATER_ID
+				, REQ_ORG_NO
+				, REQ_ORG_NO2
+				, REQ_ORG_NO3
+				, REQ_ORG_NO4
+				, DEADLINE_DATE
+				, COMMISSION_TYPE
+				, DISCOUNT_RATE
+				, SAMPLE_ARRIVAL_DATE
+				, RETURN_FLAG
+				, DISCOUNT_FLAG
+				, EST_NO
+				, FEE_AUTO_FLAG
+				, TEST_STD_NO
+				, #{user_id}
+				, REQ_ACT_DATE
+				, MEMBER_FLAG
+				, SENSORY_TEST				
+				, SALES_USER_ID
+				, SALES_DEPT_CD
+				, EXPRESS_FLAG
+				, SAMPLE_NUM 
+				, SAMPLING_NO 
+				, BARCODE_DESC
+				, REQ_PLANT_NM
+				, REQ_PLANT_ADDR
+				, REQ_PLANT_TEL
+				, TEST_END
+				, QR_NM
+				, QR_FILE
+				, EST_CHECK
+				, CALCULATION
+				, QUALITY_DEPT_CD1
+				, QUALITY_DEPT_CD2
+				, QUALITY_USER_ID1
+				, QUALITY_USER_ID2
+				, ADMIN_MESSAGE
+				, ACCEPT_METHOD
+				, FEE_TOT_EST
+				, FEE_TOT_ITEM
+				, ADDR_REPORT
+				, TEL_REPORT
+				, FAX_REPORT
+			FROM TEST_REQ
+			WHERE TEST_REQ_SEQ = #{test_req_seq};
+	
+	
+			FOR SAMPLE_CNT IN SAMPLE_LIST LOOP
+			
+				SELECT LPAD(NVL(MAX(TEST_SAMPLE_SEQ), 0)+1, 9, 0) INTO new_test_sample_seq FROM TEST_SAMPLE;
+	
+				<!-- 시료 복사 -->
+				INSERT INTO TEST_SAMPLE(TEST_REQ_SEQ, TEST_SAMPLE_SEQ, STATE, ETC_DESC, TOT_ITEM_COUNT, SAMPLE_CD, TEST_STD_NO,
+				SAMPLE_REG_NM, SAMPLING_HOUR, SAMPLING_MIN, KFDA_YN, PRDLST_CD, SAMPLE_FEE, DISUSE_FLAG, RESULT_INPUT_TYPE, SM_CODE, MAX_GRADE, TEST_REQ_NO,
+				BUILDER_NM, COLLECTOR_NM, COLLECT_DATE, COLLECT_PLACE, DEPT_APPR_FLAG, EXPIRY_DATE, JDG_ETC, JOINER_NM, KEEP_METHOD, ORDERER_NM, 
+				PRETREATMENT_CD, PRODUCER_NM, PRODUCE_DATE, PRODUCE_NO, PRODUCE_PLACE, PURPOSE, REPORT_FLAG, SAMPLE_ETC_NM, SAMPLE_WEIGHT, SAMPLING_DATE,
+				SAMPLING_ID, SAMPLING_METHOD, SAMPLING_POINT_NO, SUPPLIER, TEST_SAMPLE_RESULT, TEST_SAMPLE_RESULT_REASON
+				
+				)
+				SELECT
+					new_test_req_seq 
+					, new_test_sample_seq 
+					, #{state}
+					, ETC_DESC
+					, TOT_ITEM_COUNT
+					, SAMPLE_CD
+					, TEST_STD_NO
+					, SAMPLE_REG_NM
+					, SAMPLING_HOUR
+					, SAMPLING_MIN
+					, KFDA_YN
+					, PRDLST_CD
+					, SAMPLE_FEE
+					, DISUSE_FLAG
+					, RESULT_INPUT_TYPE
+					, SM_CODE
+					, MAX_GRADE
+					, new_test_req_no
+					, BUILDER_NM
+					, COLLECTOR_NM
+					, COLLECT_DATE
+					, COLLECT_PLACE
+					, DEPT_APPR_FLAG
+					, EXPIRY_DATE
+					, JDG_ETC
+					, JOINER_NM
+					, KEEP_METHOD
+					, ORDERER_NM
+					, PRETREATMENT_CD
+					, PRODUCER_NM
+					, PRODUCE_DATE
+					, PRODUCE_NO
+					, PRODUCE_PLACE
+					, PURPOSE
+					, REPORT_FLAG
+					, SAMPLE_ETC_NM
+					, SAMPLE_WEIGHT
+					, SAMPLING_DATE
+					, SAMPLING_ID
+					, SAMPLING_METHOD
+					, SAMPLING_POINT_NO
+					, SUPPLIER
+					, TEST_SAMPLE_RESULT
+					, TEST_SAMPLE_RESULT_REASON
+				FROM TEST_SAMPLE 
+				WHERE TEST_REQ_SEQ = #{test_req_seq}
+				AND TEST_SAMPLE_SEQ = SAMPLE_CNT.TEST_SAMPLE_SEQ ;
+		
+				INSERT INTO TEST_SAMPLE_DISUSE (TEST_SAMPLE_SEQ) SELECT new_test_sample_seq FROM TEST_SAMPLE WHERE TEST_SAMPLE_SEQ = SAMPLE_CNT.TEST_SAMPLE_SEQ;
+		
+				<!-- 항목 복사 -->
+				INSERT INTO TEST_SAMPLE_ITEM(TEST_REQ_SEQ, TEST_SAMPLE_SEQ, TEST_ITEM_SEQ, DEPT_CD, TESTER_ID, DISP_ORDER, CREATER_ID, CREATE_DATE, STATE,
+				TEST_ITEM_CD, TEST_ITEM_GROUP_NO, PRDLST_CD, REPORT_FLAG, UNIT,
+				STD_FIT, STD_UNFIT, HVAL_TYPE, LVAL_TYPE, STD_VAL, STD_TYPE, GRADE1, GRADE1_RANGE, GRADE2, GRADE2_RANGE, GRADE3, GRADE3_RANGE, GRADE4, GRADE4_RANGE,
+				OXIDE_CD, OXIDE_NM, OXIDE_REMARK, BASE, LOQ_LVAL, TEST_REQ_NO, REPORT_ORDER,
+				ACCOUNT_NO, ACCOUNT_TOT_CAL_DISP, ACCOUNT_VAL_DESC_TOT, ASSIGNMENT_FLAG, COLLA_FLAG,DEPT_FEE, EXCEED_REASON, FEE, FEE_GROUP_NO,
+				JDG_TYPE, LOQ_HVAL, LOQ_HVAL_MARK, LOQ_LVAL_MARK, PRDLST_FEE, REAL_TESTER_ID, REPORT_DISP_VAL, REPORT_ITEM_ENG_NM, REPORT_ITEM_NM,
+				REPRESENT_CD, RESULT_CD, RESULT_TYPE, RESULT_VAL, RETURN_COMMENT, RETURN_FLAG, SECT_APPR_FLAG, STD_DEPT_CD, STD_DEPT_NM, STD_HVAL,
+				STD_LVAL, TEAM_CD, TEST_DEPT_CD, TEST_INST, TEST_ITEM_DIARY, TEST_METHOD, TEST_UNCERTAINTY, UPDATER_ID,
+				UPDATE_DATE, VALID_POSITION
+				
+				)
+				SELECT
+		        	new_test_req_seq 
+		        	,new_test_sample_seq 
+					, TEST_ITEM_SEQ
+					, DEPT_CD
+					, TESTER_ID					
+					, DISP_ORDER
+					, #{user_id} AS CREATER_ID
+					, TO_CHAR(SYSDATE,'YYYYMMDD') AS CREATE_DATE
+					, #{state}
+					, TEST_ITEM_CD
+					, TEST_ITEM_GROUP_NO
+					, PRDLST_CD
+					, REPORT_FLAG
+					, UNIT
+					, STD_FIT
+					, STD_UNFIT
+					, HVAL_TYPE
+					, LVAL_TYPE
+					, STD_VAL
+					, STD_TYPE
+					, GRADE1
+					, GRADE1_RANGE
+					, GRADE2
+					, GRADE2_RANGE
+					, GRADE3
+					, GRADE3_RANGE
+					, GRADE4
+					, GRADE4_RANGE
+					, OXIDE_CD
+					, OXIDE_NM
+					, OXIDE_REMARK
+					, BASE
+					, LOQ_LVAL
+					, new_test_req_no
+					, REPORT_ORDER
+					,ACCOUNT_NO
+					,ACCOUNT_TOT_CAL_DISP
+					,ACCOUNT_VAL_DESC_TOT
+					,ASSIGNMENT_FLAG
+					,COLLA_FLAG
+					,DEPT_FEE
+					,EXCEED_REASON
+					,FEE
+					,FEE_GROUP_NO
+					,JDG_TYPE
+					,LOQ_HVAL
+					,LOQ_HVAL_MARK
+					,LOQ_LVAL_MARK
+					,PRDLST_FEE
+					,REAL_TESTER_ID
+					,REPORT_DISP_VAL
+					,REPORT_ITEM_ENG_NM
+					,REPORT_ITEM_NM
+					,REPRESENT_CD
+					,RESULT_CD
+					,RESULT_TYPE
+					,RESULT_VAL
+					,RETURN_COMMENT
+					,RETURN_FLAG
+					,SECT_APPR_FLAG
+					,STD_DEPT_CD
+					,STD_DEPT_NM
+					,STD_HVAL
+					,STD_LVAL
+					,TEAM_CD
+					,TEST_DEPT_CD
+					,TEST_INST
+					,TEST_ITEM_DIARY
+					,TEST_METHOD
+					,TEST_UNCERTAINTY
+					,UPDATER_ID
+					,UPDATE_DATE
+					,VALID_POSITION	
+				FROM TEST_SAMPLE_ITEM
+				WHERE TEST_REQ_SEQ = #{test_req_seq}
+				AND TEST_SAMPLE_SEQ = SAMPLE_CNT.TEST_SAMPLE_SEQ;
+				
+				<!-- 시험일지 복사 -->
+				INSERT INTO TEST_REPORT(TEST_SAMPLE_SEQ, 
+										TEST_ITEM_CD,
+										TEST_METHOD_NO,
+										INST_NO,
+										ACCOUNT_NO,
+										TEST_REPORT_CONTENT,
+										CREATER_ID,
+										CREATE_DATE,
+										TEST_METHOD_CONTENT,
+										TEST_METHOD_PRECLEAN
+				)
+				SELECT 
+					new_test_sample_seq 
+					, TEST_ITEM_CD
+					, TEST_METHOD_NO
+					, INST_NO
+					, ACCOUNT_NO
+					, TEST_REPORT_CONTENT
+					, #{user_id} AS CREATER_ID
+					, SYSDATE AS CREATE_DATE
+					, TEST_METHOD_CONTENT
+					, TEST_METHOD_PRECLEAN
+				FROM TEST_REPORT
+				WHERE TEST_SAMPLE_SEQ = SAMPLE_CNT.TEST_SAMPLE_SEQ;
+				
+			END LOOP;	
+				
+				
+			<!-- 업체별 수수료 복사 -->
+			INSERT INTO ORG_COMMISSION_DEPOSIT( DEPOSIT_NO,
+												REQ_ORG_NO,
+												TEST_REQ_SEQ,
+												DEPOSIT_AMT,
+												COMMISSION_AMT_FLAG
+			)
+			SELECT 
+				(SELECT NVL(MAX(DEPOSIT_NO)+1,1) FROM ORG_COMMISSION_DEPOSIT) AS DEPOSIT_NO
+			    , REQ_ORG_NO
+				, new_test_req_seq AS TEST_REQ_SEQ
+				, 0		
+				, CASE
+					WHEN NVL((SELECT FEE_TOT FROM TEST_REQ	WHERE TEST_REQ_SEQ = #{test_req_seq}), 0) > 0
+					THEN 'N'
+					ELSE 'Y'
+					END COMMISSION_AMT_FLAG
+			FROM ORG_COMMISSION_DEPOSIT
+			WHERE TEST_REQ_SEQ = #{test_req_seq};
+			
+			
+		END;
+	</insert>
+	
+	<!-- 의뢰(접수) 재시험 -->
+	<insert id="retestAccept" parameterType="AcceptVO">
+		
+		DECLARE		
+				new_test_req_no		VARCHAR2(20);
+				new_test_req_seq	VARCHAR2(10);
+				new_test_sample_seq	VARCHAR2(9);
+		BEGIN
+
+			<!-- SELECT GET_TEST_REQ_NO('2', #{test_req_seq}) INTO new_test_req_no FROM DUAL; -->
+			SELECT GET_ACC_TEST_REQ_NO('2', #{test_req_seq}) INTO new_test_req_no FROM DUAL;
+			
+			SELECT LPAD(NVL(MAX(TEST_REQ_SEQ), 0)+1, 10, 0) INTO new_test_req_seq FROM TEST_REQ;
+			
+			<!-- 접수 복사 -->
+			INSERT INTO TEST_REQ (TEST_REQ_NO, TEST_REQ_SEQ, TITLE, REQ_TYPE, REQ_CLASS, REQ_DATE,
+				UNIT_WORK_CD, TEST_GOAL, REQ_BASIS, REQ_NM,	REPORT_TYPE, REQ_MESSAGE, FEE_TOT, FEE_TOT_ITEM, FEE_TOT_EST, TRAVEL_EXP, STATE, DEPT_CD, 
+				CREATE_DATE, CREATER_ID, REQ_ORG_NO, REQ_ORG_NO2, REQ_ORG_NO3, REQ_ORG_NO4, DEADLINE_DATE, COMMISSION_TYPE, 
+				DISCOUNT_RATE, SAMPLE_ARRIVAL_DATE, RETURN_FLAG, DISCOUNT_FLAG, EST_NO, FEE_AUTO_FLAG, TEST_STD_NO,
+				REQ_ACT_USER_ID, REQ_ACT_DATE, MEMBER_FLAG, SENSORY_TEST, PRE_TEST_REQ_NO,
+				SALES_USER_ID, SALES_DEPT_CD, EXPRESS_FLAG, SAMPLE_NUM, SAMPLING_NO, BARCODE_DESC, 
+				 REQ_PLANT_NM, REQ_PLANT_ADDR, REQ_PLANT_TEL, TEST_END, QR_NM, QR_FILE, EST_CHECK, CALCULATION,
+				 ADDR_REPORT, TEL_REPORT, FAX_REPORT
+			)
+			SELECT 
+	        	new_test_req_no AS TEST_REQ_NO
+	        	,new_test_req_seq AS TEST_REQ_SEQ
+				, '[재시험]'||TITLE AS TITLE
+				, REQ_TYPE
+				, REQ_CLASS
+				, TO_CHAR(SYSDATE, 'YYYYmmdd') AS REQ_DATE
+				, UNIT_WORK_CD
+				, TEST_GOAL
+				, REQ_BASIS
+				, REQ_NM
+				, REPORT_TYPE
+				, REQ_MESSAGE
+				, FEE_TOT
+				, FEE_TOT_ITEM
+				, FEE_TOT_EST
+				, TRAVEL_EXP
+				, #{state}
+				, DEPT_CD
+				, SYSDATE AS CREATE_DATE
+				, #{user_id} AS CREATER_ID
+				, REQ_ORG_NO
+				, REQ_ORG_NO2
+				, REQ_ORG_NO3
+				, REQ_ORG_NO4
+				, DEADLINE_DATE
+				, COMMISSION_TYPE
+				, DISCOUNT_RATE
+				, SAMPLE_ARRIVAL_DATE
+				, RETURN_FLAG
+				, DISCOUNT_FLAG
+				, EST_NO
+				, FEE_AUTO_FLAG
+				, TEST_STD_NO
+				, #{user_id}
+				, REQ_ACT_DATE
+				, MEMBER_FLAG
+				, SENSORY_TEST
+				, TEST_REQ_NO				
+				, SALES_USER_ID, SALES_DEPT_CD, EXPRESS_FLAG
+				, SAMPLE_NUM
+				, SAMPLING_NO 
+				, BARCODE_DESC
+				, REQ_PLANT_NM
+				, REQ_PLANT_ADDR
+				, REQ_PLANT_TEL
+				, TEST_END
+				, QR_NM
+				, QR_FILE
+				, EST_CHECK
+				, CALCULATION
+				, ADDR_REPORT
+				, TEL_REPORT
+				, FAX_REPORT
+			FROM TEST_REQ
+			WHERE TEST_REQ_SEQ = #{test_req_seq};
+
+			<!-- 업체별 수수료 복사 -->
+			INSERT INTO ORG_COMMISSION_DEPOSIT( DEPOSIT_NO,
+												REQ_ORG_NO,
+												TEST_REQ_SEQ,
+												DEPOSIT_AMT,
+												COMMISSION_AMT_FLAG
+			)
+			SELECT 
+				(SELECT NVL(MAX(DEPOSIT_NO)+1,1) FROM ORG_COMMISSION_DEPOSIT) AS DEPOSIT_NO
+			    , REQ_ORG_NO
+				, new_test_req_seq AS TEST_REQ_SEQ
+				, 0
+				, CASE
+					WHEN NVL((SELECT FEE_TOT FROM TEST_REQ	WHERE TEST_REQ_SEQ = #{test_req_seq}), 0) > 0
+					THEN 'N'
+					ELSE 'Y'
+					END COMMISSION_AMT_FLAG
+			FROM ORG_COMMISSION_DEPOSIT
+			WHERE TEST_REQ_SEQ = #{test_req_seq};
+		END;
+	</insert>
+	
+	<!-- 접수 완료시 시험일지, 업체별 수수료 등록 -->
+	<insert id="insertTestReportOrgcommission" parameterType="AcceptVO">
+		BEGIN
+
+		<!-- 시험일지 등록 -->
+		INSERT INTO TEST_REPORT (TEST_SAMPLE_SEQ, TEST_ITEM_CD, TEST_METHOD_NO, INST_NO, ACCOUNT_NO, CREATER_ID, CREATE_DATE)
+		SELECT 
+			TEST_SAMPLE_SEQ,
+			TEST_ITEM_CD,
+			TEST_METHOD AS TEST_METHOD_NO,
+			TEST_INST AS INST_NO,
+			ACCOUNT_NO,
+			#{user_id} AS CREATER_ID,
+			SYSDATE AS CREATE_DATE
+		FROM TEST_SAMPLE_ITEM
+		WHERE TEST_REQ_SEQ = #{test_req_seq}
+		ORDER BY TEST_SAMPLE_SEQ, DISP_ORDER
+		;
+
+		<!-- 업체별 수수료 등록 -->
+		INSERT INTO ORG_COMMISSION_DEPOSIT (DEPOSIT_NO, REQ_ORG_NO, TEST_REQ_NO, DEPOSIT_AMT, COMMISSION_AMT_FLAG)
+		SELECT 
+            (SELECT NVL(MAX(DEPOSIT_NO)+1,1) FROM ORG_COMMISSION_DEPOSIT) AS DEPOSIT_NO,
+            REQ_ORG_NO AS REQ_ORG_NO,
+            TEST_REQ_NO,
+            0 AS DEPOSIT_AMT,
+            CASE
+				WHEN NVL((SELECT FEE_TOT FROM TEST_REQ WHERE TEST_REQ_SEQ = #{test_req_seq}), 0) > 0
+				THEN 'N'
+				ELSE 'Y'
+				END COMMISSION_AMT_FLAG
+<!-- 				'N' AS COMMISSION_AMT_FLAG -->
+		FROM TEST_REQ
+		WHERE TEST_REQ_SEQ = #{test_req_seq}       
+		;
+		
+		END;
+	</insert>
+	
+	<!-- 업체별 수수료 등록 -->
+	<insert id="insertCommissionDeposit" parameterType="AcceptVO">
+		INSERT INTO ORG_COMMISSION_DEPOSIT(
+			  DEPOSIT_NO
+			 , REQ_ORG_NO
+			 , TEST_REQ_SEQ
+			 , TEST_REQ_NO
+			 , DEPOSIT_AMT
+			 , COMMISSION_AMT_FLAG
+		) VALUES (
+			  (SELECT NVL(MAX(DEPOSIT_NO)+1,1) FROM ORG_COMMISSION_DEPOSIT)
+			 , #{req_org_no}
+			 , #{test_req_seq}
+			 , #{test_req_no}
+			 , 0
+			 , CASE
+				WHEN NVL((SELECT FEE_TOT FROM TEST_REQ WHERE TEST_REQ_SEQ = #{test_req_seq}), 0) > 0
+				THEN 'N'
+				ELSE 'Y'
+				END
+<!-- 			 , 'N' -->
+		)
+	</insert>
+	
+	<!-- 시험일지 작성 -->
+	<insert id="insertTestReport" parameterType="AcceptVO">
+		INSERT INTO TEST_REPORT (
+			  TEST_SAMPLE_SEQ
+			 , TEST_ITEM_CD
+			 <if test="test_method_no != '' and test_method_no != null">
+			 	, TEST_METHOD_NO
+			 </if>
+			 <if test="test_inst_no != '' and test_inst_no != null">
+			 	, INST_NO
+			 </if>
+			 <if test="user_id != '' and user_id != null">
+			 	, CREATER_ID
+			 </if>
+			 , CREATE_DATE
+			 , UPDATER_ID
+			 , UPDATE_DATE
+		) VALUES (
+			 #{test_sample_seq}
+			, #{test_item_cd}
+			<if test="test_method_no != '' and test_method_no != null">
+				, #{test_method_no}
+			</if>
+			<if test="test_inst_no != '' and test_inst_no != null">
+				, #{test_inst_no}
+			</if>
+			<if test="inst_no != '' and inst_no != null">
+				, #{inst_no}
+			</if>			
+			<if test="user_id != '' and user_id != null">
+				, #{user_id}
+			</if>
+			, SYSDATE
+			, ''
+			, ''
+		)
+	</insert>
+	
+	<update id="updateSampleItemCount" parameterType="AcceptVO">
+		UPDATE TEST_SAMPLE
+		SET TOT_ITEM_COUNT = (
+			SELECT COUNT(*) fROM TEST_SAMPLE_ITEM
+			WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+		)
+		WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+	</update>
+	
+	<!-- 팀조회 리스트 팝업 -->
+	<select id="teamListPop" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT 
+		    D.DEPT_CD,
+		    D.DEPT_NM,
+		    DT.TEAM_CD,
+		    DT.TEAM_NM
+		FROM DEPT_TEAM DT
+		LEFT JOIN DEPART D ON D.DEPT_CD = DT.DEPT_CD
+		WHERE 1=1
+	</select>
+	
+	<!-- 사업자등록증 다운로드 -->
+	<select id="bizFileDown" parameterType="ReqOrgVo" resultType="ReqOrgVo">
+		SELECT BIZ_FILE, FILE_NM
+		FROM REQ_ORG
+		WHERE REQ_ORG_NO = #{req_org_no}
+	</select>	
+	
+	<!-- 의뢰 -> 접수 수정(접수) -->
+	<update id="updateAcceptSeq" parameterType="AcceptVO">
+		UPDATE TEST_REQ SET
+		    STATE = (SELECT MIN(XA.STATE) FROM TEST_SAMPLE XA WHERE XA.TEST_REQ_SEQ = #{test_req_seq})
+		WHERE TEST_REQ_SEQ = #{test_req_seq}
+	</update>
+	
+	<!-- 의뢰 -> 접수 수정(시료) -->
+	<update id="updateSampleSeq" parameterType="AcceptVO">
+		UPDATE TEST_SAMPLE SET
+		    STATE = (SELECT MIN(XA.STATE) FROM TEST_SAMPLE_ITEM XA WHERE XA.TEST_REQ_SEQ = #{test_req_seq})
+		WHERE TEST_REQ_SEQ = #{test_req_seq}
+	</update>	
+	
+	<!-- 의뢰 -> 접수 수정(항목) -->
+	<update id="updateItemSeq" parameterType="AcceptVO">
+		UPDATE TEST_SAMPLE_ITEM SET
+		    STATE = #{state}
+		WHERE TEST_REQ_SEQ = #{test_req_seq} AND STATE NOT IN ('C','F','G','H')
+	</update>
+
+	
+	<!-- 접수 -> 의뢰처별 수수료 등록 -->
+	<insert id="insertOrgCommission" parameterType="AcceptVO">
+		INSERT INTO ORG_COMMISSION_DEPOSIT
+		(
+			DEPOSIT_NO
+			,REQ_ORG_NO
+			<if test="test_req_no != '' and test_req_no != null">
+			,TEST_REQ_NO
+			</if>
+			,DEPOSIT_AMT
+			,COMMISSION_AMT_FLAG
+			,TEST_REQ_SEQ
+		) VALUES (
+			(SELECT NVL(MAX(DEPOSIT_NO)+1,1) FROM ORG_COMMISSION_DEPOSIT)
+			, #{req_org_no}
+			<if test="test_req_no != '' and test_req_no != null">
+			, #{test_req_no}
+			</if>
+			, 0 
+<!-- 		면제,내부사용? = 'Y' 선불,후불? = 'N' commission_type -->
+			, #{commission_amt_flag}
+			, #{test_req_seq}
+		)
+	</insert>
+	
+	<!-- 접수 -> 의뢰처별 수수료 수정(팝업) -->
+	<insert id="updateOrgCommission" parameterType="AcceptVO">
+		UPDATE ORG_COMMISSION_DEPOSIT SET
+			REQ_ORG_NO = #{req_org_no}
+			<!-- , DEPOSIT_AMT = 0 -->
+<!-- 			<if test="fee_tot != '' and fee_tot != null "> -->
+<!-- 			, DEPOSIT_AMT = DECODE(REPLACE(#{fee_tot}, ',' , ''), null , '0' ,REPLACE(#{fee_tot}, ',' , '')) -->
+<!-- 			</if> -->
+			<if test="commission_amt_flag != '' and commission_amt_flag != null ">
+			, COMMISSION_AMT_FLAG = #{commission_amt_flag}
+			</if>
+		WHERE TEST_REQ_SEQ = #{test_req_seq}
+	</insert>
+	
+	<!-- 접수(의뢰) > 시료별 파일 리스트 조회 -->
+	<select id="selectSampleFileList" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT
+			ATT_SEQ,
+			TEST_SAMPLE_SEQ,
+			<!-- FILE_ATT, -->
+			FILE_NM,
+			CREATER_ID,
+			CREATE_DATE,
+			SAMPLE_ATT_GBN
+		FROM TEST_SAMPLE_ATTACH
+		WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+		ORDER BY ATT_SEQ
+	</select>
+	
+	<!-- 접수(의뢰) > 시료별 파일 조회 -->
+	<select id="sampleFileDetail" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT
+			ATT_SEQ,
+			TEST_SAMPLE_SEQ,
+			FILE_ATT,
+			FILE_NM
+		FROM TEST_SAMPLE_ATTACH
+		WHERE ATT_SEQ = #{att_seq}
+	</select>
+	
+	<!-- 접수(의뢰) > 시료별 파일 등록 -->
+	<insert id="insertTestSampleFile" parameterType="AcceptVO">
+		INSERT INTO TEST_SAMPLE_ATTACH (
+			ATT_SEQ
+			, TEST_SAMPLE_SEQ
+			, FILE_NM
+			, FILE_ATT
+			, CREATER_ID
+			, CREATE_DATE
+				
+		) VALUES (
+			(SELECT LPAD(NVL(MAX(ATT_SEQ),0)+1, 8, 0) FROM TEST_SAMPLE_ATTACH)
+			, #{test_sample_seq}
+			, #{file_nm}
+			, #{file_att}
+			, #{user_id}
+			, SYSDATE
+		)
+	</insert>
+	
+	<!-- 접수(의뢰) > 시료별 파일 수정 -->
+	<update id="updateTestSampleFile" parameterType="AcceptVO">
+		UPDATE TEST_SAMPLE_ATTACH SET		
+			FILE_NM = #{file_nm}		
+		<if test="file_att != null and file_att != '' ">
+			, FILE_ATT = #{file_att}
+		</if>	
+		WHERE ATT_SEQ = #{att_seq}
+	</update>
+	
+	<!-- 접수(의뢰) > 시료별 파일 삭제 -->
+	<delete id="deleteTestSampleFile" parameterType="AcceptVO">
+		DELETE FROM TEST_SAMPLE_ATTACH
+		WHERE ATT_SEQ = #{att_seq}
+	</delete>
+	
+	<!-- 접수(의뢰) > 시료별 파일 다운로드 -->
+	<select id="testSampleFileDown" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT 
+			FILE_NM, 
+			FILE_ATT
+		FROM TEST_SAMPLE_ATTACH
+		WHERE ATT_SEQ = #{att_seq}
+	</select>
+	
+	<!-- 접수(의뢰) > 항목별 파일 리스트 조회 -->
+	<select id="selectSampleItemFileList" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT
+			ATT_SEQ,
+			TEST_SAMPLE_SEQ,
+			TEST_ITEM_CD,
+		<!-- 	FILE_ATT, -->
+			FILE_NM,
+			CREATER_ID,
+			CREATE_DATE
+		FROM TEST_SAMPLE_ITEM_ATTACH
+		WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+		<if test="test_item_cd != null and test_item_cd != '' ">
+		AND TEST_ITEM_CD = #{test_item_cd}
+		</if>
+	</select>
+	
+	<!-- 접수(의뢰) > 항목별 파일 조회 -->
+	<select id="itemFileDetail" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT
+			ATT_SEQ,
+			TEST_SAMPLE_SEQ,
+			TEST_ITEM_CD,
+			FILE_ATT,
+			FILE_NM
+		FROM TEST_SAMPLE_ITEM_ATTACH
+		WHERE ATT_SEQ = #{att_seq}
+	</select>
+	
+	<!-- 접수(의뢰) > 항목별 파일 등록 -->
+	<insert id="insertTestSampleItemFile" parameterType="AcceptVO">
+		INSERT INTO TEST_SAMPLE_ITEM_ATTACH (
+			ATT_SEQ
+			, TEST_SAMPLE_SEQ
+			, TEST_ITEM_CD
+			, FILE_NM
+			, FILE_ATT
+			, CREATER_ID
+			, CREATE_DATE	
+		) VALUES (
+			(SELECT LPAD(NVL(MAX(ATT_SEQ),0)+1, 8, 0) FROM TEST_SAMPLE_ITEM_ATTACH)
+			, #{test_sample_seq}
+			, #{test_item_cd}
+			, #{file_nm}
+			, #{file_att}
+			, #{user_id}
+			, SYSDATE
+		)
+	</insert>
+	
+	<!-- 접수(의뢰) > 항목별 파일 수정 -->
+	<update id="updateTestSampleItemFile" parameterType="AcceptVO">
+		UPDATE TEST_SAMPLE_ITEM_ATTACH SET		
+			FILE_NM = #{file_nm}		
+		<if test="file_att != null and file_att != '' ">
+			, FILE_ATT = #{file_att}
+		</if>	
+		WHERE ATT_SEQ = #{att_seq}
+	</update>
+	
+	<!-- 접수(의뢰) > 항목별 파일 삭제 -->
+	<delete id="deleteTestSampleItemFile" parameterType="AcceptVO">
+		DELETE FROM TEST_SAMPLE_ITEM_ATTACH
+		WHERE ATT_SEQ = #{att_seq}
+	</delete>
+	
+	<!-- 접수(의뢰) > 항목별 파일 다운로드 -->
+	<select id="testSampleItemFileDown" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT 
+			FILE_NM, 
+			FILE_ATT
+		FROM TEST_SAMPLE_ITEM_ATTACH
+		WHERE ATT_SEQ = #{att_seq}
+	</select>
+	
+		<!-- 접수(의뢰) > 의뢰별 파일 리스트 조회 -->
+	<select id="selectRequestFileList" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT
+			ATT_SEQ,
+			TEST_REQ_SEQ,
+<!-- 			FILE_ATT, -->
+			FILE_NM,
+			CREATER_ID,
+			CREATE_DATE,
+			REQ_ATT_GBN
+		FROM TEST_REQ_ATTACH
+		WHERE TEST_REQ_SEQ = #{test_req_seq}
+	</select>
+	
+	<!-- 접수(의뢰) > 의뢰별 파일 조회 -->
+	<select id="requestFileDetail" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT
+			ATT_SEQ,
+			TEST_REQ_SEQ,
+			FILE_ATT,
+			FILE_NM,
+			REQ_ATT_GBN
+		FROM TEST_REQ_ATTACH
+		WHERE ATT_SEQ = #{att_seq}
+	</select>
+	
+	<!-- 접수(의뢰) > 의뢰별 파일 등록 -->
+	<insert id="insertTestRequestFile" parameterType="AcceptVO">
+		INSERT INTO TEST_REQ_ATTACH (
+			ATT_SEQ
+			, TEST_REQ_SEQ
+			, FILE_NM
+			, FILE_ATT
+			, CREATER_ID
+			, CREATE_DATE
+				
+		) VALUES (
+			(SELECT LPAD(NVL(MAX(ATT_SEQ),0)+1, 8, 0) FROM TEST_REQ_ATTACH)
+			, #{test_req_seq}
+			, #{file_nm}
+			, #{file_att}
+			, #{user_id}
+			, SYSDATE
+		)
+	</insert>
+	
+	<!-- 접수(의뢰) > 의뢰별 파일 수정 -->
+	<update id="updateTestRequestFile" parameterType="AcceptVO">
+		UPDATE TEST_REQ_ATTACH SET		
+			FILE_NM = #{file_nm}		
+		<if test="file_att != null and file_att != '' ">
+			, FILE_ATT = #{file_att}
+		</if>	
+		WHERE ATT_SEQ = #{att_seq}
+	</update>
+	
+	<!-- 접수(의뢰) > 의뢰별 파일 삭제 -->
+	<delete id="deleteTestRequestFile" parameterType="AcceptVO">
+		DELETE FROM TEST_REQ_ATTACH
+		WHERE ATT_SEQ = #{att_seq}
+	</delete>
+	
+	<!-- 접수(의뢰) > 의뢰별 파일 다운로드 -->
+	<select id="testRequestFileDown" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT 
+			FILE_NM, 
+			FILE_ATT
+		FROM TEST_REQ_ATTACH
+		WHERE ATT_SEQ = #{att_seq}
+	</select>
+	
+	
+	
+	<!-- 자가기준 품목별 항목 전체 리스트(팝업) -->
+	<select id="selectPopAllSelfStdItemList" parameterType="TestPrdStdVO" resultType="TestPrdStdVO">
+		SELECT
+			'개별' AS SPEC_DVS,
+		    CASE WHEN S.FNPRT_ITM_NM IS NULL THEN S.TESTITM_CD ELSE 
+		    (
+                SELECT D.TESTITM_CD
+                FROM INDV_SPEC D 
+                WHERE D.INDV_SPEC_SEQ = S.INDV_SPEC_SEQ AND D.FNPRT_ITM_INCLS_YN = 'Y'
+		    )
+		    END AS REPRESENT_CD,
+		    S.TESTITM_NM AS REPRESENT_NM,
+		    S.INDV_SPEC_SEQ,
+		    S.PRDLST_CD,
+		    S.PRDLST_CD_NM AS PRDLST_NM,
+		    S.TESTITM_CD AS TEST_ITEM_CD,
+		    CASE WHEN S.FNPRT_ITM_NM IS NULL THEN S.TESTITM_NM ELSE S.FNPRT_ITM_NM END AS TEST_ITEM_NM,
+		    DECODE(SUBSTR(S.UNIT_CD,0,1), 'C' , GET_COMMON_CODE(S.UNIT_CD,''), GET_COMMON_CODE_KFDA(S.UNIT_CD,'UNIT','NAME')) UNIT_CD,
+		    S.TEST_METHOD_NO,
+		    (SELECT TEST_METHOD_NM FROM TEST_METHOD WHERE TEST_METHOD_NO=S.TEST_METHOD_NO) AS TEST_METHOD_NM,
+		    DECODE(SUBSTR(S.JDGMNT_FOM_CD,0,1), 'C' , GET_COMMON_CODE(S.JDGMNT_FOM_CD,'') ,GET_COMMON_CODE_KFDA(S.JDGMNT_FOM_CD,'JDGMNT_FOM_CD','NAME')) JDGMNT_FOM_CD,
+		    S.VALD_MANLI,    
+		    DECODE(SUBSTR(S.CHOIC_FIT,0,1), 'C' , GET_COMMON_CODE(S.CHOIC_FIT,'') ,GET_COMMON_CODE_KFDA(S.CHOIC_FIT,'CHOIC','NAME')) CHOIC_FIT,
+		    DECODE(SUBSTR(S.CHOIC_IMPROPT,0,1), 'C' , GET_COMMON_CODE(S.CHOIC_IMPROPT,'') ,GET_COMMON_CODE_KFDA(S.CHOIC_IMPROPT,'CHOIC','NAME')) CHOIC_IMPROPT,
+		    S.LOQ_LVAL,
+		    S.LOQ_HVAL,
+		    S.SPEC_VAL,
+		    S.MIMM_VAL,
+		    DECODE(SUBSTR(S.MIMM_VAL_DVS_CD,0,1), 'C' , GET_COMMON_CODE(S.MIMM_VAL_DVS_CD,'') ,GET_COMMON_CODE_KFDA(S.MIMM_VAL_DVS_CD,'MIMM_VAL','NAME')) MIMM_VAL_DVS_CD,
+		    S.MXMM_VAL,
+		    DECODE(SUBSTR(S.MXMM_VAL_DVS_CD,0,1), 'C' , GET_COMMON_CODE(S.MXMM_VAL_DVS_CD,'') ,GET_COMMON_CODE_KFDA(S.MXMM_VAL_DVS_CD,'MXMM_VAL','NAME')) MXMM_VAL_DVS_CD,
+		    S.VALD_BEGN_DT,
+		    S.DEPT_CD,
+		    S.KFDA_YN,
+		    TSD.FEE,
+			'I' AS SPEC_TYPE,
+			CASE WHEN S.PRDLST_CD = #{prdlst_cd} THEN 1 ELSE 0 END AS ORDERBY,
+			(SELECT OM.OXIDE_CONTENT FROM OXIDE_MARK OM WHERE S.OXIDE_CD = OM.OXIDE_CD) AS OXIDE_CD
+		FROM INDV_SPEC S
+	    JOIN PRDLST_CL B ON S.PRDLST_CD = B.PRDLST_CD
+	    JOIN ANALYSIS C ON S.TESTITM_CD = C.TESTITM_CD
+	    JOIN TEST_STD_DEPT_FEE TSD ON S.TESTITM_CD = TSD.TESTITM_CD
+		WHERE S.PRDLST_CD = #{prdlst_cd} AND S.FNPRT_ITM_INCLS_YN = 'N'
+		AND S.VALD_BEGN_DT <![CDATA[<= ]]> TO_CHAR(SYSDATE,'YYYYmmdd')
+		<if test="testitm_lclas_cd != null and testitm_lclas_cd != '' ">
+			AND C.TESTITM_LCLAS_CD = #{testitm_lclas_cd}
+		</if>
+		<if test="test_item_nm != null and test_item_nm != '' ">
+			AND (UPPER(S.TESTITM_NM) LIKE '%' || UPPER(#{test_item_nm}) || '%')
+		</if>
+		<if test="spec_nm != null and spec_nm != '' ">
+			AND (UPPER(S.SPEC_NM) LIKE '%' || UPPER(#{spec_nm}) || '%')
+		</if>
+		
+		<!-- 
+		
+		UNION ALL
+	
+	    SELECT 
+	    	'공통 : ' || (SELECT XA.SPEC_NM FROM CMMN_SPEC_KIND XA WHERE XA.CMMN_SPEC_CD = A.CMMN_SPEC_CD) AS SPEC_DVS,
+			A.TESTITM_CD AS REPRESENT_CD,
+			A.TESTITM_NM AS REPRESENT_NM,
+		    A.CMMN_SPEC_SEQ AS INDV_SPEC_SEQ,
+		    A.PRDLST_CD,
+		    A.PRDLST_CD_NM AS PRDLST_NM,
+		    A.TESTITM_CD AS TEST_ITEM_CD,
+		    A.TESTITM_NM AS TEST_ITEM_NM,
+		    GET_COMMON_CODE_KFDA(A.UNIT_CD,'UNIT','NAME') UNIT_CD,
+		    GET_COMMON_CODE_KFDA(A.JDGMNT_FOM_CD,'JDGMNT_FOM_CD','NAME') JDGMNT_FOM_CD,
+		    VALD_MANLI,	    
+		    GET_COMMON_CODE_KFDA(A.CHOIC_FIT,'CHOIC','NAME') CHOIC_FIT,
+		    GET_COMMON_CODE_KFDA(A.CHOIC_IMPROPT,'CHOIC','NAME') CHOIC_IMPROPT,
+		    '' AS LOQ_LVAL,
+		    '' AS LOQ_HVAL,
+		    SPEC_VAL,
+		    MIMM_VAL,
+		    GET_COMMON_CODE_KFDA(A.MIMM_VAL_DVS_CD,'MIMM_VAL','NAME') MIMM_VAL_DVS_CD,
+		    MXMM_VAL,
+		    GET_COMMON_CODE_KFDA(A.MXMM_VAL_DVS_CD,'MXMM_VAL','NAME') MXMM_VAL_DVS_CD,
+		    A.VALD_BEGN_DT,
+		    '' AS DEPT_CD,
+		    'Y' AS KFDA_YN,
+			'C' AS SPEC_TYPE,
+			CASE WHEN A.PRDLST_CD = #{prdlst_cd} THEN 0 ELSE 1 END AS ORDERBY
+	    FROM CMMN_SPEC A
+	    JOIN CMMN_SPEC_KIND G ON A.CMMN_SPEC_CD = G.CMMN_SPEC_CD
+	    JOIN PRDLST_CL B ON A.PRDLST_CD = B.PRDLST_CD
+	    JOIN ANALYSIS C ON A.TESTITM_CD = C.TESTITM_CD
+	    WHERE A.PRDLST_CD IN (
+	        SELECT
+	        PRDLST_CD
+	        FROM PRDLST_CL A
+	        CONNECT BY PRIOR HRNK_PRDLST_CD = PRDLST_CD
+	        START WITH PRDLST_CD = #{prdlst_cd}
+	    )
+		AND A.VALD_BEGN_DT <![CDATA[<= ]]> TO_CHAR(SYSDATE,'YYYYmmdd')
+		<if test="testitm_lclas_cd != null and testitm_lclas_cd != '' ">
+			AND C.TESTITM_LCLAS_CD = #{testitm_lclas_cd}
+		</if>
+		<if test="test_item_nm != null and test_item_nm != '' ">
+			AND (UPPER(A.TESTITM_NM) LIKE '%' || UPPER(#{test_item_nm}) || '%')
+		</if>
+		<if test="spec_nm != null and spec_nm != '' ">
+			AND (UPPER(G.SPEC_NM) LIKE '%' || UPPER(#{spec_nm}) || '%')
+		</if>		
+		
+		-->
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY SPEC_DVS, ORDERBY, INDV_SPEC_SEQ, PRDLST_CD, REPRESENT_CD, TEST_ITEM_CD
+		</if>
+	</select>
+	
+	
+	<!-- 등급별 항목 전체 리스트(팝업) -->
+	<select id="selectPopAllSelfGradeItemList" parameterType="TestPrdStdVO" resultType="TestPrdStdVO">
+	
+		SELECT
+			 A.GRADE_SEQ
+			,A.PRDLST_CD
+			,C.KOR_NM AS PRDLST_NM
+			,A.TESTITM_CD AS TEST_ITEM_CD
+			,B.TESTITM_NM AS TEST_ITEM_NM
+			,'C38001' AS STD_TYPE
+			,'C31008' AS RESULT_TYPE
+			,A.GRADE1
+			,A.GRADE1_RANGE
+			,A.GRADE1 || ' ' || GET_COMMON_CODE(A.GRADE1_RANGE,'C81') AS GRADE1_NM
+			,A.GRADE2
+			,A.GRADE2_RANGE
+			,A.GRADE2 || ' ' || GET_COMMON_CODE(A.GRADE2_RANGE,'C81') AS GRADE2_NM
+			,A.GRADE3
+			,A.GRADE3_RANGE
+			,A.GRADE3 || ' ' || GET_COMMON_CODE(A.GRADE3_RANGE,'C81') AS GRADE3_NM
+			,A.GRADE4
+			,A.GRADE4_RANGE
+			,A.GRADE4 || ' ' || GET_COMMON_CODE(A.GRADE4_RANGE,'C82') AS GRADE4_NM			
+		FROM SAMPLE_GRADE A
+		JOIN ANALYSIS B ON A.TESTITM_CD = B.TESTITM_CD
+		JOIN PRDLST_CL C ON A.PRDLST_CD = C.PRDLST_CD
+		WHERE A.PRDLST_CD = #{prdlst_cd}
+	
+	</select>
+	
+		<!-- 접수 수수료 마스터로 등록 -->
+	<update id="saveItemMasterFee" parameterType="AcceptVO">
+		
+		DECLARE
+				tmp_prdlst_cd	VARCHAR2(14);
+		
+		BEGIN
+		
+			SELECT 
+				PRDLST_CD INTO tmp_prdlst_cd
+			FROM TEST_SAMPLE
+			WHERE TEST_SAMPLE_SEQ = #{test_sample_seq};
+
+		    MERGE INTO TEST_STD_FEE
+		    USING DUAL 
+		    ON (
+		        DEPT_CD = #{dept_cd}
+		        AND TESTITM_CD = #{test_item_cd}
+		        AND PRDLST_CD = tmp_prdlst_cd
+		        AND TEST_STD_NO = #{test_std_no}
+		    )
+		    WHEN MATCHED THEN
+		    UPDATE SET
+		        FEE = #{prdlst_fee}
+		        ,UPDATER_ID = #{user_id}
+		        ,UPDATE_DATE = SYSDATE
+		    WHEN NOT MATCHED THEN
+		    INSERT (TEST_STD_NO, DEPT_CD, PRDLST_CD, TESTITM_CD, FEE, CREATER_ID, CREATE_DATE)
+		    VALUES (#{test_std_no}, #{dept_cd} , tmp_prdlst_cd , #{test_item_cd}, #{prdlst_fee}, #{user_id}, SYSDATE )
+		    ;
+		    
+		    MERGE INTO TEST_STD_DEPT_FEE
+		    USING DUAL 
+		    ON (
+		        DEPT_CD = #{dept_cd}
+		        AND TESTITM_CD = #{test_item_cd}
+		        AND TEST_STD_NO = #{test_std_no}
+		    )
+		    WHEN MATCHED THEN
+		    UPDATE SET
+		        FEE = #{dept_fee}
+		        ,UPDATER_ID = #{user_id}
+		        ,UPDATE_DATE = SYSDATE
+		    WHEN NOT MATCHED THEN
+		    INSERT (TEST_STD_NO, DEPT_CD, TESTITM_CD, FEE, CREATER_ID, CREATE_DATE)
+		    VALUES (#{test_std_no}, #{dept_cd} , #{test_item_cd}, #{dept_fee}, #{user_id}, SYSDATE )
+		    ;
+		        
+		END;
+	</update>
+	
+	<select id="selectFeeValue" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT
+		<!-- NVL(
+		    (
+		        SELECT FEE 
+		        FROM TEST_STD_FEE TSF 
+		        WHERE TSF.TEST_STD_NO = #{test_std_no} 
+		        AND TSF.DEPT_CD = #{dept_cd} 
+		        AND TSF.PRDLST_CD = #{prdlst_cd}
+		        AND TSF.TESTITM_CD = #{test_item_cd}
+		    ),0
+		) AS PRDLST_FEE, -->
+		NVL(
+		    (
+		        SELECT FEE 
+		        FROM TEST_STD_DEPT_FEE TSDF 
+		        WHERE TSDF.TEST_STD_NO = #{test_std_no} 
+		        AND TSDF.DEPT_CD = #{dept_cd}
+		        AND TSDF.TESTITM_CD = #{test_item_cd}
+		    ),0
+		) AS DEPT_FEE
+		FROM DUAL
+	</select>
+	
+	<select id="selectOrgUnpaid" parameterType="CommissionCheckVO" resultType="CommissionCheckVO">
+		SELECT 
+		NVL(
+		    SUM(
+		    	NVL2(
+		    		A.DISCOUNT_RATE, 
+		    		A.FEE_TOT - (
+		    			CASE WHEN A.DISCOUNT_FLAG = 'Y' THEN A.FEE_TOT * (A.DISCOUNT_RATE * 0.01) ELSE 0 END
+		    		), 
+		    	A.FEE_TOT)
+		    ),0
+		) AS COMMISSION_AMT_DET,
+		NVL(SUM(OCD.DEPOSIT_AMT),0) AS DEPOSIT_AMT,
+		NVL(
+		    SUM(
+		    	NVL2(
+		    		A.DISCOUNT_RATE, A.FEE_TOT - 
+		    		(
+		    			CASE WHEN A.DISCOUNT_FLAG = 'Y' THEN A.FEE_TOT * (A.DISCOUNT_RATE * 0.01) ELSE 0 END
+		    		), A.FEE_TOT
+		    	) - 
+		    	NVL(OCD.DEPOSIT_AMT,0)
+		    ),0
+		) AS DEFAULT_AMT
+		FROM TEST_REQ A 
+		LEFT JOIN ORG_COMMISSION_DEPOSIT OCD ON OCD.REQ_ORG_NO = A.REQ_ORG_NO AND OCD.TEST_REQ_SEQ = A.TEST_REQ_SEQ
+		WHERE A.REQ_ORG_NO = #{req_org_no}  AND
+		NVL(
+			NVL2(
+				A.DISCOUNT_RATE, A.FEE_TOT - (A.FEE_TOT * (A.DISCOUNT_RATE * 0.01)
+			), A.FEE_TOT
+		),0) - 
+		NVL(OCD.DEPOSIT_AMT, 0) > 0
+	</select>
+
+	<select id="labelPrint" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT A.TEST_SAMPLE_SEQ, A.SAMPLE_REG_NM, 
+		CASE WHEN TO_NUMBER(A.TOT_ITEM_COUNT) = 1 THEN
+			C.TESTITM_NM
+		ELSE
+			C.TESTITM_NM || ' 외' || TO_CHAR(TO_NUMBER(A.TOT_ITEM_COUNT) -1) || '건'
+		END AS ACCEPT_ITEM_INFO,  
+		TO_CHAR(TO_DATE(B.SAMPLE_ARRIVAL_DATE, 'YYYYmmdd'), 'YYYY-MM-DD') SAMPLE_ARRIVAL_DATE
+		FROM TEST_SAMPLE A
+		JOIN TEST_REQ B ON A.TEST_REQ_SEQ = B.TEST_REQ_SEQ
+		JOIN
+		(
+			SELECT IA.TEST_SAMPLE_SEQ, MAX(IB.TESTITM_NM) AS TESTITM_NM
+		  FROM TEST_SAMPLE_ITEM IA
+		  JOIN ANALYSIS IB ON IA.TEST_ITEM_CD = IB.TESTITM_CD
+		  GROUP BY IA.TEST_SAMPLE_SEQ
+		) C ON A.TEST_SAMPLE_SEQ = C.TEST_SAMPLE_SEQ
+		WHERE A.TEST_REQ_SEQ IN (${test_req_seq})
+	</select>
+	
+	
+	<!-- 2019-10-01. 의뢰 정보. 채취 방법, 채취 구분 저장 -->
+	<insert id="insertCollect" parameterType="AcceptVO">
+	INSERT INTO TEST_REQ_COLLECT
+	(
+		TEST_REQ_SEQ,
+		COLLECT_PRE_CODE,
+		COLLECT_CODE,
+		ETC
+	)
+	VALUES
+	(
+		#{test_req_seq},
+		#{collect_pre_code},
+		#{collect_code},
+		#{collect_code_etc}
+	)
+	</insert>
+	
+	<delete id="deleteCollect" parameterType="AcceptVO">
+	DELETE FROM TEST_REQ_COLLECT WHERE TEST_REQ_SEQ = #{test_req_seq}
+	</delete>
+	
+	<!-- 팝업창 스탠다드 추가 -->
+ 	<update id="insertStdPLItem" parameterType="TestStandardVO">
+		UPDATE TEST_SAMPLE
+		SET SM_CODE = #{sm_code}
+		    ,RESULT_INPUT_TYPE = 'C85001'
+		WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+	</update> 
+	
+	<!-- 항목별 스탠다드 추가 -->
+	<update id="updateStdItemGrid" parameterType="TestStandardVO">
+	MERGE INTO TEST_SAMPLE_ITEM A
+      USING
+      (
+      SELECT testitm_cd,jdgmnt_fom_cd,base_cd,spec_val,vald_manli,mimm_val,mimm_val_dvs_cd,mxmm_val,mxmm_val_dvs_cd,choic_fit,choic_impropt,loq_lval,loq_hval,sm_code
+      FROM STANDARD_SPEC WHERE FNPRT_ITM_NM IS NULL AND DEL_ST_SPEC = 'N'
+      ) B
+      ON (A.TEST_REQ_SEQ = #{test_req_seq} AND A.TEST_SAMPLE_SEQ = #{test_sample_seq} AND A.TEST_ITEM_CD = #{testitm_cd} AND a.test_item_cd = b.testitm_cd AND b.sm_code = #{sm_code}) 
+      WHEN MATCHED THEN
+      UPDATE      
+      SET a.RESULT_TYPE = b.jdgmnt_fom_cd
+        ,a.BASE = b.base_cd
+        ,a.STD_VAL = b.spec_val
+        ,a.VALID_POSITION = b.vald_manli
+        ,a.STD_LVAL = b.mimm_val
+        ,a.LVAL_TYPE = b.mimm_val_dvs_cd
+        ,a.STD_HVAL = b.mxmm_val
+        ,a.HVAL_TYPE = b.mxmm_val_dvs_cd
+        ,a.STD_FIT = b.choic_fit
+        ,a.STD_UNFIT = b.choic_impropt
+        ,a.LOQ_LVAL = b.loq_lval
+        ,a.LOQ_HVAL = b.loq_hval
+        ,a.std_type = 'C38001'
+	</update>
+	
+	<!-- 전처리비용 시료 적용 -->
+	<update id="savePretreatmentSample" parameterType="AcceptVO">
+		UPDATE TEST_SAMPLE SET
+			PRETREATMENT_CD = #{pretreatment_cd}
+		WHERE TEST_REQ_SEQ = #{test_req_seq}
+		AND TEST_SAMPLE_SEQ = #{test_sample_seq}
+	</update>
+	
+	<!-- 전처리비용 의뢰 적용 -->
+	<update id="savePretreatmentReq" parameterType="AcceptVO">
+		UPDATE TEST_REQ SET
+			FEE_TOT = NVL(FEE_TOT_ITEM,0) + NVL(FEE_TOT_EST,0) +
+			(SELECT NVL(SUM(PRE_COST),0) FROM TEST_SAMPLE A
+			LEFT JOIN PRETREATMENT B ON A.PRETREATMENT_CD = B.PRETREATMENT_CD
+			WHERE TEST_REQ_SEQ = #{test_req_seq}),
+			FEE_TOT_PRECOST = 
+			(SELECT NVL(SUM(PRE_COST),0) FROM TEST_SAMPLE A
+			LEFT JOIN PRETREATMENT B ON A.PRETREATMENT_CD = B.PRETREATMENT_CD
+			WHERE TEST_REQ_SEQ = #{test_req_seq})
+		WHERE TEST_REQ_SEQ = #{test_req_seq}
+	</update>
+	
+	<!-- 의뢰 총수수료 반환 -->
+	<select id="selectTestReqFee" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT FEE_TOT FROM TEST_REQ
+		WHERE TEST_REQ_SEQ = #{test_req_seq}
+	</select>
+	
+	<!-- 스탠다드 항목 초기화 -->
+	<update id="updateStandardResetItem" parameterType="AcceptVO">
+	    UPDATE TEST_SAMPLE_ITEM SET
+	    	 RESULT_TYPE = 'C31002'
+        	,BASE = NULL
+        	,STD_VAL = NULL
+        	,VALID_POSITION = NULL
+        	,STD_LVAL = NULL
+        	,LVAL_TYPE = NULL
+        	,STD_HVAL = NULL
+        	,HVAL_TYPE = NULL
+        	,STD_FIT = NULL
+        	,STD_UNFIT = NULL
+        	,LOQ_LVAL = NULL
+        	,LOQ_HVAL = NULL
+		WHERE TEST_REQ_SEQ=#{test_req_seq} 
+		AND TEST_SAMPLE_SEQ = #{test_sample_seq}
+	</update>
+	
+	<!-- 등급별 항목 초기화 -->
+	<update id="updateGradeResetItem" parameterType="AcceptVO">
+	    UPDATE TEST_SAMPLE_ITEM SET
+	    	 GRADE1 = NULL
+	    	,GRADE1_RANGE = NULL
+	    	,GRADE2 = NULL
+	    	,GRADE2_RANGE = NULL
+	    	,GRADE3 = NULL
+	    	,GRADE3_RANGE = NULL
+	    	,GRADE4 = NULL
+	    	,GRADE4_RANGE = NULL
+	    	,RESULT_TYPE = 'C31004'
+	    WHERE TEST_REQ_SEQ=#{test_req_seq} 
+		AND TEST_SAMPLE_SEQ = #{test_sample_seq}
+	</update>
+	
+	<!-- 등급별 항목 추가 -->
+	<update id="updateGradeItemGrid" parameterType="AcceptVO">
+	    UPDATE TEST_SAMPLE_ITEM SET
+	    	 GRADE1 = #{grade1}
+	    	,GRADE1_RANGE = #{grade1_range}
+	    	,GRADE2 = #{grade2}
+	    	,GRADE2_RANGE = #{grade2_range}
+	    	,GRADE3 = #{grade3}
+	    	,GRADE3_RANGE = #{grade3_range}
+	    	,GRADE4 = #{grade4}
+	    	,GRADE4_RANGE = #{grade4_range}
+	    	,RESULT_TYPE = 'C31008'
+	    	,STD_TYPE = 'C38001'
+	    WHERE TEST_REQ_SEQ=#{test_req_seq} 
+	          AND TEST_SAMPLE_SEQ = #{test_sample_seq} 
+	          AND TEST_ITEM_CD=#{test_item_cd}
+	</update>
+	
+	<!-- 검체별 첨부 문서 구분 추가 -->
+	<update id="updateFileDivision" parameterType="AcceptVO">
+ 		UPDATE TEST_REQ_ATTACH
+			SET REQ_ATT_GBN = #{req_att_gbn}
+		WHERE ATT_SEQ = #{att_seq} 
+
+<!--	출력물 표시가 검체 첨부문서 > 의뢰 첨부 문서로 변경
+ 		UPDATE TEST_SAMPLE_ATTACH
+			SET SAMPLE_ATT_GBN = #{sample_att_gbn}
+		WHERE ATT_SEQ = #{att_seq} 
+-->
+	</update>
+	
+	<!-- 성적서 항목 순서 수정 -->
+	<update id="updateOrder" parameterType="AcceptVO">
+		UPDATE TEST_SAMPLE_ITEM
+			SET REPORT_ORDER = #{report_order}
+		WHERE TEST_ITEM_CD = #{test_item_cd}
+		AND TEST_REQ_SEQ = #{test_req_seq}
+		<if test="unit_code != null and unit_code != '' ">
+		AND UNIT = #{unit_code}
+		</if>
+		<if test="unit_code == null or unit_code == '' ">
+		AND UNIT IS NULL
+		</if>
+		<if test="test_method_code != null and test_method_code != '' ">
+		AND TEST_METHOD = #{test_method_code}
+		</if>
+		<if test="test_method_code == null or test_method_code == '' ">
+		AND TEST_METHOD IS NULL
+		</if>
+		<if test="account_no != null and account_no != '' ">
+		AND ACCOUNT_NO = #{account_no}
+		</if>		
+		<if test="account_no == null or account_no == '' ">
+		AND ACCOUNT_NO IS NULL
+		</if>		
+		<!--  AND TEST_SAMPLE_SEQ = #{test_sample_seq}  -->
+	
+	</update>
+	
+	<!-- 항목별 스탠다드 추가 -->
+	<!-- <update id="insertStdItemGrid" parameterType="TestStandardVO">
+		MERGE INTO TEST_SAMPLE_ITEM A
+	      USING
+	      (
+	      SELECT testitm_cd,jdgmnt_fom_cd,base_cd,spec_val,vald_manli,mimm_val,mimm_val_dvs_cd,mxmm_val,mxmm_val_dvs_cd,choic_fit,choic_impropt,loq_lval,loq_hval,sm_code,item_order
+	      FROM STANDARD_SPEC WHERE FNPRT_ITM_NM IS NULL AND DEL_ST_SPEC = 'N'
+	      ) B
+	      ON (A.TEST_REQ_SEQ = #{test_req_seq} AND A.TEST_SAMPLE_SEQ = #{test_sample_seq} AND A.TEST_ITEM_CD = #{testitm_cd} AND a.test_item_cd = b.testitm_cd AND b.sm_code = #{sm_code}) 
+	      WHEN MATCHED THEN
+	      UPDATE      
+	      SET a.RESULT_TYPE = b.jdgmnt_fom_cd
+	        ,a.BASE = b.base_cd
+	        ,a.STD_VAL = b.spec_val
+	        ,a.VALID_POSITION = b.vald_manli
+	        ,a.STD_LVAL = b.mimm_val
+	        ,a.LVAL_TYPE = b.mimm_val_dvs_cd
+	        ,a.STD_HVAL = b.mxmm_val
+	        ,a.HVAL_TYPE = b.mxmm_val_dvs_cd
+	        ,a.STD_FIT = b.choic_fit
+	        ,a.STD_UNFIT = b.choic_impropt
+	        ,a.LOQ_LVAL = b.loq_lval
+	        ,a.LOQ_HVAL = b.loq_hval
+	        ,a.std_type = 'C38001'
+	        ,a.disp_order = b.item_order
+	</update> -->
+	
+	<!-- 스탠다드 항목 삽입 -->
+	<insert id="insertAcceptStdItem" parameterType="AcceptVO">
+		<selectKey resultType="string" keyProperty="test_item_seq" order="BEFORE">
+			SELECT LPAD(NVL(MAX(TEST_ITEM_SEQ), 0)+1 , 3, 0) FROM TEST_SAMPLE_ITEM WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+		</selectKey>
+		
+		INSERT INTO TEST_SAMPLE_ITEM 
+		(
+			TEST_SAMPLE_SEQ
+			, TEST_ITEM_SEQ
+			, TEST_ITEM_CD
+			, DISP_ORDER
+			, STATE
+			, CREATE_DATE
+			, CREATER_ID
+			, RETURN_FLAG
+			, DEPT_CD
+			, TESTER_ID
+			<if test="team_cd != null and team_cd != '' ">
+				, TEAM_CD
+			</if>
+			<if test="test_method_no != null and test_method_no != '' ">
+				, TEST_METHOD
+			</if>
+			<if test="test_inst_no != null and test_inst_no != '' ">
+				, TEST_INST
+			</if>
+			<if test="prdlst_cd != null and prdlst_cd != '' ">
+				, PRDLST_CD
+			</if>
+			, TEST_REQ_SEQ
+			<if test="std_dept_cd != null and std_dept_cd != '' ">
+				, STD_DEPT_CD
+			</if>
+			<if test="std_dept_nm != null and std_dept_nm != '' ">
+				, STD_DEPT_NM
+			</if>
+			<if test="represent_cd != null and represent_cd != '' ">
+				, REPRESENT_CD
+			</if>
+			, STD_TYPE
+			, RESULT_TYPE
+			, TEST_REQ_NO
+			, REPORT_FLAG
+	        , BASE
+	        , STD_VAL
+	        , VALID_POSITION
+	        , STD_LVAL
+	        , LVAL_TYPE
+	        , STD_HVAL
+	        , HVAL_TYPE
+	        , STD_FIT
+	        , STD_UNFIT
+	        , LOQ_LVAL
+	        , LOQ_HVAL
+	        , UNIT
+	        , OXIDE_CD
+	        , REPORT_ORDER
+	        , LOQ_LVAL_MARK
+	        , LOQ_HVAL_MARK
+	        , ACCOUNT_NO
+	        , FEE
+		) VALUES (
+			#{test_sample_seq}
+			, #{test_item_seq}
+			, #{testitm_cd}
+			, (SELECT NVL(MAX(DISP_ORDER), 0)+1 FROM TEST_SAMPLE_ITEM WHERE TEST_SAMPLE_SEQ = #{test_sample_seq})
+			, #{state}
+			, TO_CHAR(SYSDATE,'YYYYMMDD')
+			, #{user_id}
+			, 'N'
+			, (SELECT DEPT_CD FROM DEPT_USER_ITEM WHERE TEST_ITEM_CD = #{testitm_cd})
+			, (SELECT USER_ID FROM DEPT_USER_ITEM WHERE TEST_ITEM_CD = #{testitm_cd})
+			<if test="team_cd != null and team_cd != '' ">
+				, #{team_cd}
+			</if>
+			<if test="test_method_no != null and test_method_no != '' ">
+				, #{test_method_no}
+			</if>
+			<if test="test_inst_no != null and test_inst_no != '' ">
+				, #{test_inst_no}
+			</if>
+			<if test="prdlst_cd != null and prdlst_cd != '' ">
+				, #{prdlst_cd}
+			</if>
+			, #{test_req_seq}
+			<if test="std_dept_cd != null and std_dept_cd != '' ">
+			, #{std_dept_cd}
+			</if>
+			<if test="std_dept_nm != null and std_dept_nm != '' ">
+			, #{std_dept_nm}
+			</if>
+			<if test="represent_cd != null and represent_cd != '' ">
+			, #{represent_cd}
+			</if>
+			<!-- <choose>
+			    <when test="jdgmnt_fom_cd != null and jdgmnt_fom_cd != ''">
+			      , 'C38001'
+			    </when>
+			    <otherwise>
+			      , 'C38002'
+			    </otherwise>
+		    </choose> -->
+		    , 'C38002'
+		    <choose>
+			    <when test="jdgmnt_fom_cd != null and jdgmnt_fom_cd != ''">
+			      , #{jdgmnt_fom_cd}
+			    </when>
+			    <otherwise>
+			      , 'C31002'
+			    </otherwise>
+		    </choose>
+			,(SELECT TEST_REQ_NO FROM TEST_SAMPLE WHERE TEST_SAMPLE_SEQ = #{test_sample_seq})
+			<choose>
+			    <when test="report_flag != null and report_flag != ''">
+			      , #{report_flag}
+			    </when>
+			    <otherwise>
+			      , 'Y'
+			    </otherwise>
+		    </choose>
+	        , #{base_cd}
+	        , #{spec_val}
+	        , #{vald_manli}
+	        , #{mimm_val}
+	        , #{mimm_val_dvs_cd}
+	        , #{mxmm_val}
+	        , #{mxmm_val_dvs_cd}
+	        , #{choic_fit}
+	        , #{choic_impropt}
+	        , #{loq_lval}
+	        , #{loq_hval}
+	        , #{unit_cd}
+	        , #{oxide_cd}
+	        , #{item_order}
+	        , #{loq_lval_mark}
+	        , #{loq_hval_mark}
+	        , #{formula_no}
+	        , (SELECT 
+					NVL(
+					    (
+					        SELECT FEE 
+							FROM TEST_STD_DEPT_FEE TSDF 
+					        WHERE TSDF.TEST_STD_NO = '001'
+					        AND TSDF.DEPT_CD = (SELECT DEPT_CD FROM DEPT_USER_ITEM WHERE TEST_ITEM_CD = #{testitm_cd})
+					        AND TSDF.TESTITM_CD = #{testitm_cd}
+					    ),0
+					) AS DEPT_FEE
+					FROM DUAL)
+				)
+	</insert>
+	
+	<!-- 등급 항목 삽입 -->
+	<insert id="insertAcceptGrdItem" parameterType="AcceptVO">
+		<selectKey resultType="string" keyProperty="test_item_seq" order="BEFORE">
+			SELECT LPAD(NVL(MAX(TEST_ITEM_SEQ), 0)+1 , 3, 0) FROM TEST_SAMPLE_ITEM WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+		</selectKey>
+		
+		INSERT INTO TEST_SAMPLE_ITEM 
+		(
+			TEST_SAMPLE_SEQ
+			, TEST_ITEM_SEQ
+			, TEST_ITEM_CD
+			, DISP_ORDER
+			, STATE
+			, CREATE_DATE
+			, CREATER_ID
+			, RETURN_FLAG
+			, DEPT_CD
+			, TESTER_ID
+			<if test="team_cd != null and team_cd != '' ">
+				, TEAM_CD
+			</if>
+			<if test="test_method_no != null and test_method_no != '' ">
+				, TEST_METHOD
+			</if>
+			<if test="test_inst_no != null and test_inst_no != '' ">
+				, TEST_INST
+			</if>
+			<if test="prdlst_cd != null and prdlst_cd != '' ">
+				, PRDLST_CD
+			</if>
+			, TEST_REQ_SEQ
+			<if test="std_dept_cd != null and std_dept_cd != '' ">
+				, STD_DEPT_CD
+			</if>
+			<if test="std_dept_nm != null and std_dept_nm != '' ">
+				, STD_DEPT_NM
+			</if>
+			<if test="represent_cd != null and represent_cd != '' ">
+				, REPRESENT_CD
+			</if>
+			, STD_TYPE
+			, RESULT_TYPE
+			, TEST_REQ_NO
+			, REPORT_FLAG
+	        , UNIT
+	        , OXIDE_CD
+	        , GRADE1
+            , GRADE2
+            , GRADE3
+            , GRADE4
+            , GRADE1_RANGE
+            , GRADE2_RANGE
+            , GRADE3_RANGE
+            , GRADE4_RANGE
+            , REPORT_ORDER
+            , LOQ_LVAL
+	        , LOQ_HVAL
+	        , LOQ_LVAL_MARK
+	        , LOQ_HVAL_MARK
+	        , ACCOUNT_NO
+	        , VALID_POSITION
+	        , FEE
+		) VALUES (
+			#{test_sample_seq}
+			, #{test_item_seq}
+			, #{testitm_cd}
+			, (SELECT NVL(MAX(DISP_ORDER), 0)+1 FROM TEST_SAMPLE_ITEM WHERE TEST_SAMPLE_SEQ = #{test_sample_seq})
+			, #{state}
+			, TO_CHAR(SYSDATE,'YYYYMMDD')
+			, #{user_id}
+			, 'N'
+			, (SELECT DEPT_CD FROM DEPT_USER_ITEM WHERE TEST_ITEM_CD = #{testitm_cd})
+			, (SELECT USER_ID FROM DEPT_USER_ITEM WHERE TEST_ITEM_CD = #{testitm_cd})
+			<if test="team_cd != null and team_cd != '' ">
+				, #{team_cd}
+			</if>
+			<if test="test_method_no != null and test_method_no != '' ">
+				, #{test_method_no}
+			</if>
+			<if test="test_inst_no != null and test_inst_no != '' ">
+				, #{test_inst_no}
+			</if>
+			<if test="prdlst_cd != null and prdlst_cd != '' ">
+				, #{prdlst_cd}
+			</if>
+			, #{test_req_seq}
+			<if test="std_dept_cd != null and std_dept_cd != '' ">
+			, #{std_dept_cd}
+			</if>
+			<if test="std_dept_nm != null and std_dept_nm != '' ">
+			, #{std_dept_nm}
+			</if>
+			<if test="represent_cd != null and represent_cd != '' ">
+			, #{represent_cd}
+			</if>
+			<!-- <choose>
+			    <when test="grade_at == 'Y'.toString()">
+			      , 'C38001'
+			    </when>
+			    <otherwise>
+			      , 'C38002'
+			    </otherwise>
+		    </choose> -->
+		    , 'C38002'
+		    <choose>
+			    <when test="grade_at == 'Y'.toString()">
+			      , 'C31008'
+			    </when>
+			    <otherwise>
+			      , 'C31004'
+			    </otherwise>
+		    </choose>
+			,(SELECT TEST_REQ_NO FROM TEST_SAMPLE WHERE TEST_SAMPLE_SEQ = #{test_sample_seq})
+			<choose>
+			    <when test="report_flag != null and report_flag != ''">
+			      , #{report_flag}
+			    </when>
+			    <otherwise>
+			      , 'Y'
+			    </otherwise>
+		    </choose>
+	        , #{unit_cd}
+	        , #{oxide_cd}
+	        , #{grade1}
+            , #{grade2}
+            , #{grade3}
+            , #{grade4}
+            , #{grade1_range}
+            , #{grade2_range}
+            , #{grade3_range}
+            , #{grade4_range}
+            , #{item_order}
+            , #{loq_lval}
+	        , #{loq_hval}
+	        , #{loq_lval_mark}
+	        , #{loq_hval_mark}
+	        , #{formula_no}
+	        , #{vald_manli}
+            , (SELECT 
+				NVL(
+				    (
+				        SELECT FEE 
+						FROM TEST_STD_DEPT_FEE TSDF 
+				        WHERE TSDF.TEST_STD_NO = '001'
+				        AND TSDF.DEPT_CD = (SELECT DEPT_CD FROM DEPT_USER_ITEM WHERE TEST_ITEM_CD = #{testitm_cd})
+				        AND TSDF.TESTITM_CD = #{testitm_cd}
+				    ),0
+				) AS DEPT_FEE
+				FROM DUAL
+			)
+		)
+	</insert>
+	
+		<!--검체 수정 -->
+	<update id="updateReqSampleMessage" parameterType="AcceptVO">
+		UPDATE TEST_SAMPLE SET
+			PRODUCE_DATE = #{produce_date}
+			,PRODUCE_NO = #{produce_no}
+			,PRODUCER_NM = #{producer_nm}
+			,PRODUCE_PLACE = #{produce_place}
+			,SUPPLIER = #{supplier}
+			,SAMPLE_ETC_NM = #{sample_etc_nm} 
+			,EXPIRY_DATE = REPLACE(#{expiry_date}, '-', '')
+			,SAMPLE_WEIGHT = #{sample_weight}
+			,KEEP_METHOD = #{keep_method}
+			,ORDERER_NM = #{orderer_nm}
+			,BUILDER_NM = #{builder_nm}
+			,JOINER_NM = #{joiner_nm}
+			,ETC_DESC = #{etc_desc}
+		WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+		AND TEST_REQ_SEQ = #{test_req_seq}
+	</update>
+	
+	<select id="selectReportOrder" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT A.*, ROWNUM AS NUMROW
+		FROM
+			(SELECT 			
+				TEST_ITEM_CD
+				, (SELECT TESTITM_NM FROM ANALYSIS AN WHERE AN.TESTITM_CD = SI.TEST_ITEM_CD ) AS TEST_ITEM_NM
+	        	, (SELECT ENG_NM FROM ANALYSIS AN WHERE AN.TESTITM_CD = SI.TEST_ITEM_CD ) AS TEST_ITEM_ENG_NM
+	        	, NVL(GET_COMMON_CODE((SELECT TESTITM_LCLAS_CD FROM ANALYSIS AN WHERE AN.TESTITM_CD = SI.TEST_ITEM_CD ), ''),'') AS TESTITM_LCLAS_NM
+				, NVL(GET_COMMON_CODE((SELECT TESTITM_MLSFC_CD FROM ANALYSIS AN WHERE AN.TESTITM_CD = SI.TEST_ITEM_CD ), ''),'') AS TESTITM_MLSFC_NM
+	        	, (SELECT TESTITM_LCLAS_CD FROM ANALYSIS AN WHERE AN.TESTITM_CD = SI.TEST_ITEM_CD ) AS TESTITM_LCLAS_CD
+				, (SELECT TESTITM_MLSFC_CD FROM ANALYSIS AN WHERE AN.TESTITM_CD = SI.TEST_ITEM_CD ) AS TESTITM_MLSFC_CD
+	       		, UNIT AS UNIT_CODE
+	       		, NVL(GET_COMMON_CODE(UNIT, ''),'') AS UNIT
+	          	, TEST_METHOD AS TEST_METHOD_CODE
+	        	, (SELECT TEST_METHOD_NM FROM TEST_METHOD WHERE SI.TEST_METHOD = TEST_METHOD_NO )AS TEST_METHOD_NM
+	          	, ACCOUNT_NO
+	        	, (SELECT FORMULA_NM FROM FORMULA WHERE SI.ACCOUNT_NO = FORMULA_NO )AS FORMULA_NO
+	        	
+	 <!--        	, NVL(GET_COMMON_CODE(TEST_METHOD, ''),'') AS TEST_METHOD
+	        	, NVL(GET_COMMON_CODE(ACCOUNT_NO, ''),'') AS ACCOUNT_NO -->
+			
+	        	,MAX(SI.REPORT_ORDER) AS REPORT_ORDER
+			FROM TEST_REQ R
+			LEFT JOIN TEST_SAMPLE_ITEM SI ON SI.TEST_REQ_SEQ = R.TEST_REQ_SEQ
+			INNER JOIN ANALYSIS AN ON AN.TESTITM_CD = SI.TEST_ITEM_CD
+			WHERE  1=1
+				AND R.TEST_REQ_SEQ = #{test_req_seq}
+			<if test="test_item_nm != null and test_item_nm != '' ">
+				AND (UPPER(SELECT TESTITM_NM FROM ANALYSIS AN WHERE AN.TESTITM_CD = SI.TEST_ITEM_CD ) LIKE '%' || UPPER(#{test_item_nm}) || '%' OR UPPER(SELECT ENG_NM FROM ANALYSIS AN WHERE AN.TESTITM_CD = SI.TEST_ITEM_CD ) LIKE '%' || UPPER(#{test_item_nm}) || '%')
+			</if>
+			<if test="testitm_lclas_cd != null and testitm_lclas_cd != '' ">
+				AND (SELECT TESTITM_LCLAS_CD FROM ANALYSIS AN WHERE AN.TESTITM_CD = SI.TEST_ITEM_CD ) = #{testitm_lclas_cd}
+			</if>
+			<if test="testitm_mlsfc_cd != null and testitm_mlsfc_cd != '' ">
+				AND (SELECT TESTITM_MLSFC_CD FROM ANALYSIS AN WHERE AN.TESTITM_CD = SI.TEST_ITEM_CD ) = #{testitm_mlsfc_cd}
+			</if>
+			GROUP BY SI.TEST_ITEM_CD , SI.UNIT, SI.TEST_METHOD, SI.ACCOUNT_NO
+			<if test="sortName != null and sortName != '' ">
+				ORDER BY ${sortName} ${sortType}
+			</if>
+			<if test="sortName == null or sortName == '' ">
+				ORDER BY REPORT_ORDER , TEST_ITEM_CD
+			</if>
+			)A
+	</select>
+	
+		<!-- 성적서 발행완료 후 접수 복사 -->
+	<insert id="copyPieceAccept" parameterType="AcceptVO">
+		
+		DECLARE		
+				new_test_req_seq	VARCHAR2(10);
+				new_test_req_no		VARCHAR2(20);				
+				new_test_sample_seq	VARCHAR2(9);
+				CURSOR SAMPLE_LIST IS
+                SELECT TEST_SAMPLE_SEQ 
+                FROM TEST_SAMPLE 
+                WHERE TEST_REQ_SEQ = #{test_req_seq};
+		BEGIN
+
+			new_test_req_seq := #{new_test_req_seq};
+
+			SELECT GET_ACC_TEST_REQ_NO('2', #{test_req_seq}) INTO new_test_req_no FROM DUAL;			
+			
+			SELECT LPAD(NVL(MAX(TEST_SAMPLE_SEQ), 0)+1, 9, 0) INTO new_test_sample_seq FROM TEST_SAMPLE;
+			
+			<!-- 접수 복사 -->
+			INSERT INTO TEST_REQ (TEST_REQ_NO, TEST_REQ_SEQ, TITLE, REQ_TYPE, REQ_CLASS, REQ_DATE,
+				UNIT_WORK_CD, TEST_GOAL, REQ_BASIS, REQ_NM,	REPORT_TYPE, STATE, DEPT_CD, 
+				CREATE_DATE, CREATER_ID, REQ_ORG_NO, REQ_ORG_NO2, REQ_ORG_NO3, REQ_ORG_NO4, COMMISSION_TYPE, 
+				DISCOUNT_RATE, SAMPLE_ARRIVAL_DATE, RETURN_FLAG, DISCOUNT_FLAG, FEE_AUTO_FLAG, TEST_STD_NO,
+				REQ_ACT_USER_ID, REQ_ACT_DATE, MEMBER_FLAG, SENSORY_TEST,
+				SALES_USER_ID, SALES_DEPT_CD, EXPRESS_FLAG, BARCODE_DESC, 
+				REQ_PLANT_NM, REQ_PLANT_ADDR, REQ_PLANT_TEL, CALCULATION,
+				QUALITY_DEPT_CD1, QUALITY_DEPT_CD2, QUALITY_USER_ID1, QUALITY_USER_ID2, ADMIN_MESSAGE, ACCEPT_METHOD
+			)
+			SELECT 
+	        	new_test_req_no AS TEST_REQ_NO
+	        	,new_test_req_seq AS TEST_REQ_SEQ
+				, '[복사]'||TITLE AS TITLE
+				, REQ_TYPE
+				, REQ_CLASS
+				, TO_CHAR(SYSDATE, 'YYYYmmdd') AS REQ_DATE
+				, UNIT_WORK_CD
+				, TEST_GOAL
+				, REQ_BASIS
+				, REQ_NM
+				, REPORT_TYPE
+				, #{state}
+				, DEPT_CD
+				, SYSDATE AS CREATE_DATE
+				, #{user_id} AS CREATER_ID
+				, REQ_ORG_NO
+				, REQ_ORG_NO2
+				, REQ_ORG_NO3
+				, REQ_ORG_NO4
+				, COMMISSION_TYPE
+				, DISCOUNT_RATE
+				, ''
+				, RETURN_FLAG
+				, DISCOUNT_FLAG
+				, FEE_AUTO_FLAG
+				, TEST_STD_NO
+				, #{user_id}
+				, REQ_ACT_DATE
+				, MEMBER_FLAG
+				, SENSORY_TEST				
+				, SALES_USER_ID
+				, SALES_DEPT_CD
+				, EXPRESS_FLAG
+				, BARCODE_DESC
+				, REQ_PLANT_NM
+				, REQ_PLANT_ADDR
+				, REQ_PLANT_TEL
+				, CALCULATION
+				, QUALITY_DEPT_CD1
+				, QUALITY_DEPT_CD2
+				, QUALITY_USER_ID1
+				, QUALITY_USER_ID2
+				, ADMIN_MESSAGE
+				, ACCEPT_METHOD
+			FROM TEST_REQ
+			WHERE TEST_REQ_SEQ = #{test_req_seq};
+	
+	
+			FOR SAMPLE_CNT IN SAMPLE_LIST LOOP
+			
+				SELECT LPAD(NVL(MAX(TEST_SAMPLE_SEQ), 0)+1, 9, 0) INTO new_test_sample_seq FROM TEST_SAMPLE;
+	
+				<!-- 시료 복사 -->
+				INSERT INTO TEST_SAMPLE(TEST_REQ_SEQ, TEST_SAMPLE_SEQ, STATE, TOT_ITEM_COUNT, SAMPLE_CD, TEST_STD_NO,
+				SAMPLE_REG_NM, SAMPLING_HOUR, SAMPLING_MIN, KFDA_YN, PRDLST_CD, SAMPLE_FEE, DISUSE_FLAG, RESULT_INPUT_TYPE, SM_CODE, MAX_GRADE, TEST_REQ_NO,
+				BUILDER_NM, COLLECTOR_NM, COLLECT_DATE, COLLECT_PLACE, DEPT_APPR_FLAG, EXPIRY_DATE, JDG_ETC, JOINER_NM, KEEP_METHOD, ORDERER_NM, 
+				PRETREATMENT_CD, PRODUCER_NM, PRODUCE_DATE, PRODUCE_NO, PRODUCE_PLACE, PURPOSE, REPORT_FLAG, SAMPLE_ETC_NM, SAMPLE_WEIGHT, SAMPLING_DATE,
+				SAMPLING_ID, SAMPLING_METHOD, SAMPLING_POINT_NO, SUPPLIER, TEST_SAMPLE_RESULT, TEST_SAMPLE_RESULT_REASON
+				
+				)
+				SELECT
+					new_test_req_seq 
+					, new_test_sample_seq 
+					, #{state}
+					, TOT_ITEM_COUNT
+					, SAMPLE_CD
+					, TEST_STD_NO
+					, SAMPLE_REG_NM
+					, SAMPLING_HOUR
+					, SAMPLING_MIN
+					, KFDA_YN
+					, PRDLST_CD
+					, SAMPLE_FEE
+					, DISUSE_FLAG
+					, RESULT_INPUT_TYPE
+					, SM_CODE
+					, MAX_GRADE
+					, new_test_req_no
+					, BUILDER_NM
+					, COLLECTOR_NM
+					, COLLECT_DATE
+					, COLLECT_PLACE
+					, DEPT_APPR_FLAG
+					, EXPIRY_DATE
+					, JDG_ETC
+					, JOINER_NM
+					, KEEP_METHOD
+					, ORDERER_NM
+					, PRETREATMENT_CD
+					, PRODUCER_NM
+					, PRODUCE_DATE
+					, PRODUCE_NO
+					, PRODUCE_PLACE
+					, PURPOSE
+					, REPORT_FLAG
+					, SAMPLE_ETC_NM
+					, SAMPLE_WEIGHT
+					, SAMPLING_DATE
+					, SAMPLING_ID
+					, SAMPLING_METHOD
+					, SAMPLING_POINT_NO
+					, SUPPLIER
+					, TEST_SAMPLE_RESULT
+					, TEST_SAMPLE_RESULT_REASON
+				FROM TEST_SAMPLE 
+				WHERE TEST_REQ_SEQ = #{test_req_seq}
+				AND TEST_SAMPLE_SEQ = SAMPLE_CNT.TEST_SAMPLE_SEQ ;
+			
+				<!-- 항목 복사 -->
+				INSERT INTO TEST_SAMPLE_ITEM(TEST_REQ_SEQ, TEST_SAMPLE_SEQ, TEST_ITEM_SEQ, DEPT_CD, TESTER_ID, DISP_ORDER, CREATER_ID, CREATE_DATE, STATE,
+				TEST_ITEM_CD, TEST_ITEM_GROUP_NO, PRDLST_CD, REPORT_FLAG, UNIT,
+				STD_FIT, STD_UNFIT, HVAL_TYPE, LVAL_TYPE, STD_VAL, STD_TYPE, GRADE1, GRADE1_RANGE, GRADE2, GRADE2_RANGE, GRADE3, GRADE3_RANGE, GRADE4, GRADE4_RANGE,
+				OXIDE_CD, OXIDE_NM, OXIDE_REMARK, BASE, LOQ_LVAL, TEST_REQ_NO, REPORT_ORDER,
+				ACCOUNT_NO, ASSIGNMENT_FLAG, COLLA_FLAG, DEPT_FEE,  FEE, FEE_GROUP_NO,
+				LOQ_HVAL, LOQ_HVAL_MARK, LOQ_LVAL_MARK, PRDLST_FEE, REPORT_ITEM_ENG_NM, REPORT_ITEM_NM,
+				REPRESENT_CD, RESULT_TYPE, RETURN_COMMENT, RETURN_FLAG, SECT_APPR_FLAG, STD_DEPT_CD, STD_DEPT_NM, STD_HVAL,
+				STD_LVAL, TEAM_CD, TEST_DEPT_CD, TEST_INST, TEST_ITEM_DIARY, TEST_METHOD, TEST_UNCERTAINTY, UPDATER_ID,
+				UPDATE_DATE, VALID_POSITION
+				
+				)
+				SELECT
+		        	new_test_req_seq 
+		        	,new_test_sample_seq 
+					, TEST_ITEM_SEQ
+					, (SELECT DEPT_CD FROM DEPT_USER_ITEM WHERE TEST_ITEM_CD = SI.TEST_ITEM_CD)
+			        , (SELECT USER_ID FROM DEPT_USER_ITEM WHERE TEST_ITEM_CD = SI.TEST_ITEM_CD) 				
+					, DISP_ORDER
+					, #{user_id} AS CREATER_ID
+					, TO_CHAR(SYSDATE,'YYYYMMDD') AS CREATE_DATE
+					, #{state}
+					, TEST_ITEM_CD
+					, TEST_ITEM_GROUP_NO
+					, PRDLST_CD
+					, REPORT_FLAG
+					, UNIT
+					, STD_FIT
+					, STD_UNFIT
+					, HVAL_TYPE
+					, LVAL_TYPE
+					, STD_VAL
+					, STD_TYPE
+					, GRADE1
+					, GRADE1_RANGE
+					, GRADE2
+					, GRADE2_RANGE
+					, GRADE3
+					, GRADE3_RANGE
+					, GRADE4
+					, GRADE4_RANGE
+					, OXIDE_CD
+					, OXIDE_NM
+					, OXIDE_REMARK
+					, BASE
+					, LOQ_LVAL
+					, new_test_req_no
+					, REPORT_ORDER
+					,ACCOUNT_NO
+					,ASSIGNMENT_FLAG
+					,COLLA_FLAG
+					,DEPT_FEE
+					,FEE
+					,FEE_GROUP_NO
+					,LOQ_HVAL
+					,LOQ_HVAL_MARK
+					,LOQ_LVAL_MARK
+					,PRDLST_FEE
+					,REPORT_ITEM_ENG_NM
+					,REPORT_ITEM_NM
+					,REPRESENT_CD
+					,RESULT_TYPE
+					,RETURN_COMMENT
+					,RETURN_FLAG
+					,SECT_APPR_FLAG
+					,STD_DEPT_CD
+					,STD_DEPT_NM
+					,STD_HVAL
+					,STD_LVAL
+					,TEAM_CD
+					,TEST_DEPT_CD
+					,TEST_INST
+					,TEST_ITEM_DIARY
+					,TEST_METHOD
+					,TEST_UNCERTAINTY
+					,UPDATER_ID
+					,UPDATE_DATE
+					,VALID_POSITION	
+				FROM TEST_SAMPLE_ITEM SI
+				WHERE TEST_REQ_SEQ = #{test_req_seq}
+				AND TEST_SAMPLE_SEQ = SAMPLE_CNT.TEST_SAMPLE_SEQ;
+				
+				END LOOP;	
+				
+			<!-- 업체별 수수료 복사 -->
+			INSERT INTO ORG_COMMISSION_DEPOSIT( DEPOSIT_NO,
+												REQ_ORG_NO,
+												TEST_REQ_SEQ,
+												DEPOSIT_AMT,
+												COMMISSION_AMT_FLAG
+			)
+			SELECT 
+				(SELECT NVL(MAX(DEPOSIT_NO)+1,1) FROM ORG_COMMISSION_DEPOSIT) AS DEPOSIT_NO
+			    , REQ_ORG_NO
+				, new_test_req_seq AS TEST_REQ_SEQ
+				, 0		
+				, CASE
+					WHEN NVL((SELECT FEE_TOT FROM TEST_REQ	WHERE TEST_REQ_SEQ = #{test_req_seq}), 0) > 0
+					THEN 'N'
+					ELSE 'Y'
+					END COMMISSION_AMT_FLAG
+			FROM ORG_COMMISSION_DEPOSIT
+			WHERE TEST_REQ_SEQ = #{test_req_seq};
+		END;
+	</insert>
+</mapper>

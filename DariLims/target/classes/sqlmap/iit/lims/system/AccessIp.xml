@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="system">
+	
+	<!-- 접근IP정보 목록 조회 -->
+	<select id="selectAccessIp" parameterType="AccessIpVO" resultType="AccessIpVO">
+		SELECT 
+			IP_SEQ
+			, IP_NM
+			, START_IP || '~' || END_IP AS START_IP
+			, (SELECT USER_NM FROM USER_INFO WHERE USER_ID = AIM.CREATER_ID ) AS CREATER_ID
+			, CREATE_DATE
+			, (SELECT USER_NM FROM USER_INFO WHERE USER_ID = AIM.UPDATER_ID ) AS UPDATER_ID
+			, UPDATE_DATE
+			, DECODE(AIM.USE_FLAG, 'Y', '사용함', '사용안함') AS USE_FLAG
+			, ETC
+	    FROM ACCESS_IP_MANAGE AIM
+	   	WHERE 1=1		   		
+	   	<!--'IP_NM' LIKE로 바꿔줌-->
+			<if test="ip_nm != null and ip_nm != '' ">
+           		AND IP_NM LIKE '%' || #{ip_nm} || '%'
+			</if>
+			<if test="creater_id != null and creater_id != '' ">
+				AND AIM.CREATER_ID = #{creater_id}
+			</if>
+			<if test="use_flag != null and use_flag != '' ">
+				AND AIM.USE_FLAG = #{use_flag}
+			</if>
+			<if test="sortName != null and sortName != '' ">
+				ORDER BY ${sortName} ${sortType}
+			</if>
+			<if test="sortName == null or sortName == '' ">
+				ORDER BY IP_SEQ
+			</if>
+	</select>
+	
+	<!-- 접근IP정보 상세조회 -->
+	<select id="selectAccessIpDetail" parameterType="AccessIpVO" resultType="AccessIpVO">
+		SELECT 
+			IP_SEQ
+			, IP_NM
+			, START_IP
+			, END_IP
+			, CREATER_ID
+			, CREATE_DATE
+			, UPDATER_ID
+			, UPDATE_DATE
+			, USE_FLAG
+			, ETC
+	    FROM ACCESS_IP_MANAGE
+        WHERE IP_SEQ = #{ip_seq}
+	</select>
+	
+	<!-- 접근IP정보 등록 -->
+	<insert id="insertAccessIp" parameterType="AccessIpVO">
+		INSERT INTO ACCESS_IP_MANAGE (
+			IP_SEQ
+			, IP_NM
+			, START_IP
+			<if test="end_ip != null and end_ip != '' ">
+			, END_IP
+			</if>
+			, CREATER_ID
+			, CREATE_DATE
+			, UPDATER_ID
+			, UPDATE_DATE
+			, USE_FLAG
+			<if test="etc != null and etc != '' ">
+			, ETC
+			</if>
+		) VALUES (
+			(SELECT LPAD(NVL(MAX(IP_SEQ),0)+1, 3, 0) FROM ACCESS_IP_MANAGE)
+			, #{ip_nm}
+			, #{start_ip}
+			<if test="end_ip != null and end_ip != '' ">
+			, #{end_ip}
+			</if>
+			, #{creater_id}
+			, SYSDATE
+			, ''
+			, ''
+			, #{use_flag}
+			<if test="etc != null and etc != '' ">
+			, #{etc}
+			</if>
+		) 
+	</insert>
+	
+	<!-- 접근IP정보 수정 -->
+	<update id="updateAccessIp" parameterType="AccessIpVO">
+		UPDATE ACCESS_IP_MANAGE SET
+			IP_NM = #{ip_nm}
+			, START_IP = #{start_ip}
+			<if test="end_ip != null and end_ip != '' ">
+			, END_IP = #{end_ip}
+			</if>
+			, UPDATER_ID = #{updater_id}
+			, UPDATE_DATE = SYSDATE
+			, USE_FLAG = #{use_flag}
+			<if test="etc != null and etc != '' ">
+			, ETC = #{etc}
+			</if>
+		WHERE IP_SEQ = #{ip_seq}
+	</update>
+	
+	<!-- 접근IP정보 삭제 -->
+	<delete id="deleteAccessIp" parameterType="AccessIpVO">
+		DELETE FROM ACCESS_IP_MANAGE
+		WHERE IP_SEQ = #{ip_seq}
+	</delete>
+</mapper>

@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="system">
+	
+	<!-- 사용자관리 목록 조회
+	<select id="system.selectUserCmmnList" parameterType="UserVO" resultType="UserVO">
+		   SELECT *
+             FROM VW_POTAL_USER
+            <where>
+	            <if test="user_nm != null and user_nm != '' ">
+	            	AND USER_NM like '%'|| #{user_nm} ||'%'
+	            </if>
+	            <if test="potal_id != null and potal_id != '' ">
+	            	AND POTAL_ID like '%'|| #{potal_id} ||'%'
+	            </if>
+	            <if test="dept_nm != null and dept_nm != '' ">
+	            	AND DEPT_NM like '%'|| #{dept_nm} ||'%'
+	            </if>
+	            <if test="dept_cd != null and dept_cd != '' ">
+	            	AND DEPT_ID = #{dept_cd} 
+	            </if>
+	       </where>     
+	            <if test="sortName != null and sortName != '' ">
+					ORDER BY ${sortName} ${sortType}
+				</if>
+				<if test="sortName == null or sortName == '' ">
+					ORDER BY DEPT_NM, USER_NM 
+				</if>			
+	</select>
+	 -->
+	
+	<!-- 사용자관리 목록 조회 -->
+	<select id="system.selectUserLimsList" parameterType="UserVO" resultType="UserVO">
+		SELECT UI.USER_NM    
+		        ,UI.USER_ENG_NM        
+		        ,UI.USER_ID
+		        ,DECODE(UI.USE_FLAG, 'Y','사용함','사용안함') USE_FLAG
+		        ,UI.MOBILE_PHONE         
+		        ,UI.EMAIL_ADDR           
+		        ,UI.RANK_NM              
+		        ,UI.OFFICE_TEL_NUM
+		        ,UI.RANK_CD              
+		        ,UI.SMS_FLAG 
+		        ,UI.DEPT_CD
+		        ,DP.DEPT_NM
+		        ,UI.REPORT_CLASS_CODE
+		    FROM USER_INFO UI 
+		    LEFT OUTER JOIN DEPART DP ON DP.DEPT_CD = UI.DEPT_CD
+		   	<where> 
+		   		<if test="dept_nm != null and dept_nm != '' ">
+	            	AND DP.DEPT_NM like '%'|| #{dept_nm} ||'%'
+	            </if>
+		   		<if test="dept_cd != null and dept_cd != '' ">
+	            	AND UI.DEPT_CD = #{dept_cd} 
+	            </if>
+	            <if test="office_cd != null and office_cd != '' ">
+					AND UI.DEPT_CD = #{office_cd}
+				</if>
+			    <if test="user_nm != null and user_nm != '' ">
+	            	AND UI.USER_NM like '%'|| #{user_nm} ||'%'
+	            </if>
+	            <if test="user_id != null and user_id != '' ">
+	            	AND USER_ID like '%'|| #{user_id} ||'%'
+	            </if>
+	            <if test="use_flag != null and use_flag != '' ">
+	            	AND UI.USE_FLAG = #{use_flag}
+	            </if>
+            </where>
+            <if test="sortName != null and sortName != '' ">
+				ORDER BY ${sortName} ${sortType}
+			</if>
+			<if test="sortName == null or sortName == '' ">
+				ORDER BY DEPT_NM, USER_NM 
+			</if>
+	</select>
+	
+	<!-- 사용자관리 수정(동기화) -->
+	<update id="system.saveUserLims" parameterType="UserVO">
+		MERGE INTO USER_INFO A
+        USING VW_POTAL_USER B
+        ON (A.POTAL_ID = B.POTAL_ID AND A.SYNC_FLAG = 'Y')
+        WHEN MATCHED THEN
+            UPDATE SET
+            A.USER_NM = B.USER_NM
+            A.USER_ENG_NM = B.USER_ENG_NM
+            ,A.DEPT_CD = B.DEPT_ID
+            ,A.RANK_CD = B.RANK_ID
+            ,A.RANK_NM = B.RANK_NM
+            ,A.OFFICE_TEL_NUM = B.TEL_NUM
+            ,A.UPDATE_DATE = SYSDATE
+            ,A.UPDATER_ID = #{user_id}
+        WHEN NOT MATCHED THEN
+	        INSERT(A.USER_NM, A.USER_ENG_NM, A.USER_ID, A.DEPT_CD, A.RANK_CD, A.RANK_NM, A.OFFICE_TEL_NUM, A.USE_FLAG, A.SYNC_FLAG ,A.CREATE_DATE, A.CREATER_ID , A.USER_PW)
+	        VALUES(B.USER_NM, A.USER_ENG_NM, B.POTAL_ID, B.DEPT_ID, B.RANK_ID, B.RANK_NM, B.TEL_NUM, 'Y', 'Y',SYSDATE, #{user_id}, '1')
+	</update>
+	
+	<!-- 사용자관리 조회(동기화) -->
+	<select id="system.selectUserList" parameterType="UserVO" resultType="UserVO">
+		SELECT POTAL_ID
+		  FROM USER_INFO
+		 WHERE POTAL_ID NOT IN (SELECT POTAL_ID FROM VW_POTAL_USER) 
+		   AND SYNC_FLAG = 'Y'
+	</select>
+	
+	<update id="system.updateUserFlag" parameterType="UserVO">
+		UPDATE USER_INFO
+		   SET USE_FLAG = 'N'
+		 WHERE USER_ID = #{user_id}  
+	</update>
+	
+	<insert id="system.insertUser" parameterType="UserVO">
+	</insert>
+	
+	<update id="system.updateUser" parameterType="UserVO">
+		UPDATE USER_INFO
+		   SET USE_FLAG = #{use_flag}
+		 WHERE USER_ID = #{user_id}
+	</update>
+	
+	<select id="selectUserLimsDetail" parameterType="UserVO" resultType="UserVO">
+		SELECT UI.USER_NM           
+				,UI.USER_ENG_NM 
+		        ,UI.USER_ID
+		        ,UI.USER_PW
+		        ,DECODE(UI.USE_FLAG, 'Y','사용함','사용안함') USE_FLAG_NM
+		        ,UI.USE_FLAG
+		        ,UI.MOBILE_PHONE         
+		        ,UI.EMAIL_ADDR           
+		        ,UI.RANK_NM              
+		        ,UI.OFFICE_TEL_NUM
+		        ,UI.RANK_CD              
+		        ,UI.SMS_FLAG 
+		        ,UI.DEPT_CD
+ 		        ,DP.DEPT_NM
+ 		        ,UI.SIGN_FILE AS BYTE_FILE
+ 		        ,UI.FILE_NAME
+ 		        ,UI.REPORT_CLASS_CODE
+		    FROM USER_INFO UI
+		    LEFT OUTER JOIN DEPART DP ON DP.DEPT_CD = UI.DEPT_CD
+	        WHERE USER_ID = #{user_id}
+	</select>
+	
+	<insert id="insertUserInfo" parameterType="UserVO">
+		INSERT INTO USER_INFO(
+			USER_ID
+			,USER_ENG_NM
+			,USER_PW
+			,USER_NM
+			,USE_FLAG
+			,MOBILE_PHONE
+			,EMAIL_ADDR
+			,RANK_NM
+			,OFFICE_TEL_NUM
+			,DEPT_CD
+			,CREATE_DATE
+			,CREATER_ID
+			,REPORT_CLASS_CODE
+		)VALUES(
+			#{user_id}
+			,#{user_eng_id}
+			,#{user_pw}
+			,#{user_nm}
+			,#{use_flag}
+			,#{mobile_phone}
+			,#{email_addr}
+			,#{rank_nm}
+			,#{office_tel_num}
+			,#{dept_cd}
+			,SYSDATE
+			,#{creater_id}
+			,#{report_class_code}
+		) 
+	</insert>
+	
+	<update id="updateUserInfo" parameterType="UserVO">
+		UPDATE USER_INFO SET
+			USER_PW = #{user_pw}
+			,USER_NM = #{user_nm}
+			,USER_ENG_NM = #{user_eng_nm}
+			,USE_FLAG = #{use_flag}
+			,MOBILE_PHONE = #{mobile_phone}
+			,EMAIL_ADDR = #{email_addr}
+			,RANK_NM = #{rank_nm}
+			,OFFICE_TEL_NUM = #{office_tel_num}
+			,DEPT_CD = #{dept_cd}
+			,UPDATE_DATE = SYSDATE
+			,UPDATER_ID = #{updater_id}
+			,REPORT_CLASS_CODE = #{report_class_code}
+		WHERE USER_ID = #{user_id}
+	</update>
+	
+	
+	<update id="putSignFile" parameterType="UserVO">
+	UPDATE 
+		USER_INFO
+	SET
+		SIGN_FILE = #{byte_file},
+		FILE_NAME = #{file_name}
+	WHERE
+		USER_ID = #{user_id}
+	</update>
+	
+	<delete id="deleteSignFile" parameterType="UserVO">
+	UPDATE
+		USER_INFO
+	SET
+		SIGN_FILE = NULL,
+		FILE_NAME = NULL
+	WHERE
+		USER_ID = #{user_id}
+	</delete>
+	
+</mapper>

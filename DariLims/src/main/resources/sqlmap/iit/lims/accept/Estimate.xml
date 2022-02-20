@@ -1,0 +1,684 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="estimate">
+	
+	<!-- 업체별 견적목록 조회 --> 
+	<select id="selectEstimateList" parameterType="EstimateVO" resultType="EstimateVO">
+		SELECT 
+			EST_NO
+			,EST_ORG_NO
+			,GET_REQ_ORG_NM(EST_ORG_NO) AS EST_ORG_NM
+			,EST_TITLE
+			,TO_CHAR(EST_DATE, 'YY-MM-DD') AS EST_DATE
+			,EST_CHARGER_NM 
+			,EST_GUBUN
+			,EST_STATE
+			,GET_COMMON_CODE(EST_GUBUN,'')AS EST_GUBUN_NM
+			,GET_COMMON_CODE(EST_STATE,'')AS EST_STATE_NM
+			,EST_DESC
+			,UI.USER_NM AS CREATER_ID
+			,REPLACE(TO_CHAR( EST_FEE_TOT , '999,999,999,999,999'), ' ', '') EST_FEE_TOT
+			,EST_REF
+		FROM ESTIMATE E
+		INNER JOIN USER_INFO UI ON UI.USER_ID = E.CREATER_ID
+<!-- 		INNER JOIN DEPART D ON UI.DEPT_CD = D.DEPT_CD -->
+		WHERE 1=1
+<!-- 		EST_ORG_NO = #{est_org_no} -->
+		<if test="est_state != null and est_state != '' ">
+			AND EST_STATE = #{est_state}
+		</if>
+		<if test="est_org_no != null and est_org_no != '' ">
+			AND EST_ORG_NO = #{est_org_no}
+		</if>
+		<if test="est_org_nm != null and est_org_nm != '' ">
+			AND (SELECT ORG_NM FROM REQ_ORG WHERE REQ_ORG_NO = EST_ORG_NO) LIKE '%' || #{est_org_nm}|| '%'
+		</if>
+		<if test="est_gubun != null and est_gubun != '' ">
+			AND EST_GUBUN = #{est_gubun}
+		</if>
+		<if test="est_title != null and est_title != '' ">
+			AND UPPER(EST_TITLE) LIKE '%' || UPPER(#{est_title}) || '%'
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND E.DEPT_CD = #{dept_cd}
+		</if>
+		<if test="creater_id != null and creater_id != '' ">
+			AND E.CREATER_ID = #{creater_id}
+		</if>
+		<if test="startDate != null and startDate != '' ">
+			AND EST_DATE <![CDATA[  >=  ]]> #{startDate} 
+		</if>
+		<if test="endDate != null and endDate != '' ">
+			AND EST_DATE <![CDATA[  <=  ]]> #{endDate}
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY EST_NO
+		</if>
+	</select>
+
+	<select id="selectEstimateDetail" parameterType="EstimateVO" resultType="EstimateVO">
+		SELECT
+			EST_NO
+			,EST_ORG_NO
+			,GET_REQ_ORG_NM(EST_ORG_NO) AS EST_ORG_NM
+			,EST_TITLE
+			,TO_CHAR(EST_DATE, 'YYYY-MM-DD') AS EST_DATE
+			,EST_CHARGER_NM 
+			,EST_GUBUN
+			,EST_STATE
+			,GET_COMMON_CODE(EST_GUBUN,'')AS EST_GUBUN_NM
+			,GET_COMMON_CODE(EST_STATE,'')AS EST_STATE_NM
+			,EST_DESC
+			,CREATER_ID
+			,EST_REF
+		FROM ESTIMATE
+		WHERE EST_NO = #{est_no}
+	</select>
+	
+	<!-- 견적항목목록 -->
+	<select id="selectEstimateItemList" parameterType="EstimateVO" resultType="EstimateVO">
+		SELECT 
+            ES.EST_GUBUN
+            ,EI.PRDLST_CD
+            ,(SELECT KOR_NM FROM PRDLST_CL WHERE EI.PRDLST_CD = PRDLST_CD) AS PRDLST_NM
+            ,EI.EST_NO
+            ,EI.EST_ITEM_NO
+            ,EI.TEST_ITEM_CD
+            <if test="est_gubun == 'C57001'">
+            ,(SELECT ANAL.TESTITM_NM FROM ANALYSIS ANAL WHERE EI.TEST_ITEM_CD = ANAL.TESTITM_CD) AS TEST_ITEM_NM	
+			</if>
+			<if test="est_gubun == 'C57002'">
+            ,(SELECT INS.INST_KOR_NM FROM INSTRUMENT INS WHERE EI.TEST_ITEM_CD = INS.INST_NO) AS TEST_ITEM_NM
+			</if>
+			,NVL(EI.EST_QTY,0) AS EST_QTY
+			,NVL(EI.EST_PRICE,0) AS EST_PRICE
+			,NVL(EI.EST_PRICE_TOTAL,0) AS EST_PRICE_TOTAL
+<!-- 			 ,TO_CHAR(TO_DATE(EI.EST_DEADLINE_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') EST_DEADLINE_DATE -->
+			,EI.EST_ITEM_DESC
+			,EI.EST_ITEM_SPEC
+        FROM ESTIMATE_ITEM EI, ESTIMATE ES
+        WHERE EI.EST_NO = ES.EST_NO
+		AND EI.EST_NO = #{est_no}
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY EI.EST_ITEM_NO
+		</if>
+	</select>
+	
+	<!-- 항목수수료목록 -->
+	<select id="selectEstimateItemFeeList" parameterType="EstimateVO" resultType="EstimateVO">
+		SELECT 
+            ES.EST_GUBUN
+            ,EIF.EST_NO
+             ,EIF.EST_FEE_NO
+             ,EIF.EST_FEE_NM
+<!--              ,(SELECT EFG.EST_EXP_NM FROM ESTIMATE_FEE_GUBUN EFG WHERE EFG.EST_FEE_CD = EIF.EST_FEE_CD) AS EST_EXP_NM -->
+			 ,NVL(EIF.EST_FEE_PRICE,0) AS EST_FEE_PRICE
+			 ,EIF.EST_FEE_DESC
+			 ,EST_FEE_QTY
+			 ,EST_FEE_PRICE_TOTAL
+        FROM ESTIMATE_ITEM_FEE EIF
+        JOIN ESTIMATE ES ON EIF.EST_NO = ES.EST_NO
+        WHERE <!-- EIF.EST_NO = ES.EST_NO
+		AND --> EIF.EST_NO = #{est_no}
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY EIF.EST_FEE_NO
+		</if>
+	</select>
+	
+	<insert id="insertEstimate" parameterType="EstimateVO">
+		INSERT INTO ESTIMATE(
+			EST_NO
+			,EST_ORG_NO
+			,EST_TITLE
+			,EST_DATE
+			,EST_CHARGER_NM 
+			,EST_GUBUN
+			,EST_STATE
+			,EST_DESC
+			,CREATER_ID
+			,CREATE_DATE
+			,DEPT_CD
+			,EST_REF
+		)VALUES(
+			(SELECT TO_CHAR(SYSDATE,'YY-') ||LPAD(NVL(SUBSTR(MAX(EST_NO),4,4),0) +1, 4, 0) FROM ESTIMATE )
+			,#{est_org_no}
+			,#{est_title}
+			,to_date(#{est_date}, 'YYYY-MM-DD HH24MI')
+			,#{est_charger_nm}
+			,#{est_gubun}
+			,#{est_state}
+			,#{est_desc}
+			,#{creater_id}
+			,SYSDATE
+			,#{dept_cd}
+			,#{est_ref}
+		)
+		
+	</insert>
+	<update id="updateEstimate" parameterType="EstimateVO">
+		UPDATE ESTIMATE SET
+			 EST_ORG_NO= #{est_org_no}		
+			,EST_TITLE = #{est_title}
+			,EST_GUBUN = #{est_gubun} 
+			,EST_DATE = to_date(#{est_date}, 'YYYY-MM-DD HH24MI')
+			,EST_STATE = #{est_state}
+			,EST_CHARGER_NM = #{est_charger_nm} 
+			,EST_DESC = #{est_desc}
+			,UPDATER_ID = #{updater_id}
+			,UPDATE_DATE = SYSDATE
+			,EST_REF = #{est_ref}
+		WHERE EST_NO = #{est_no}
+	</update>
+	
+	<update id="updateEstimateState" parameterType="String">
+		UPDATE ESTIMATE SET
+			EST_STATE = 'C58002'
+		WHERE EST_NO = #{est_no}
+		
+	</update>
+	
+	<!-- 장비 목록에서 추가 -->
+	<insert id="insertInstGrid" parameterType="Map">
+		INSERT INTO ESTIMATE_ITEM 
+		(
+			EST_ITEM_NO
+			,EST_NO
+			,TEST_ITEM_CD
+			,EST_PRICE
+		) VALUES (
+			(SELECT LPAD(NVL(MAX(EST_ITEM_NO),0) +1, 3, 0) FROM ESTIMATE_ITEM WHERE EST_NO = #{est_no})
+			,#{est_no}
+			,#{inst_no}
+			,#{use_price}
+		)
+	</insert>
+	
+	<insert id="insertEstimateItemFee" parameterType="Map">
+		INSERT INTO ESTIMATE_ITEM_FEE 
+		(
+			EST_FEE_NO
+			,EST_NO
+			,EST_FEE_NM
+			,EST_FEE_PRICE
+			,EST_FEE_DESC
+			,EST_FEE_QTY
+			,EST_FEE_PRICE_TOTAL
+		) VALUES (
+			(SELECT LPAD(NVL(MAX(EST_FEE_NO),0) +1, 3, 0) FROM ESTIMATE_ITEM_FEE WHERE EST_NO = #{est_no})
+			,#{est_no}
+			,#{est_fee_nm}
+			,#{est_fee_price}
+			,#{est_fee_desc}
+			,#{est_fee_qty}
+			,#{est_fee_price_total}
+		)
+	</insert>
+	
+	<update id="updateEstimateItemFee" parameterType="Map">
+		UPDATE ESTIMATE_ITEM_FEE SET
+			EST_FEE_NM = #{est_fee_nm}
+			,EST_FEE_PRICE = #{est_fee_price}
+			,EST_FEE_DESC = #{est_fee_desc}
+			,EST_FEE_QTY = #{est_fee_qty}
+			,EST_FEE_PRICE_TOTAL = #{est_fee_price_total}
+		WHERE EST_NO = #{est_no}
+		AND EST_FEE_NO =  #{est_fee_no}
+	</update>
+	
+	<!-- 업체별 총 수수료 수정 -->
+	<update id="updateEstFeeTot" parameterType="EstimateVO">
+		UPDATE ESTIMATE SET
+			EST_FEE_TOT = (
+				SELECT SUM(LAST.EST_FEE_PRICE + LAST.EST_PRICE_TOTAL) AS EST_FEE_TOT
+				FROM(
+				    SELECT DISTINCT(SUM(A.EST_FEE_PRICE) OVER())AS EST_FEE_PRICE,
+				        (SELECT SUM(NVL(EST_PRICE_TOTAL, 0)) FROM ESTIMATE_ITEM WHERE EST_NO = #{est_no}) AS EST_PRICE_TOTAL
+				    FROM (
+				        SELECT DISTINCT EIF.EST_FEE_NO,
+				               NVL(EIF.EST_FEE_PRICE, 0) AS EST_FEE_PRICE
+				        FROM ESTIMATE_ITEM_FEE EIF
+				        INNER JOIN ESTIMATE ES ON EIF.EST_NO = ES.EST_NO
+				        WHERE EIF.EST_NO = #{est_no}
+				    )A
+				)LAST
+			)
+		WHERE EST_NO = #{est_no}		
+	</update>
+
+	<delete id="deleteEstimateItemFee">
+		DELETE ESTIMATE_ITEM_FEE
+		WHERE EST_NO = #{est_no}
+		AND EST_FEE_NO =  #{est_fee_no}		
+	</delete>	
+	
+	<update id="updateEstimateItem" parameterType="Map">
+		UPDATE ESTIMATE_ITEM SET
+			EST_QTY = #{est_qty}
+			,EST_PRICE = #{est_price}
+			,EST_PRICE_TOTAL = #{est_price_total}
+			,EST_ITEM_DESC = #{est_item_desc}
+			,EST_ITEM_SPEC = #{est_item_spec}
+<!-- 			,EST_DEADLINE_DATE = REPLACE(#{est_deadline_date}, '-', '') -->
+		WHERE EST_NO = #{est_no}
+		AND EST_ITEM_NO =  #{est_item_no}
+	</update>
+
+	<delete id="deleteEstimateItem">
+		DELETE ESTIMATE_ITEM
+		WHERE EST_NO = #{est_no}
+		AND EST_ITEM_NO =  #{est_item_no}		
+	</delete>
+	
+	<!-- 견적 템플릿 목록 조회 --> 
+	<select id="selectEstimateTemplateList" parameterType="EstimateVO" resultType="EstimateVO">
+		SELECT 
+			EST_TEMP_NO
+			,EST_TITLE
+			,EST_CHARGER_NM 
+			,EST_GUBUN
+			,GET_COMMON_CODE(EST_GUBUN,'')AS EST_GUBUN_NM
+			,UI.USER_NM AS CREATER_ID
+			,CREATE_DATE
+			,REPLACE(TO_CHAR( EST_FEE_TOT , '999,999,999,999,999'), ' ', '') EST_FEE_TOT
+		FROM ESTIMATE_TEMPLATE E
+		INNER JOIN USER_INFO UI ON UI.USER_ID = E.CREATER_ID
+		INNER JOIN DEPART D ON UI.DEPT_CD = D.DEPT_CD
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY E.EST_TEMP_NO
+		</if>
+	</select>
+	
+	<!-- 견적별 항목 템플릿 목록 조회 --> 
+	<select id="selectEstimateItemTemplateList" parameterType="EstimateVO" resultType="EstimateVO">
+		SELECT 
+			EST_TEMP_ITEM_NO
+			,EI.EST_TEMP_NO
+			<if test="est_gubun == 'C57001'">
+            ,(SELECT ANAL.TESTITM_NM FROM ANALYSIS ANAL WHERE EI.TEST_ITEM_CD = ANAL.TESTITM_CD) AS TEST_ITEM_NM	
+			</if>
+			<if test="est_gubun == 'C57002'">
+            ,(SELECT INS.INST_KOR_NM FROM INSTRUMENT INS WHERE EI.TEST_ITEM_CD = INS.INST_NO) AS TEST_ITEM_NM
+			</if>
+			,TEST_ITEM_CD
+			,EST_QTY 
+			,NVL(EI.EST_PRICE,0) AS EST_PRICE
+			,NVL(EI.EST_PRICE_TOTAL,0) AS EST_PRICE_TOTAL
+			,EST_ITEM_SPEC
+			,EST_ITEM_DESC
+			,ES.EST_GUBUN
+            ,EI.PRDLST_CD
+            ,(SELECT KOR_NM FROM PRDLST_CL WHERE EI.PRDLST_CD = PRDLST_CD) AS PRDLST_NM
+		FROM ESTIMATE_ITEM_TEMPLATE EI, ESTIMATE_TEMPLATE ES
+		WHERE EI.EST_TEMP_NO = #{est_temp_no}
+			AND EI.EST_TEMP_NO = ES.EST_TEMP_NO	
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY EI.EST_TEMP_ITEM_NO
+		</if>
+	</select>
+	
+	<!-- 견적별 항목 수수료 템플릿 목록 조회 --> 
+	<select id="selectEstimateItemFeeTemplateList" parameterType="EstimateVO" resultType="EstimateVO">
+		SELECT 
+			EST_FEE_NO
+			,EIF.EST_TEMP_NO
+			,EST_FEE_NM
+			,NVL(EIF.EST_FEE_PRICE,0) AS EST_FEE_PRICE
+			,EST_FEE_DESC
+			,EST_FEE_QTY
+			,EST_FEE_PRICE_TOTAL
+		FROM ESTIMATE_ITEM_FEE_TEMPLATE EIF, ESTIMATE_TEMPLATE ES
+		WHERE EIF.EST_TEMP_NO = ES.EST_TEMP_NO
+		AND EIF.EST_TEMP_NO = #{est_temp_no}
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY EIF.EST_FEE_NO
+		</if>
+	</select>
+	
+	<!--  선택된 견적서 -> 템플릿으로 등록 --> 
+	<insert id="insertEstimateTemplate" parameterType="EstimateVO">
+		<selectKey resultType="string" keyProperty="est_temp_no" order="BEFORE">
+			SELECT LPAD(NVL(MAX(EST_TEMP_NO),0) +1, 6, 0) FROM ESTIMATE_TEMPLATE
+		</selectKey>
+	BEGIN
+		INSERT INTO ESTIMATE_TEMPLATE (
+			EST_TEMP_NO
+			,EST_TITLE
+			,EST_CHARGER_NM 
+			,EST_GUBUN
+			,CREATER_ID
+			,CREATE_DATE
+		)
+		
+		SELECT 
+			#{est_temp_no}
+			, #{est_title} AS EST_TITLE
+			, EST_CHARGER_NM 
+			, EST_GUBUN
+			, #{user_id} AS CREATER_ID
+			, SYSDATE AS CREATE_DATE
+		FROM ESTIMATE
+		WHERE EST_NO = #{est_no};		
+		
+		
+		INSERT INTO ESTIMATE_ITEM_TEMPLATE (
+			EST_TEMP_ITEM_NO
+			,EST_TEMP_NO
+			,TEST_ITEM_CD
+			,EST_QTY 
+			,EST_PRICE
+			,EST_PRICE_TOTAL
+			,EST_ITEM_SPEC
+			,EST_ITEM_DESC
+			,PRDLST_CD
+		)
+				
+		SELECT 
+		    LPAD(ROWNUM + NO , 3, 0) AS EST_TEMP_ITEM_NO
+		    , #{est_temp_no}
+		    , TEST_ITEM_CD 
+		    , EST_QTY
+		    , EST_PRICE
+		    , EST_PRICE_TOTAL
+		    , EST_ITEM_SPEC
+		    , EST_ITEM_DESC
+		    , PRDLST_CD
+		FROM (
+		    SELECT 
+		        ROWNUM
+		        ,(SELECT NVL(MAX(EST_TEMP_ITEM_NO),0) FROM ESTIMATE_ITEM_TEMPLATE WHERE EST_TEMP_NO = #{est_temp_no}) NO
+		        , TEST_ITEM_CD 
+		        , EST_QTY
+		        , EST_PRICE
+		        , EST_PRICE_TOTAL
+		        , EST_ITEM_SPEC
+		        , EST_ITEM_DESC
+		        , PRDLST_CD
+		    FROM ESTIMATE_ITEM
+		    WHERE EST_NO = #{est_no}
+		) ESTIMATE_ITEM ;
+		
+		
+		INSERT INTO ESTIMATE_ITEM_FEE_TEMPLATE (
+			EST_FEE_NO
+			,EST_TEMP_NO
+			,EST_FEE_NM
+			,EST_FEE_PRICE
+			,EST_FEE_DESC
+			,EST_FEE_QTY
+			,EST_FEE_PRICE_TOTAL
+		)
+		
+		SELECT 
+		    LPAD(ROWNUM + NO , 3, 0) AS EST_FEE_NO
+		    , #{est_temp_no}
+		    , EST_FEE_NM
+		    , EST_FEE_PRICE
+		    , EST_FEE_DESC
+		    , EST_FEE_QTY
+		    , EST_FEE_PRICE_TOTAL
+		FROM (
+		    SELECT 
+		        ROWNUM
+		        ,(SELECT NVL(MAX(EST_FEE_NO),0) FROM ESTIMATE_ITEM_FEE_TEMPLATE WHERE EST_TEMP_NO = #{est_temp_no}) NO
+		        , EST_FEE_NM
+		        , EST_FEE_PRICE
+		        , EST_FEE_DESC
+		        , EST_FEE_QTY
+		        , EST_FEE_PRICE_TOTAL
+		    FROM ESTIMATE_ITEM_FEE
+		    WHERE EST_NO = #{est_no}
+		) ESTIMATE_ITEM_FEE;
+		
+	END;
+	</insert>	
+	
+	<!-- 선택된 템플릿 견적서로 등록 --> 
+	<insert id="insertSelectEstimateTemplate" parameterType="EstimateVO">
+		<selectKey resultType="string" keyProperty="est_no" order="BEFORE">
+			SELECT TO_CHAR(SYSDATE,'YY-') ||LPAD(NVL(SUBSTR(MAX(EST_NO),4,4),0) +1, 4, 0) FROM ESTIMATE
+		</selectKey>
+		BEGIN
+			INSERT INTO ESTIMATE (
+				EST_NO
+				,EST_TITLE
+				,EST_CHARGER_NM
+				,EST_GUBUN
+				,CREATER_ID
+				,CREATE_DATE
+				,EST_ORG_NO
+				,EST_STATE
+				,EST_DATE
+				,DEPT_CD
+			)
+			
+			SELECT 
+				#{est_no}
+				, '[템플릿]' || EST_TITLE AS EST_TITLE
+				, EST_CHARGER_NM
+				, EST_GUBUN
+				, #{user_id} AS CREATER_ID
+				, SYSDATE AS CREATE_DATE
+				, #{est_org_no} AS EST_ORG_NO
+				, 'C58001' AS EST_STATE
+				, SYSDATE AS EST_DATE
+				, #{dept_cd} AS DEPT_CD
+			FROM ESTIMATE_TEMPLATE
+			WHERE EST_TEMP_NO = #{est_temp_no};		
+			
+			
+			INSERT INTO ESTIMATE_ITEM (
+				EST_ITEM_NO
+				,EST_NO
+				,TEST_ITEM_CD
+				,EST_QTY 
+				,EST_PRICE
+				,EST_PRICE_TOTAL
+				,EST_ITEM_SPEC
+				,EST_ITEM_DESC
+				,PRDLST_CD
+			)
+					
+			SELECT 
+			    LPAD(ROWNUM + NO , 3, 0) AS EST_ITEM_NO
+			    , #{est_no}
+			    , TEST_ITEM_CD 
+			    , EST_QTY
+			    , EST_PRICE
+			    , EST_PRICE_TOTAL
+			    , EST_ITEM_SPEC
+			    , EST_ITEM_DESC
+			    , PRDLST_CD
+			FROM (
+			    SELECT 
+			        ROWNUM
+			        ,(SELECT NVL(MAX(EST_ITEM_NO),0) FROM ESTIMATE_ITEM WHERE EST_TEMP_NO = #{est_no}) NO
+			        , TEST_ITEM_CD 
+			        , EST_QTY
+			        , EST_PRICE
+			        , EST_PRICE_TOTAL
+			        , EST_ITEM_SPEC
+			        , EST_ITEM_DESC
+			        , PRDLST_CD
+			    FROM ESTIMATE_ITEM_TEMPLATE
+			    WHERE EST_TEMP_NO = #{est_temp_no}
+			) ESTIMATE_ITEM_TEMPLATE ;
+			
+			
+			INSERT INTO ESTIMATE_ITEM_FEE (
+				EST_FEE_NO
+				,EST_NO
+				,EST_FEE_NM
+				,EST_FEE_PRICE
+				,EST_FEE_DESC
+				,EST_FEE_QTY
+				,EST_FEE_PRICE_TOTAL
+			)
+			
+			SELECT 
+			    LPAD(ROWNUM + NO , 3, 0) AS EST_FEE_NO
+			    , #{est_no}
+			    , EST_FEE_NM
+			    , EST_FEE_PRICE
+			    , EST_FEE_DESC
+			    , EST_FEE_QTY
+			    , EST_FEE_PRICE_TOTAL
+			FROM (
+			    SELECT 
+			        ROWNUM
+			        ,(SELECT NVL(MAX(EST_FEE_NO),0) FROM ESTIMATE_ITEM_FEE WHERE EST_TEMP_NO = #{est_no}) NO
+			        , EST_FEE_NM
+			        , EST_FEE_PRICE
+			        , EST_FEE_DESC
+			        , EST_FEE_QTY
+			        , EST_FEE_PRICE_TOTAL
+			    FROM ESTIMATE_ITEM_FEE_TEMPLATE
+			    WHERE EST_TEMP_NO = #{est_temp_no}
+			) ESTIMATE_ITEM_FEE_TEMPLATE;
+			
+		END;
+	</insert>
+	
+	<delete id="deleteEstimate" parameterType="EstimateVO">
+		BEGIN
+		
+			DELETE ESTIMATE
+			WHERE EST_NO = #{est_no};
+				
+			DELETE ESTIMATE_ITEM
+			WHERE EST_NO = #{est_no};
+			
+			DELETE ESTIMATE_ITEM_FEE
+			WHERE EST_NO = #{est_no};
+			
+		END;
+	</delete>	
+	
+	
+	<!-- 견석서 복사기능 -->
+	<insert id="copyEstimate" parameterType="EstimateVO">
+	<selectKey resultType="string" keyProperty="new_est_no" order="BEFORE">
+			SELECT  TO_CHAR(SYSDATE,'YY-') ||LPAD(NVL(SUBSTR(MAX(EST_NO),4,4),0) +1, 4, 0) FROM ESTIMATE
+	</selectKey>
+	
+	BEGIN
+	INSERT INTO ESTIMATE(
+			EST_NO
+			,EST_ORG_NO
+			,EST_TITLE
+			,EST_DATE
+			,EST_CHARGER_NM 
+			,EST_GUBUN
+			,EST_STATE
+			,EST_DESC
+			,CREATER_ID
+			,CREATE_DATE
+			,DEPT_CD
+			,EST_REF
+		)
+		SELECT
+		#{new_est_no} ,
+		 EST_ORG_NO,
+		 '[복사]'|| EST_TITLE,
+		 to_date(SYSDATE, 'YYYY-MM-DD HH24MI') AS EST_DATE,
+		 EST_CHARGER_NM,
+		 EST_GUBUN,
+		 EST_STATE,
+		 EST_DESC,
+		 CREATER_ID,
+		 SYSDATE AS CREATER_DATE,
+		 DEPT_CD,
+		 EST_REF
+		 FROM ESTIMATE WHERE EST_NO=#{est_no};
+		
+	INSERT INTO ESTIMATE_ITEM (
+				EST_ITEM_NO
+				,EST_NO
+				,TEST_ITEM_CD
+				,EST_QTY 
+				,EST_PRICE
+				,EST_PRICE_TOTAL
+				,EST_ITEM_SPEC
+				,EST_ITEM_DESC
+				,PRDLST_CD
+			)
+					
+		   SELECT 
+				  EST_ITEM_NO
+			    ,#{new_est_no}
+			    , TEST_ITEM_CD 
+			    , EST_QTY
+			    , EST_PRICE
+			    , EST_PRICE_TOTAL
+			    , EST_ITEM_SPEC
+			    , EST_ITEM_DESC
+			    , PRDLST_CD
+			     FROM ESTIMATE_ITEM WHERE EST_NO=#{est_no};
+	
+	
+	INSERT INTO ESTIMATE_ITEM_FEE 
+		(
+			EST_FEE_NO
+			,EST_NO
+			,EST_FEE_NM
+			,EST_FEE_PRICE
+			,EST_FEE_DESC
+			,EST_FEE_QTY
+			,EST_FEE_PRICE_TOTAL
+		)
+		SELECT 
+		EST_FEE_NO
+		,#{new_est_no}
+		,EST_FEE_NM
+		,EST_FEE_PRICE
+		,EST_FEE_DESC
+		,EST_FEE_QTY
+		,EST_FEE_PRICE_TOTAL
+		FROM ESTIMATE_ITEM_FEE WHERE EST_NO=#{est_no};
+				     
+			     
+	
+	
+	END;
+	
+	</insert>
+	
+		<!-- 항목 삽입 -->
+	<insert id="insertEstimateItemGrid" parameterType="EstimateVO">		
+		INSERT INTO ESTIMATE_ITEM 
+		(
+			EST_ITEM_NO
+			,EST_NO
+			,TEST_ITEM_CD
+			,PRDLST_CD
+			,EST_PRICE
+			,EST_QTY
+			,EST_PRICE_TOTAL
+		) VALUES (
+			(SELECT LPAD(NVL(MAX(EST_ITEM_NO),0) +1, 3, 0) FROM ESTIMATE_ITEM WHERE EST_NO =  #{est_no} )
+			, #{est_no} 
+			, #{test_item_cd} 
+			, '' 
+			,#{fee}
+			,'1'
+			,#{fee}
+		 ) 
+	</insert>
+</mapper>

@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="reportOnnara">
+	<select id="selectReportOnnaraList" parameterType="ReportVO" resultType="ReportVO">
+		SELECT
+		RD.REPORT_DOC_SEQ
+		, RD.ONNARA_FILE_FLAG
+		, RD.TITLE
+		, RD.REQ_BASIS
+		, RD.DESTINATION_NM
+		, ZIP_CODE
+		, RD.ADDR1
+		, RD.ADDR2
+		, RN.REPORT_NM REPORT_TYPE
+		, RN.REPORT_FILE_NM
+		, RD.ONNARA_APPV_STATE
+		, RD.TEST_REQ_NO
+		, R.REQ_TYPE
+		, C2.CODE_NAME TEST_GOAL
+		, UW.UNIT_WORK_NM UNIT_WORK_CD
+		, TO_CHAR(TO_DATE(R.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') REQ_DATE
+		, R.REQ_BASIS
+		, R.REQ_TEL
+		, R.REQ_NM
+		, D1.DEPT_NM DEPT_NM
+		, U.USER_NM USER_NM
+		, NVL2(O1.ORG_NM, O1.ORG_NM, O2.DEPT_NM) REQ_ORG_NM
+		FROM TEST_REQ R
+		INNER JOIN REPORT_DOC RD ON RD.TEST_REQ_NO = R.TEST_REQ_NO
+		LEFT OUTER JOIN DEPART D1 ON D1.DEPT_CD = R.DEPT_CD
+		LEFT OUTER JOIN USER_INFO U ON U.USER_ID = RD.REPORT_MAKE_ID
+		LEFT OUTER JOIN REQ_ORG O1 ON O1.REQ_ORG_NO = R.REQ_ORG_NO
+		LEFT OUTER JOIN DEPART O2 ON O2.DEPT_CD = R.REQ_ORG_NO
+		LEFT OUTER JOIN UNIT_WORK UW ON UW.UNIT_WORK_CD = R.UNIT_WORK_CD
+		LEFT OUTER JOIN REPORT_NAME RN ON RN.REPORT_SEQ = RD.REPORT_TYPE
+		LEFT OUTER JOIN COMMON_CODE_DETAIL C2 ON C2.CODE =
+		R.TEST_GOAL
+		WHERE RD.STATE != 'Z'
+		AND RD.ONNARA_LINK_YN = 'Y'
+		AND RD.ONNARA_APPV_STATE IS NOT NULL
+		<if test="onnara_appv_state != null and onnara_appv_state != '' ">
+			AND RD.ONNARA_APPV_STATE = #{onnara_appv_state}
+		</if>
+		<if test="test_req_no != null and test_req_no != '' ">
+			AND UPPER(RD.TEST_REQ_NO) like '%' || UPPER( #{test_req_no} ) || '%'
+		</if>
+		<if test="title != null and title != '' ">
+			AND UPPER(RD.TITLE) like '%' || UPPER( #{title} ) || '%'
+		</if>
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				AND TO_CHAR(TO_DATE(R.REQ_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') BETWEEN #{startDate} AND #{endDate}
+			</if>
+		</if>
+		<if test="req_org_nm != null and req_org_nm != '' ">
+			AND (UPPER(O1.ORG_NM) like '%' || UPPER( #{req_org_nm} ) || '%' OR UPPER(O2.DEPT_NM) like '%' || UPPER( #{req_org_nm} ) || '%' )
+		</if>
+		<if test="req_nm != null and req_nm != '' ">
+			AND UPPER(R.REQ_NM) LIKE '%' || UPPER(#{req_nm}) || '%'
+		</if>
+		<if test="test_goal != null and test_goal != '' ">
+			AND R.TEST_GOAL = #{test_goal}
+		</if>
+		<if test="unit_work_cd != null and unit_work_cd != '' ">
+			AND R.UNIT_WORK_CD = #{unit_work_cd}
+		</if>
+		<if test="req_type != null and req_type != '' ">
+			AND R.REQ_TYPE = #{req_type}
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND R.DEPT_CD = #{dept_cd}
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY RD.TEST_REQ_NO DESC
+		</if>
+	</select>
+	<update id="updateReportOnnara" parameterType="ReportVO">
+		UPDATE REPORT_DOC SET
+		ONNARA_LINK_DATE = SYSDATE
+		, ONNARA_APPV_STATE = #{onnara_appv_state}
+		, ONNARA_TITLE = #{onnara_title}
+		, ONNARA_CON = #{onnara_con}
+		WHERE REPORT_DOC_SEQ = #{report_doc_seq}
+
+	</update>
+</mapper>

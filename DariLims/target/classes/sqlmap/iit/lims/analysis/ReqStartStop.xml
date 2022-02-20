@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="reqStartStop">
+
+	<update id="reqStop" parameterType="ReqStartStopVO">
+		UPDATE TEST_REQ SET
+		    BACKUP_STATE = #{state}
+		    , STATE = 'S'
+		    , STOP_FLAG = 'Y'
+		     <if test="stop_reason != null and stop_reason != '' ">
+		    	, STOP_REASON = #{stop_reason}   
+		     </if>
+		WHERE TEST_REQ_SEQ = #{test_req_seq}
+		AND STOP_FLAG = 'N'
+	</update>
+	
+	<update id="reqStart" parameterType="ReqStartStopVO">
+		UPDATE TEST_REQ SET
+		    STATE = #{backup_state}
+		    , STOP_FLAG = 'N'
+		    , BACKUP_STATE = ''
+		WHERE TEST_REQ_SEQ = #{test_req_seq}
+		AND STOP_FLAG = 'Y'
+	</update>
+</mapper>

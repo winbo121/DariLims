@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="sampleDisuse">
+
+	<!-- 시료(폐기) 관리 리스트 -->
+	<select id="selectSampleDisuseList" parameterType="ResultInputVO" resultType="ResultInputVO">
+		SELECT
+			R.TEST_REQ_NO
+			, TS.TEST_REQ_SEQ
+			, TS.TEST_SAMPLE_SEQ
+			, P.SIMPLE_PRC_NM STATE
+			, TS.SAMPLE_REG_NM
+			, TO_CHAR(TO_DATE(R.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') SAMPLE_ARRIVAL_DATE
+			, TO_CHAR(TO_DATE(R.DEADLINE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') DEADLINE_DATE
+			, TO_CHAR(TO_DATE(TSD.DISUSE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') DISUSE_DATE
+			, SP.SAMPLE_NM
+			, C1.CODE_NAME SAMPLING_METHOD
+			, TS.SAMPLING_ID
+			, GET_COMMON_CODE(R.REQ_TYPE, 'EX1') REQ_TYPE
+			, R.REQ_NM
+			, D.DEPT_NM
+			, STD.TEST_STD_NM
+			, (SELECT UNIT_WORK_NM FROM UNIT_WORK WHERE UNIT_WORK_CD = R.UNIT_WORK_CD ) AS UNIT_WORK_NM
+			, (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = R.SUPV_DEPT_CD) AS SUPV_DEPT_CD
+			, R.RETURN_FLAG
+			, TS.DISUSE_FLAG
+			, TSD.RECIPIENT_ID
+			, TSD.SENDER_ID
+		    , TSD.RECIPIENT_NM AS RECIPIENT_NM
+		    ,(SELECT USER_NM FROM USER_INFO WHERE USER_ID = TSD.SENDER_ID) AS SENDER_NM
+			, TSD.ETC
+			,(SELECT ORG_NM FROM REQ_ORG WHERE REQ_ORG_NO = R.REQ_ORG_NO) AS REQ_ORG_NM
+		FROM TEST_SAMPLE TS
+		LEFT OUTER JOIN TEST_SAMPLE_DISUSE TSD ON TSD.TEST_SAMPLE_SEQ = TS.TEST_SAMPLE_SEQ
+		LEFT OUTER JOIN SAMPLE SP ON SP.SAMPLE_CD = TS.SAMPLE_CD
+		LEFT OUTER JOIN SAMPLING_POINT SlP ON SlP.SAMPLING_POINT_NO = TS.SAMPLING_POINT_NO
+		LEFT OUTER JOIN PROCESS P ON P.PRC_CD = TS.STATE
+		LEFT OUTER JOIN TEST_STD STD ON STD.TEST_STD_NO = TS.TEST_STD_NO
+		INNER JOIN TEST_REQ R ON R.TEST_REQ_SEQ = TS.TEST_REQ_SEQ
+		LEFT OUTER JOIN DEPART D ON D.DEPT_CD = R.DEPT_CD
+		LEFT OUTER JOIN COMMON_CODE_DETAIL C1 ON C1.CODE = TS.SAMPLING_METHOD
+		WHERE 1=1
+		<if test="disuse_flag != null and disuse_flag != '' ">
+			AND TS.DISUSE_FLAG = #{disuse_flag}
+		</if>
+		<if test="test_sample_seq != null and test_sample_seq != '' ">
+			AND TS.TEST_SAMPLE_SEQ like '%' || #{test_sample_seq} || '%'
+		</if>
+		<if test="sample_reg_nm != null and sample_reg_nm != '' ">
+			AND UPPER(TS.SAMPLE_REG_NM) like '%' || UPPER( #{sample_reg_nm} ) || '%'
+		</if>
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				AND TO_CHAR(TO_DATE(R.SAMPLE_ARRIVAL_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') BETWEEN #{startDate} AND #{endDate}
+			</if>
+		</if>
+		<if test="req_nm != null and req_nm != '' ">
+			AND UPPER(R.REQ_NM) LIKE '%' || UPPER(#{req_nm}) || '%'
+		</if>
+		<if test="req_type != null and req_type != '' ">
+			AND R.REQ_TYPE = #{req_type}
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND R.DEPT_CD = #{dept_cd}
+		</if>
+		<if test="test_req_no != null and test_req_no != '' ">
+			AND UPPER(R.TEST_REQ_NO) like '%' || UPPER(#{test_req_no}) || '%'
+		</if>
+		<if test="req_org_nm != null and req_org_nm != '' ">
+			AND (SELECT ORG_NM FROM REQ_ORG WHERE REQ_ORG_NO = R.REQ_ORG_NO) like '%' || #{req_org_nm} || '%'
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY TS.TEST_SAMPLE_SEQ DESC
+		</if>
+	</select>
+	
+	<!--  시료 관리 상세 페이지 -->
+	<select id="sampleDisuseDetail" parameterType="ResultInputVO" resultType="ResultInputVO">
+		SELECT
+		    TEST_SAMPLE_SEQ,
+		    TO_CHAR(TO_DATE(DISUSE_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') AS DISUSE_DATE,
+		    RECIPIENT_ID,
+		    SENDER_ID,    
+		    (SELECT USER_NM FROM USER_INFO WHERE USER_ID = RECIPIENT_ID) AS RECIPIENT_NM,
+		    (SELECT USER_NM FROM USER_INFO WHERE USER_ID = SENDER_ID) AS SENDER_NM,
+		    ETC
+		FROM TEST_SAMPLE_DISUSE
+		WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+	</select>
+	
+	<!--  시료 관리 상세 수정 -->
+	<update id="updateSampleDisuse" parameterType="ResultInputVO">	
+		BEGIN
+			
+			UPDATE TEST_SAMPLE_DISUSE SET 
+		    	DISUSE_DATE = REPLACE(#{disuse_date}, '-', '')
+				<if test="recipient_id != null ">
+			    	, RECIPIENT_ID = #{recipient_id}
+			    </if>
+			    <if test="recipient_nm != null ">
+			    	, RECIPIENT_NM = #{recipient_nm}
+			    </if>
+				<if test="sender_id != null ">
+			    	, SENDER_ID = #{sender_id}
+			    </if>
+				<if test="etc != null ">
+			    	, ETC = #{etc}
+			    </if>
+			WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+			;
+			
+			UPDATE TEST_SAMPLE SET
+				DISUSE_FLAG = #{disuse_flag}
+			WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+			;
+			
+		END;
+	</update>
+	
+	<!--  시료 관리 상세 수정(TEST_SAMPLE에 플레그 변경) -->
+	<update id="updateSampleDisuseFlag" parameterType="ResultInputVO">
+		UPDATE TEST_SAMPLE SET 
+		    	DISUSE_FLAG = #{disuse_flag}			
+		WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+	</update>
+
+	<!-- 시료 관리 상세 삭제 -->
+	<delete id="deleteSampleDisuse" parameterType="ResultInputVO">
+		
+		
+	</delete>
+</mapper>

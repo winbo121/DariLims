@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="acceptApproval">
+
+	<select id="selectApprList" parameterType="AcceptApprovalVO" resultType="AcceptApprovalVO">
+		SELECT APPR_NO
+		,APPR_ID
+		,USER_NM
+		,SIMPLE_PRC_NM
+		FROM APPR_LINE AL
+		JOIN USER_INFO UI ON UI.USER_ID = AL.APPR_ID
+		JOIN PROCESS PRC ON PRC.PRC_CD = AL.APPR_STATE
+		WHERE AL.TEST_REQ_SEQ IN (SELECT TEST_REQ_SEQ FROM APPR_LINE WHERE APPR_ID = #{user_id} AND APPR_NOWPOS = 'Y')
+		ORDER BY AL.APPR_NO
+	</select>
+
+
+	<select id="selectReqList" parameterType="AcceptApprovalVO" resultType="AcceptApprovalVO">
+		SELECT
+			R.TEST_REQ_NO
+			, R.TEST_REQ_SEQ
+			, TO_CHAR(TO_DATE(R.REQ_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') REQ_DATE
+			, TO_CHAR(TO_DATE(R.DEADLINE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') DEADLINE_DATE
+			, GET_COMMON_CODE(R.REQ_TYPE, 'EX1') REQ_TYPE
+			, R.REQ_NM
+			, R.DEPT_CD
+			, R.SUPV_DEPT_CD
+			, D.DEPT_NM
+			, R.REQ_MESSAGE
+			, R.TITLE
+			, NVL2(RO.ORG_NM , RO.ORG_NM, RD.DEPT_NM ) REQ_ORG_NM
+			, C1.CODE_NAME TEST_GOAL
+			, UW.UNIT_WORK_NM UNIT_WORK_CD
+			, U.USER_NM
+			, U2.USER_NM CREATER_NM
+			, R.STATE
+			, R.BACKUP_STATE
+			, R.STOP_FLAG
+			,(
+			    SELECT MAX(AB.SUBSTITUTE_ID)
+			    FROM ABSENCE AB, APPR_LINE AL
+			    WHERE AB.START_DATE <![CDATA[ <= ]]> TO_CHAR(SYSDATE, 'YYYYMMDD')
+			    AND AB.END_DATE <![CDATA[ >= ]]> TO_CHAR(SYSDATE, 'YYYYMMDD')
+			    AND AB.USER_ID = AL.APPR_ID AND AL.TEST_REQ_SEQ = R.TEST_REQ_SEQ  AND 
+			    APPR_NOWPOS = 'Y'  AND APPR_DEPT_FLAG = 'N' 
+			) ABSENCE_FLAG
+		FROM TEST_REQ R 
+		LEFT OUTER JOIN DEPART D ON D.DEPT_CD = R.DEPT_CD
+		LEFT OUTER JOIN COMMON_CODE_DETAIL C1 ON C1.CODE = R.TEST_GOAL
+		LEFT OUTER JOIN UNIT_WORK UW ON UW.UNIT_WORK_CD = R.UNIT_WORK_CD
+		LEFT OUTER JOIN USER_INFO U ON U.USER_ID = R.ACT_USER_ID
+		LEFT OUTER JOIN USER_INFO U2 ON U2.USER_ID = R.CREATER_ID
+		LEFT OUTER JOIN DEPART RD ON RD.DEPT_CD = R.REQ_ORG_NO
+		LEFT OUTER JOIN REQ_ORG RO ON RO.REQ_ORG_NO = R.REQ_ORG_NO
+		WHERE 1=1
+			AND R.STOP_FLAG = 'N'
+			AND R.STATE = 'Y'
+			AND R.TEST_REQ_SEQ IN (
+				SELECT DISTINCT TEST_REQ_SEQ FROM APPR_LINE 
+				WHERE APPR_NOWPOS = 'Y'
+				AND ( APPR_ID = #{user_id} OR APPR_ID IN (
+					SELECT USER_ID FROM ABSENCE WHERE START_DATE <![CDATA[ <= ]]>
+					TO_CHAR(SYSDATE, 'YYYYMMDD') AND END_DATE <![CDATA[ >= ]]>
+					TO_CHAR(SYSDATE, 'YYYYMMDD') AND SUBSTITUTE_ID = #{user_id} ) 
+				) 
+			)
+
+		<if test="req_org_nm != null and req_org_nm != '' ">
+			AND UPPER(R.REQ_ORG_NM) like '%' || UPPER( #{req_org_nm} ) || '%'
+		</if>
+		<if test="req_nm != null and req_nm != '' ">
+			AND UPPER(R.REQ_NM) like '%' || UPPER( #{req_nm} ) || '%'
+		</if>
+		<if test="title != null and title != '' ">
+			AND UPPER(R.TITLE) like '%' || UPPER( #{title} ) || '%'
+		</if>
+		<if test="test_req_no != null and test_req_no != '' ">
+			AND R.TEST_REQ_NO like '%' || #{test_req_no} || '%'
+		</if>
+		<if test="req_type != null and req_type != '' ">
+			AND R.REQ_TYPE = #{req_type}
+		</if>
+		<if test="sensory_test != null and sensory_test != '' ">
+			AND R.SENSORY_TEST = #{sensory_test}
+		</if>
+		<if test="unit_work_cd != null and unit_work_cd != '' ">
+			AND R.UNIT_WORK_CD = #{unit_work_cd}
+		</if>
+		<if test="test_goal != null and test_goal != '' ">
+			AND R.TEST_GOAL = #{test_goal}
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND R.DEPT_CD = #{dept_cd}
+		</if>
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				AND TO_CHAR(TO_DATE(R.REQ_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') BETWEEN #{startDate} AND #{endDate}
+			</if>
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY R.TEST_REQ_SEQ, R.TEST_REQ_NO DESC
+		</if>
+	</select>
+
+
+
+	<update id="updateAppr" parameterType="AcceptApprovalVO">
+		UPDATE APPR_LINE SET
+		APPR_STATE = 'Z'
+		,APPR_NOWPOS = 'N'
+		WHERE TEST_REQ_SEQ = #{test_req_seq}
+		AND 
+		( 
+			APPR_ID = #{appr_id} OR 
+			APPR_ID IN 
+			(
+				SELECT USER_ID 
+				FROM ABSENCE 
+				WHERE START_DATE <![CDATA[ <= ]]> SYSDATE AND END_DATE <![CDATA[ >= ]]> SYSDATE 
+				AND SUBSTITUTE_ID = #{appr_id} 
+			) 
+		)
+		AND APPR_STATE = 'Y'
+	</update>
+
+
+	<select id="selectApprNowPos" parameterType="AcceptApprovalVO" resultType="AcceptApprovalVO">
+		SELECT APPR_NO , APPR_ID
+		FROM APPR_LINE
+		WHERE APPR_NO = (
+			SELECT MIN(APPR_NO) FROM APPR_LINE WHERE TEST_REQ_SEQ = #{test_req_seq}
+			AND TEST_REQ_SEQ = #{test_req_seq}
+			AND APPR_STATE = 'A'
+		)
+	</select>
+	
+	<update id="updateApprNowPos" parameterType="AcceptApprovalVO">
+		UPDATE APPR_LINE SET
+		APPR_STATE = 'Y',
+		APPR_NOWPOS = 'Y'
+		WHERE APPR_NO = #{appr_no}
+		AND TEST_REQ_SEQ = #{test_req_seq}
+		AND APPR_STATE = 'A'
+	</update>
+
+</mapper>

@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="instRent">
+
+	<!-- 장비대여 업체목록 조회 -->
+	<select id="selectInstRentList" parameterType="InstrentVO" resultType="InstrentVO">
+		SELECT
+			 DISTINCT A.INSTRENT_RECEIPT_NO
+			,C.ORG_NM ORG_NM
+			,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = ORG_TYPE_CD) AS ORG_TYPE
+			,PRE_TEL_NUM AS PRE_TEL_NUM
+			,CHARGER AS REQ_NM
+			,CHARGER_TEL AS REQ_TEL
+			,INSTRENT_USER_NM
+			,(SELECT USER_NM FROM USER_INFO WHERE USER_ID = A.INSTRENT_TAKER_NM) AS INSTRENT_TAKER_NM       
+			,CASE WHEN (SELECT MIN(TO_CHAR(INSTRENT_ST_DATE,'YYYY-MM-DD')) FROM INST_RENT_INST WHERE INSTRENT_RECEIPT_NO = A.INSTRENT_RECEIPT_NO) IS NULL
+			 OR (SELECT MAX(TO_CHAR(INSTRENT_END_DATE, 'YYYY-MM-DD')) FROM INST_RENT_INST WHERE INSTRENT_RECEIPT_NO = A.INSTRENT_RECEIPT_NO) IS NULL
+			 THEN '' 
+			 ELSE (SELECT MIN(TO_CHAR(INSTRENT_ST_DATE,'YYYY-MM-DD')) || ' ~ ' || MAX(TO_CHAR(INSTRENT_END_DATE, 'YYYY-MM-DD')) FROM INST_RENT_INST WHERE INSTRENT_RECEIPT_NO = A.INSTRENT_RECEIPT_NO) END AS INSTRENT_RENT_DATE            
+			FROM INST_RENT A
+			LEFT OUTER JOIN INST_RENT_INST B ON A.INSTRENT_RECEIPT_NO = B.INSTRENT_RECEIPT_NO
+			LEFT OUTER JOIN REQ_ORG C ON A.REQ_ORG_NO = C.REQ_ORG_NO
+			LEFT OUTER JOIN INSTRUMENT D ON B.INST_NO = D.INST_NO
+			WHERE USER_FLAG = 'N'
+		<if test="instRent_receipt_no != null and instRent_receipt_no != '' ">
+			AND A.INSTRENT_RECEIPT_NO LIKE '%' || #{instRent_receipt_no} || '%' 
+		</if>
+		<if test="org_nm != null and org_nm != '' ">
+			AND C.ORG_NM LIKE '%' || #{org_nm} || '%' 
+		</if>
+		<if test="inst_kor_nm != null and inst_kor_nm != '' ">
+			AND D.INST_KOR_NM LIKE '%' || #{inst_kor_nm} || '%' 
+			OR D.INST_ENG_NM LIKE '%' || #{inst_kor_nm} || '%'
+		</if>
+		<if test="startDate != null and startDate != '' and endDate != null and endDate != ''">
+			AND (( TO_CHAR(INSTRENT_ST_DATE,'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate}
+					OR
+				  TO_CHAR(INSTRENT_END_DATE, 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate}
+				)
+			OR ( TO_CHAR(INSTRENT_ST_DATE,'YYYY-MM-DD') <![CDATA[<]]> #{startDate}
+					AND
+				  TO_CHAR(INSTRENT_END_DATE, 'YYYY-MM-DD') <![CDATA[>]]> #{endDate}
+				))
+		</if>
+		ORDER BY INSTRENT_RECEIPT_NO DESC
+	</select>
+
+	<!-- 장비대여 상세 데이터 조회 -->
+	<select id="selectInstRentDetail" parameterType="InstrentVO" resultType="InstrentVO">
+		SELECT
+             INSTRENT_RECEIPT_NO
+            ,REQ_ORG_NO
+            ,(SELECT ORG_NM FROM REQ_ORG WHERE REQ_ORG_NO = A.REQ_ORG_NO) AS ORG_NM
+            ,ORG_TYPE_CD
+            ,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = ORG_TYPE_CD) AS ORG_TYPE
+            ,(SELECT ZIP_CODE FROM REQ_ORG WHERE REQ_ORG_NO = A.REQ_ORG_NO) AS ZIP_CODE
+            ,(SELECT ADDR1 FROM REQ_ORG WHERE REQ_ORG_NO = A.REQ_ORG_NO) || ' ' ||
+             (SELECT ADDR2 FROM REQ_ORG WHERE REQ_ORG_NO = A.REQ_ORG_NO) AS ADDR1
+            ,'' BIZ_NO1
+            ,(SELECT PRE_TEL_NUM FROM REQ_ORG WHERE REQ_ORG_NO = A.REQ_ORG_NO) AS PRE_TEL_NUM
+            ,(SELECT CHARGER FROM REQ_ORG WHERE REQ_ORG_NO = A.REQ_ORG_NO) AS REQ_NM
+            ,(SELECT CHARGER_TEL FROM REQ_ORG WHERE REQ_ORG_NO = A.REQ_ORG_NO) AS REQ_TEL     
+            ,INSTRENT_USER_NM
+            ,(SELECT USER_NM FROM USER_INFO WHERE USER_ID = A.INSTRENT_TAKER_NM) AS INSTRENT_TAKER_NM
+        FROM INST_RENT A
+		WHERE A.INSTRENT_RECEIPT_NO = #{instRent_receipt_no}
+	</select>
+
+	<!-- 장비대여 업체 등록 처리 -->
+	<insert id="insertInstRentOrg" parameterType="InstrentVO">
+		INSERT INTO INST_RENT(
+             INSTRENT_RECEIPT_NO
+            ,REQ_ORG_NO
+            ,INSTRENT_USER_NM
+            ,INSTRENT_TAKER_NM
+            ,ORG_TYPE_CD
+            ,USER_FLAG
+            ,CREATE_ID
+            ,CREATE_DATE
+        )VALUES(
+             (SELECT TO_CHAR(SYSDATE,'YY')||'E-'||LPAD(NVL((SELECT MAX(SUBSTR(INSTRENT_RECEIPT_NO, 5, 3)) +1 FROM INST_RENT), 1),3,0) FROM DUAL)
+             ,#{req_org_no}
+             ,#{instRent_user_nm}
+             ,(SELECT USER_ID FROM USER_INFO WHERE USER_NM = #{instRent_taker_nm})
+             ,#{org_type_cd}
+             ,'N'
+             ,#{user_id}
+             ,SYSDATE             
+            )
+	</insert>
+	
+	<!-- 장비대여 업체 수정 처리 -->
+	<update id="updateInstRentOrg" parameterType="InstrentVO">
+		UPDATE INST_RENT SET
+			 REQ_ORG_NO = #{req_org_no}
+			,ORG_TYPE_CD = #{org_type_cd}
+			,INSTRENT_USER_NM = #{instRent_user_nm}
+			,UPDATE_ID = #{user_id}
+			,UPDATE_DATE = SYSDATE
+		WHERE INSTRENT_RECEIPT_NO = #{instRent_receipt_no}
+	</update>
+	
+	<!-- 장비대여 업체 삭제 처리 -->
+	<update id="deleteInstRent" parameterType="InstrentVO">
+		UPDATE INST_RENT SET
+			 USER_FLAG = 'Y'
+			,UPDATE_ID = #{user_id}
+			,UPDATE_DATE = SYSDATE
+		WHERE INSTRENT_RECEIPT_NO = #{instRent_receipt_no}
+	</update>
+	
+	<!-- 장비대여 장비목록 조회 -->
+	<select id="selectInstRentDetailList"  parameterType="InstrentVO" resultType="InstrentVO">
+		SELECT 
+            INSTRENT_RECEIPT_NO,
+            INSTRENT_RENT_NO,
+            A.INST_NO,
+            INST_MNG_NO,
+            INST_KOR_NM,
+            INST_ENG_NM,
+            INSTL_PLC,
+            C.MNG_ID ADMIN_USER,
+            (SELECT MAX(DEPT_NM) FROM DEPART B WHERE B.DEPT_CD = DECODE(C.MNG_DEPT_CD , null, B.DEPT_CD, C.MNG_DEPT_CD)) DEPT_NM,            
+            TO_CHAR (INSTRENT_ST_DATE, 'YYYY-MM-DD') INSTRENT_ST_DATE,
+            TO_CHAR (INSTRENT_END_DATE, 'YYYY-MM-DD') INSTRENT_END_DATE
+        FROM INST_RENT_INST A
+        LEFT OUTER JOIN INSTRUMENT B ON A.INST_NO = B.INST_NO
+        LEFT OUTER JOIN 
+        (SELECT AA.INST_NO, AA.MNG_ID, AA.MNG_DEPT_CD FROM INST_MNG_HIS AA INNER JOIN
+        (SELECT INST_NO,MAX(MNG_NO) MNG_NO FROM INST_MNG_HIS GROUP BY INST_NO) BB ON AA.INST_NO = BB.INST_NO AND AA.MNG_NO = BB.MNG_NO
+        ) C ON A.INST_NO = C.INST_NO
+		WHERE INSTRENT_RECEIPT_NO = #{instRent_receipt_no} 
+		ORDER BY INSTRENT_RENT_NO
+	</select>
+	
+	<!-- 장비 대여 장비 목록 저장 처리 -->
+	<insert id="insertInstRent_inst" parameterType="InstrentVO">
+		INSERT INTO INST_RENT_INST(
+			 INSTRENT_RECEIPT_NO
+			,INSTRENT_RENT_NO
+			,INST_NO
+			,INSTRENT_ST_DATE
+			,INSTRENT_END_DATE			
+		)VALUES(
+			 #{instRent_receipt_no}
+			,(SELECT #{instRent_receipt_no}||LPAD(NVL((SELECT MAX(SUBSTR(INSTRENT_RENT_NO, 8, 2)) +1 FROM INST_RENT_INST), 1),2,0) FROM DUAL)
+			,#{inst_no}
+			,#{instRent_st_date}
+			,#{instRent_end_date}			
+			)
+	</insert>
+	
+	<!-- 장비 대여 장비 목록 수정 처리 -->
+	<update id="updateInstRent_inst" parameterType="InstrentVO">
+		UPDATE INST_RENT_INST SET
+			 INST_NO = #{inst_no}
+			,INSTRENT_ST_DATE = #{instRent_st_date}
+			,INSTRENT_END_DATE = #{instRent_end_date}
+		WHERE INSTRENT_RECEIPT_NO = #{instRent_receipt_no}
+		AND INSTRENT_RENT_NO = #{instRent_rent_no}
+	</update>
+	
+	<!-- 장비 대여 장비 목록 삭제 처리 -->
+	<delete id="deleteInstRent_inst" parameterType="InstrentVO">
+		DELETE FROM INST_RENT_INST
+		WHERE INSTRENT_RECEIPT_NO = #{instRent_receipt_no}
+		AND INSTRENT_RENT_NO = #{instRent_rent_no}
+	</delete>
+	
+	<!-- 장비대여 사용결과 시료목록 일괄삭제 -->
+	<delete id="deleteInstRent_sample_all" parameterType="InstrentVO">
+		DELETE FROM INST_RENT_SAMPLE
+		WHERE INSTRENT_RENT_NO = #{instRent_rent_no}
+	</delete>
+	
+	<!-- 장비대여 사용결과 시료목록 등록 -->
+	<insert id="insertInstRent_sample" parameterType="InstrentVO">
+		INSERT INTO INST_RENT_SAMPLE(
+			 INSTRENT_RENT_NO
+			,INSTRENT_SAMPLE_NO
+			,INSTRENT_SAMPLE_NM
+			,SAMPLE_CD
+		)VALUES(
+			  #{instRent_rent_no}
+			 ,(SELECT TO_CHAR(SYSDATE,'YY')||'S-'||LPAD(NVL((SELECT MAX(SUBSTR(INSTRENT_SAMPLE_NO, 5, 3)) +1 FROM INST_RENT_SAMPLE WHERE INSTRENT_RENT_NO = #{instRent_rent_no}), 1),3,0) FROM DUAL)
+			 ,#{instRent_sample_nm}
+			 ,#{sample_cd}
+				)
+	</insert>
+	
+	<!-- 장비대여 사용결과 시료목록 수정 -->
+	<update id="updateInstRent_sample" parameterType="InstrentVO">
+		UPDATE INST_RENT_SAMPLE SET
+			 INSTRENT_SAMPLE_NM = #{instRent_sample_nm}
+			,SAMPLE_CD = #{sample_cd}
+		WHERE INSTRENT_RENT_NO = #{instRent_rent_no}
+		AND INSTRENT_SAMPLE_NO = #{instRent_sample_no}
+	</update>
+	
+	<!-- 장비대여 사용결과 시료목록 조회 -->
+	<select id="selectInstRent_sampleList" parameterType="InstrentVO" resultType="InstrentVO">
+		SELECT 
+			 INSTRENT_SAMPLE_NO
+			,INSTRENT_SAMPLE_NM
+			,SAMPLE_CD
+			,(SELECT SAMPLE_NM FROM SAMPLE WHERE SAMPLE_CD = A.SAMPLE_CD) AS SAMPLE_NM
+		FROM INST_RENT_SAMPLE A
+		WHERE INSTRENT_RENT_NO = #{instRent_rent_no}
+	</select>
+	
+	<!-- 장비대여 사용결과 항목 일괄삭제 -->
+	<delete id="deleteInstRent_item_all" parameterType="InstrentVO">
+		DELETE FROM INST_RENT_ITEM
+		WHERE INSTRENT_SAMPLE_NO = #{instRent_sample_no}
+	</delete>
+	
+	<!-- 장비대여 사용결과 항목 등록 -->
+	<insert id="insertInstRent_item" parameterType="InstrentVO">
+		INSERT INTO INST_RENT_ITEM(
+			 INSTRENT_SAMPLE_NO
+			,INSTRENT_ITEM_CD
+			,SAMPLE_CD
+		)VALUES(
+			  #{instRent_sample_no}
+			 ,#{instRent_item_cd}
+			 ,#{sample_cd}
+				)
+	</insert>
+	
+	<!-- 장비대여 사용결과 항목 조회 -->
+	<select id="selectInstRent_itemList" parameterType="InstrentVO" resultType="InstrentVO">
+		SELECT
+			 INSTRENT_SAMPLE_NO
+			,TEST_ITEM_CD
+			,(SELECT TESTITM_NM FROM ANALYSIS WHERE TESTITM_CD = A.TEST_ITEM_CD) AS TEST_ITEM_KORNM
+            ,(SELECT ENG_NM FROM ANALYSIS WHERE TESTITM_CD = A.TEST_ITEM_CD) AS TEST_ITEM_ENGNM 
+			,TEST_ITEM_TYPE
+		FROM INST_RENT_ITEM A
+		WHERE INSTRENT_SAMPLE_NO = #{instRent_sample_no}
+	</select>
+	
+	<!-- 장비대여 사용결과 시료 삭제 -->
+	<delete id="deleteInstRent_sample" parameterType="InstrentVO">
+		DELETE FROM INST_RENT_SAMPLE
+		WHERE INSTRENT_SAMPLE_NO = #{instRent_sample_no}
+	</delete>
+	
+	<!-- 장비대여 사용결과 항목 삭제 -->
+	<delete id="deleteInstRent_item" parameterType="InstrentVO">
+		DELETE FROM INST_RENT_ITEM
+		WHERE INSTRENT_SAMPLE_NO = #{instRent_sample_no}
+		AND TEST_ITEM_CD = #{test_item_cd}
+	</delete>
+	
+	<!-- 장비대여 사용결과 항목 비고 저장 -->
+	<update id="saveSampleEtc"  parameterType="InstrentVO">
+		UPDATE INST_RENT_SAMPLE SET
+			INSTRENT_SAMPLE_ETC = #{instRent_sample_etc}
+		WHERE INSTRENT_SAMPLE_NO = #{instRent_sample_no}
+	</update>
+	
+	<!-- 장비대여 사용결과 항목 비고 조회 -->
+	<select id="selectSampleEtc" parameterType="InstrentVO" resultType="InstrentVO">
+		SELECT INSTRENT_SAMPLE_ETC FROM INST_RENT_SAMPLE
+		WHERE INSTRENT_RENT_NO = #{instRent_rent_no}
+		AND INSTRENT_SAMPLE_NO = #{instRent_sample_no}  
+	</select>
+	
+</mapper>

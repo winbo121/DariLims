@@ -1,0 +1,578 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="testPrdStd">
+	
+	<!-- 품목 리스트 -->
+	<select id="selectStdTestPrdList" resultType="PrdLstVO" parameterType="PrdLstVO">		
+		SELECT 
+			 PRDLST_CD
+			,GET_COMMON_CODE(HTRK_PRDLST_CD,'') AS HTRK_PRDLST_NM
+			,KOR_NM
+			,ENG_NM
+	    FROM PRDLST_CL PL
+	    LEFT OUTER JOIN USER_INFO UI ON PL.CHARGER_USER_ID = UI.USER_ID
+	    LEFT OUTER JOIN DEPART D ON UI.DEPT_CD = D.DEPT_CD
+        WHERE PL.USE_YN = 'Y'
+		<if test="htrk_prdlst_cd != null and htrk_prdlst_cd != '' ">
+			AND HTRK_PRDLST_CD = #{htrk_prdlst_cd}
+		</if>
+		<if test="kor_nm != null and kor_nm != '' ">
+			AND KOR_NM like '%'|| #{kor_nm} ||'%'
+		</if>
+		ORDER BY HTRK_PRDLST_CD ,PRDLST_CD
+	</select>
+	
+	<!-- 항목별 검사기준 조회 -->
+	<select id="selectStdTestPrdItemList" parameterType="testPrdStdVO" resultType="testPrdStdVO">
+		SELECT
+		    S.INDV_SPEC_SEQ,
+		    S.PRDLST_CD,
+		    S.PRDLST_CD_NM AS PRDLST_NM,
+		    S.TESTITM_CD AS TEST_ITEM_CD,
+		    NVL(GET_COMMON_CODE(A.TESTITM_LCLAS_CD, ''),'') AS TESTITM_LCLAS_NM,
+			NVL(GET_COMMON_CODE(A.TESTITM_MLSFC_CD, ''),'') AS TESTITM_MLSFC_NM,
+		    S.TESTITM_NM AS TEST_ITEM_NM,
+		    S.UNIT_CD,
+		    S.TEST_METHOD_NO,
+		    (SELECT TEST_METHOD_NM FROM TEST_METHOD WHERE TEST_METHOD_NO = S.TEST_METHOD_NO) AS TEST_METHOD_NM,
+		    S.OXIDE_CD,
+		    S.ITEM_ORDER
+		FROM INDV_SPEC S
+		LEFT OUTER JOIN ANALYSIS A ON S.TESTITM_CD = A.TESTITM_CD
+		WHERE S.PRDLST_CD = #{prdlst_cd} AND S.VALD_BEGN_DT <![CDATA[<= ]]> TO_CHAR(SYSDATE,'YYYYmmdd')
+		AND S.FNPRT_ITM_NM IS NULL
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY S.ITEM_ORDER
+		</if>
+	</select>
+	
+	<!-- 항목별 검사기준 등록 -->
+	<insert id="insertStdTestPrdItem" parameterType="java.util.HashMap">
+		INSERT INTO INDV_SPEC (
+			INDV_SPEC_SEQ,
+		    PRDLST_CD,
+		    PRDLST_CD_NM,		    
+		    TESTITM_CD,
+		    TESTITM_NM,
+		    TEST_METHOD_NO,		    
+		    UNIT_CD,
+		    <if test="vald_manli != null and vald_manli != '' ">
+		    VALD_MANLI,	
+		    </if>	    
+		    <if test="choic_fit != null and choic_fit != '' ">
+		    CHOIC_FIT,
+		    </if>
+		    <if test="choic_fit_nm != null and choic_fit_nm != '' ">
+		    A082_CF_FNPRT_CD_NM,
+		    </if>
+		    <if test="choic_impropt != null and choic_impropt != '' ">
+		    CHOIC_IMPROPT,
+		    </if>
+		    <if test="choic_impropt_nm != null and choic_impropt_nm != '' ">
+		    A082_CI_FNPRT_CD_NM,
+		    </if>	    
+		    <if test="loq_lval != null and loq_lval != '' ">
+		    LOQ_LVAL,
+		    </if>
+		    <if test="loq_hval != null and loq_hval != '' ">
+		    LOQ_HVAL,
+		    </if>	    
+		    <if test="spec_val != null and spec_val != '' ">
+		    SPEC_VAL,
+		    </if>
+		    <if test="mimm_val != null and mimm_val != '' ">
+		    MIMM_VAL,
+		    </if>
+		    <if test="mimm_val_dvs_cd != null and mimm_val_dvs_cd != '' ">
+		    MIMM_VAL_DVS_CD,
+		    </if>
+		    <if test="mxmm_val != null and mxmm_val != '' ">
+		    MXMM_VAL,
+		    </if>
+		    <if test="mxmm_val_dvs_cd != null and mxmm_val_dvs_cd != '' ">
+		    MXMM_VAL_DVS_CD,
+		    </if>
+		    VALD_BEGN_DT,
+			CREATER_ID,
+			CREATE_DATE,
+			LAST_UPDT_DTM,
+			KFDA_YN
+		) VALUES (
+			(SELECT TO_CHAR(SYSDATE, 'yyyy') ||'A'|| LPAD(NVL(MAX(SUBSTR(INDV_SPEC_SEQ, 6, 10)),0)+1, 5, 0) FROM INDV_SPEC WHERE SUBSTR(INDV_SPEC_SEQ, 0, 4) = TO_CHAR(SYSDATE, 'yyyy') AND KFDA_YN = 'N'),
+			#{prdlst_cd}, 
+			#{prdlst_nm},			
+			#{test_item_cd},
+			(SELECT TEST_ITEM_NM FROM TEST_ITEM WHERE TEST_ITEM_CD = #{test_item_cd}),
+			#{test_method_no},			
+			#{unit_cd},
+		    <if test="vald_manli != null and vald_manli != '' ">
+			#{vald_manli},
+			</if>
+		    <if test="choic_fit != null and choic_fit != '' ">
+			#{choic_fit},
+			</if>
+		    <if test="choic_fit_nm != null and choic_fit_nm != '' ">
+			#{choic_fit_nm},
+			</if>
+		    <if test="choic_impropt != null and choic_impropt != '' ">
+			#{choic_impropt},
+			</if>
+		    <if test="choic_impropt_nm != null and choic_impropt_nm != '' ">
+			#{choic_impropt_nm},
+			</if>
+		    <if test="loq_lval != null and loq_lval != '' ">
+			#{loq_lval},
+			</if>
+		    <if test="loq_hval != null and loq_hval != '' ">
+			#{loq_hval},
+			</if>
+		    <if test="spec_val != null and spec_val != '' ">
+			#{spec_val},
+			</if>
+		    <if test="mimm_val != null and mimm_val != '' ">
+			#{mimm_val},
+			</if>
+		    <if test="mimm_val_dvs_cd != null and mimm_val_dvs_cd != '' ">
+			#{mimm_val_dvs_cd}, 
+			</if>
+		    <if test="mxmm_val != null and mxmm_val != '' ">
+			#{mxmm_val},
+			</if>
+		    <if test="mxmm_val_dvs_cd != null and mxmm_val_dvs_cd != '' ">
+			#{mxmm_val_dvs_cd},
+			</if>
+			TO_CHAR(SYSDATE, 'YYYYmmdd'),
+			#{user_id},
+			TO_CHAR(SYSDATE, 'YYYYmmdd'),
+			SYSDATE,
+			'N'
+		)
+	</insert>
+	
+	
+	<!-- 복사 -->
+	<insert id="copyStdTestPrdItem" parameterType="testPrdStdVO">
+		INSERT INTO INDV_SPEC 
+		(
+			INDV_SPEC_SEQ,
+			TESTITM_CD,
+			PRDLST_CD,
+			SORC,
+			VALD_END_DT,
+			MXMM_VAL,
+			FNPRT_ITM_NM,
+			PRDLST_CD_NM,
+			MXMM_VAL_DVS_CD,
+			ATTRB_SEQ,
+			UPDT_PRVNS,
+			LAST_UPDT_DTM,
+			MCRRGNSM_2N,
+			MCRRGNSM_2M,
+			SPEC_VAL,
+			MCRRGNSM_2C,
+			VALD_MANLI,
+			A082_CF_FNPRT_CD_NM,
+			TESTITM_NM,
+			CHOIC_IMPROPT,
+			A082_CI_FNPRT_CD_NM,
+			SPEC_VAL_SUMUP,
+			VALD_BEGN_DT,
+			INJRY_YN,
+			A080_FNPRT_CD_NM,
+			FNPRT_ITM_INCLS_YN,			
+			MIMM_VAL_DVS_CD,
+			NTR_PRSEC_ITM_YN,
+			MONTRNG_TESTITM_YN,
+			UNIT_CD,
+			CHOIC_FIT,
+			PIAM_KOR_NM,
+			EMPHS_PRSEC_TESTITM_YN,
+			JDGMNT_FOM_CD,
+			MIMM_VAL,
+			UNIT_NM,
+			RVLV_ELSE_TESTITM_YN,
+			MCRRGNSM_3M,
+			A081_FNPRT_CD_NM,
+			A079_FNPRT_CD_NM,
+			ID,
+			I2580_ID,
+			KFDA_YN,
+			TEST_STD_NO,
+			LOQ_HVAL,
+			LOQ_LVAL,
+			CREATER_ID,
+			CREATE_DATE,
+			DEPT_CD,
+			REV_NO,
+			FEE_GROUP_NO,
+			FEE,
+			TEST_METHOD_NO,
+			OXIDE_CD
+		) 
+		SELECT
+			TO_CHAR(SYSDATE, 'yyyy') ||'A'|| LPAD(TO_CHAR(TO_NUMBER((SELECT NVL(MAX(SUBSTR(INDV_SPEC_SEQ, 6, 10)),0) FROM INDV_SPEC WHERE SUBSTR(INDV_SPEC_SEQ, 0, 4) = TO_CHAR(SYSDATE, 'yyyy') AND KFDA_YN = 'N'))+ROWNUM), 5, 0),
+			TESTITM_CD,
+			#{copy_prdlst_cd},
+			SORC,
+			VALD_END_DT,
+			MXMM_VAL,
+			FNPRT_ITM_NM,
+			PRDLST_CD_NM,
+			MXMM_VAL_DVS_CD,
+			ATTRB_SEQ,
+			UPDT_PRVNS,
+			LAST_UPDT_DTM,
+			MCRRGNSM_2N,
+			MCRRGNSM_2M,
+			SPEC_VAL,
+			MCRRGNSM_2C,
+			VALD_MANLI,
+			A082_CF_FNPRT_CD_NM,
+			TESTITM_NM,
+			CHOIC_IMPROPT,
+			A082_CI_FNPRT_CD_NM,
+			SPEC_VAL_SUMUP,
+			VALD_BEGN_DT,
+			INJRY_YN,
+			A080_FNPRT_CD_NM,
+			FNPRT_ITM_INCLS_YN,
+			MIMM_VAL_DVS_CD,
+			NTR_PRSEC_ITM_YN,
+			MONTRNG_TESTITM_YN,
+			UNIT_CD,
+			CHOIC_FIT,
+			PIAM_KOR_NM,
+			EMPHS_PRSEC_TESTITM_YN,
+			JDGMNT_FOM_CD,
+			MIMM_VAL,
+			UNIT_NM,
+			RVLV_ELSE_TESTITM_YN,
+			MCRRGNSM_3M,
+			A081_FNPRT_CD_NM,
+			A079_FNPRT_CD_NM,
+			ID,
+			I2580_ID,
+			KFDA_YN,
+			TEST_STD_NO,
+			LOQ_HVAL,
+			LOQ_LVAL,
+			#{user_id},
+			TO_CHAR(SYSDATE, 'YYYYmmdd'),
+			#{dept_cd},
+			REV_NO,
+			FEE_GROUP_NO,
+			FEE,
+			TEST_METHOD_NO,
+			OXIDE_CD
+		FROM INDV_SPEC
+		WHERE PRDLST_CD = #{prdlst_cd}
+	</insert>
+
+	<!-- 항목별 검사기준 수정 15.12.24 -->
+ 	<update id="updateStdTestPrdItem" parameterType="Map">
+		UPDATE INDV_SPEC SET
+		    UNIT_CD = #{unit_cd},
+		    TEST_METHOD_NO = #{test_method_no},
+		    OXIDE_CD = #{oxide_cd},		    
+			LAST_UPDT_DTM = SYSDATE,
+			ITEM_ORDER = #{item_order}			
+		WHERE INDV_SPEC_SEQ = #{indv_spec_seq} 
+			AND PRDLST_CD = #{prdlst_cd}
+			AND TESTITM_CD = #{test_item_cd}
+	</update> 
+	
+	<!-- 항목별 검사기준 삭제 -->
+	<delete id="deleteStdTestPrdItem" parameterType="java.util.HashMap">
+		DELETE FROM INDV_SPEC
+		WHERE INDV_SPEC_SEQ = #{indv_spec_seq} 
+			AND PRDLST_CD = #{prdlst_cd}
+			AND TESTITM_CD = #{test_item_cd}
+	</delete>
+
+	<!-- 세부항목 검사기준 조회 -->
+	<select id="selectfnprtItemList" parameterType="testPrdStdVO" resultType="testPrdStdVO">
+		SELECT
+		    S.INDV_SPEC_SEQ,
+		    S.PRDLST_CD,
+		    S.PRDLST_CD_NM AS PRDLST_NM,
+		    S.TESTITM_CD AS TEST_ITEM_CD,
+		    S.FNPRT_ITM_NM AS TEST_ITEM_NM,
+		    S.FNPRT_ITM_INCLS_YN,
+		    S.UNIT_CD,
+		    S.TEST_METHOD_NO,
+		    (SELECT TEST_METHOD_NM FROM TEST_METHOD WHERE TEST_METHOD_NO = S.TEST_METHOD_NO) AS TEST_METHOD_NM,
+		    DECODE(SUBSTR(S.JDGMNT_FOM_CD,0,1), 'C' , S.JDGMNT_FOM_CD ,(SELECT CODE FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'JDGMNT_FOM_CD' AND CCD.KFDA_CODE = S.JDGMNT_FOM_CD)) JDGMNT_FOM_CD,
+		    VALD_MANLI,
+		    CHOIC_FIT,		    
+		    DECODE(SUBSTR(CHOIC_FIT,0,1), 'C' , CHOIC_FIT ,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'CHOIC' AND CCD.KFDA_CODE = CHOIC_FIT)) CHOIC_FIT_NM,
+		    CHOIC_IMPROPT,
+		    DECODE(SUBSTR(CHOIC_IMPROPT,0,1), 'C' , CHOIC_IMPROPT ,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'CHOIC' AND CCD.KFDA_CODE = CHOIC_IMPROPT)) STD_UNFIT_VAL_NM,
+		    LOQ_LVAL,
+		    LOQ_HVAL,
+		    SPEC_VAL,
+		    MIMM_VAL,
+		    DECODE(SUBSTR(MIMM_VAL_DVS_CD,0,1), 'C' , MIMM_VAL_DVS_CD ,(SELECT CODE FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'MIMM_VAL' AND CCD.KFDA_CODE = MIMM_VAL_DVS_CD)) MIMM_VAL_DVS_CD,
+		    MXMM_VAL,
+		    DECODE(SUBSTR(MXMM_VAL_DVS_CD,0,1), 'C' , MXMM_VAL_DVS_CD ,(SELECT CODE FROM COMMON_CODE_DETAIL CCD WHERE CCD.KFDA_KEY = 'MXMM_VAL' AND CCD.KFDA_CODE = MXMM_VAL_DVS_CD)) MXMM_VAL_DVS_CD,
+		    VALD_BEGN_DT,
+		    DEPT_CD,
+		    KFDA_YN
+		FROM INDV_SPEC S
+		WHERE INDV_SPEC_SEQ = #{indv_spec_seq} AND VALD_BEGN_DT <![CDATA[<= ]]> TO_CHAR(SYSDATE,'YYYYmmdd')
+		AND FNPRT_ITM_NM IS NOT NULL AND FNPRT_ITM_INCLS_YN = 'N'
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY S.PRDLST_CD
+		</if>
+	</select>
+
+
+
+
+
+
+	<!-- 품목리스트 조회(팝업) 15.12.24 -->
+	<select id="selectPopAllPrdList" resultType="TestPrdStdVO" parameterType="TestPrdStdVO">
+		SELECT
+		    HRNK_PRDLST_CD,
+		    (SELECT KOR_NM FROM PRDLST_CL PC WHERE PC.PRDLST_CD=P.HRNK_PRDLST_CD) HRNK_PRDLST_NM,
+		    PRDLST_CD,
+		    KOR_NM AS PRDLST_CD_NM,
+		    PRDLST_YN
+		FROM PRDLST_CL P
+		WHERE 1=1
+			<if test="prdlst_yn != null and prdlst_yn != '' ">
+				AND P.PRDLST_YN = #{prdlst_yn}
+			</if>
+			<if test="prdlst_nm != null and prdlst_nm != '' ">
+				AND P.KOR_NM LIKE '%' || #{prdlst_nm} || '%'
+			</if>
+			AND SUBSTR(PRDLST_CD, 1, 1) = 'C'
+	</select>
+
+
+	<!-- 기준규격 멀티 삽입(팝업) 15.12.24 -->
+	<insert id="insertTestStdPrdItemPop" parameterType="Map">
+		INSERT INTO INDV_SPEC (
+	        INDV_SPEC_SEQ,
+	        PRDLST_CD,
+	        PRDLST_CD_NM,
+	        TESTITM_CD,	    
+	        TESTITM_NM,
+	        CREATER_ID,
+	        CREATE_DATE,
+	        LAST_UPDT_DTM,
+	        VALD_BEGN_DT,
+	        VALD_END_DT,
+	        SPEC_VAL,
+	        INJRY_YN,
+	        FNPRT_ITM_INCLS_YN,
+	        NTR_PRSEC_ITM_YN,
+	        MONTRNG_TESTITM_YN,
+	        EMPHS_PRSEC_TESTITM_YN,
+	        RVLV_ELSE_TESTITM_YN,
+	        JDGMNT_FOM_CD,
+	        KFDA_YN
+		) VALUES (
+			(SELECT TO_CHAR(SYSDATE, 'yyyy') ||'A'|| LPAD(NVL(MAX(SUBSTR(INDV_SPEC_SEQ, 6, 10)),0)+1, 5, 0) FROM INDV_SPEC WHERE SUBSTR(INDV_SPEC_SEQ, 0, 4) = TO_CHAR(SYSDATE, 'yyyy') AND KFDA_YN = 'N'),
+			#{prdlst_cd},
+			#{prdlst_nm},
+			#{test_item_cd},
+			(SELECT TESTITM_NM FROM ANALYSIS WHERE TESTITM_CD = #{test_item_cd}),
+			#{user_id},
+			TO_CHAR(SYSDATE, 'YYYYmmdd'),
+			SYSDATE,
+			TO_CHAR(SYSDATE, 'YYYYmmdd'),
+			'99991231',
+	        '-', <!-- SPEC_VAL 기준값-->
+	        'N',
+	        'N',
+	        'N',
+	        'N',
+	        'N',
+	        'N',
+	        'C31001', <!-- JDGMNT_FOM_CD 결과값형태-->
+			'N'
+		)
+	</insert>
+
+
+	<!-- 기준규격 세부항목 멀티 삽입(팝업) 15.12.24 -->
+	<insert id="insertFnprtItemPop" parameterType="Map">
+		BEGIN
+		
+		UPDATE INDV_SPEC SET
+ 		FNPRT_ITM_INCLS_YN = 'Y'
+		WHERE INDV_SPEC_SEQ = #{indv_spec_seq} AND FNPRT_ITM_NM IS NULL; 
+		
+		INSERT INTO INDV_SPEC (
+	        INDV_SPEC_SEQ,
+	        PRDLST_CD,
+	        PRDLST_CD_NM,
+	        TESTITM_CD,	    
+	        TESTITM_NM,
+	        FNPRT_ITM_NM,
+	        CREATER_ID,
+	        CREATE_DATE,
+	        LAST_UPDT_DTM,
+	        VALD_BEGN_DT,
+	        VALD_END_DT,
+	        SPEC_VAL,
+	        INJRY_YN,
+	        FNPRT_ITM_INCLS_YN,
+	        NTR_PRSEC_ITM_YN,
+	        MONTRNG_TESTITM_YN,
+	        EMPHS_PRSEC_TESTITM_YN,
+	        RVLV_ELSE_TESTITM_YN,
+	        JDGMNT_FOM_CD,
+	        KFDA_YN
+		) VALUES (
+			#{indv_spec_seq},
+			#{prdlst_cd},
+			#{prdlst_nm},
+			#{test_item_cd},
+			(SELECT TESTITM_NM FROM INDV_SPEC S WHERE S.INDV_SPEC_SEQ = #{indv_spec_seq} AND S.FNPRT_ITM_NM IS NULL),			
+			(SELECT TESTITM_NM FROM ANALYSIS WHERE TESTITM_CD = #{test_item_cd}),
+			#{user_id},
+			TO_CHAR(SYSDATE, 'YYYYmmdd'),
+			SYSDATE,
+			TO_CHAR(SYSDATE, 'YYYYmmdd'),
+			'99991231',
+	        '-',
+	        'N',
+	        'N',
+	        'N',
+	        'N',
+	        'N',
+	        'N',
+	        'C31001',
+			'N'
+		);
+		
+		END;
+	</insert>
+	
+	<!-- 검사기준복사저장 -->
+	<insert id="saveCopySpec" parameterType="TestPrdStdVO">
+		<selectKey resultType="string" keyProperty="indv_spec_seq" order="BEFORE">
+			SELECT NVL(MAX(SUBSTR(INDV_SPEC_SEQ, 6, 10)),0) FROM INDV_SPEC WHERE SUBSTR(INDV_SPEC_SEQ, 0, 4) = TO_CHAR(SYSDATE, 'yyyy')
+		</selectKey>
+		
+		INSERT INTO INDV_SPEC (
+			INDV_SPEC_SEQ,
+	        PRDLST_CD,
+	        PRDLST_CD_NM,
+	        TESTITM_CD,  
+			SORC,
+			VALD_END_DT,
+			MXMM_VAL,
+			FNPRT_ITM_NM,       
+			MXMM_VAL_DVS_CD,
+			ATTRB_SEQ,
+			UPDT_PRVNS,
+			LAST_UPDT_DTM,
+			MCRRGNSM_2N,
+			MCRRGNSM_2M,
+			SPEC_VAL,
+			MCRRGNSM_2C,
+			VALD_MANLI,
+			A082_CF_FNPRT_CD_NM,
+			TESTITM_NM,
+			CHOIC_IMPROPT,
+			A082_CI_FNPRT_CD_NM,
+			SPEC_VAL_SUMUP,
+			VALD_BEGN_DT,
+			INJRY_YN,
+			A080_FNPRT_CD_NM,
+			FNPRT_ITM_INCLS_YN,       
+			MIMM_VAL_DVS_CD,
+			NTR_PRSEC_ITM_YN,
+			MONTRNG_TESTITM_YN,
+			UNIT_CD,
+			CHOIC_FIT,
+			PIAM_KOR_NM,
+			EMPHS_PRSEC_TESTITM_YN,
+			JDGMNT_FOM_CD,
+			MIMM_VAL,
+			UNIT_NM,
+			RVLV_ELSE_TESTITM_YN,
+			MCRRGNSM_3M,
+			A081_FNPRT_CD_NM,
+			A079_FNPRT_CD_NM,
+			ID,
+			I2580_ID,
+			KFDA_YN,
+			TEST_STD_NO,
+			LOQ_HVAL,
+			LOQ_LVAL,
+			CREATER_ID,
+			CREATE_DATE,
+			DEPT_CD,
+			REV_NO,
+			FEE_GROUP_NO,
+			FEE 
+		)
+		SELECT
+		TO_CHAR(SYSDATE, 'yyyy') || 'A'|| LPAD(#{indv_spec_seq} + RANK() OVER(ORDER BY INDV_SPEC_SEQ), 5, '0'),
+		#{prdlst_cd},
+		#{prdlst_nm},
+	    TESTITM_CD,  
+		SORC,
+		VALD_END_DT,
+		MXMM_VAL,
+		FNPRT_ITM_NM,       
+		MXMM_VAL_DVS_CD,
+		ATTRB_SEQ,
+		'검사기준복사',
+		SYSDATE,
+		MCRRGNSM_2N,
+		MCRRGNSM_2M,
+		SPEC_VAL,
+		MCRRGNSM_2C,
+		VALD_MANLI,
+		A082_CF_FNPRT_CD_NM,
+		TESTITM_NM,
+		CHOIC_IMPROPT,
+		A082_CI_FNPRT_CD_NM,
+		SPEC_VAL_SUMUP,
+		VALD_BEGN_DT,
+		INJRY_YN,
+		A080_FNPRT_CD_NM,
+		FNPRT_ITM_INCLS_YN,       
+		MIMM_VAL_DVS_CD,
+		NTR_PRSEC_ITM_YN,
+		MONTRNG_TESTITM_YN,
+		UNIT_CD,
+		CHOIC_FIT,
+		PIAM_KOR_NM,
+		EMPHS_PRSEC_TESTITM_YN,
+		JDGMNT_FOM_CD,
+		MIMM_VAL,
+		UNIT_NM,
+		RVLV_ELSE_TESTITM_YN,
+		MCRRGNSM_3M,
+		A081_FNPRT_CD_NM,
+		A079_FNPRT_CD_NM,
+		ID,
+		I2580_ID,
+		KFDA_YN,
+		TEST_STD_NO,
+		LOQ_HVAL,
+		LOQ_LVAL,
+		#{user_id},
+		TO_CHAR(SYSDATE,'YYYYMMDD'),
+		DEPT_CD,
+		REV_NO,
+		FEE_GROUP_NO,
+		FEE
+		FROM INDV_SPEC
+		WHERE PRDLST_CD = #{prdlst_cd_origin}
+		AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN VALD_BEGN_DT AND VALD_END_DT
+		ORDER BY INDV_SPEC_SEQ
+	</insert>
+</mapper>

@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="resultInputReport">
+
+	<select id="sampleList" parameterType="ResultInputVO" resultType="ResultInputVO">
+		SELECT
+		    DISTINCT TS.TEST_SAMPLE_SEQ ,
+		    TS.SAMPLE_REG_NM ,
+		    C1.CODE_NAME SAMPLING_METHOD ,
+		    TS.SAMPLING_ID ,
+		    TS.ETC_DESC ,
+		    S.SAMPLE_NM ,
+		    STD.TEST_STD_NM ,
+		    STD.TEST_STD_NO ,
+		    TC.TEST_CMT ,
+		    TR.REQ_MESSAGE
+		FROM  TEST_SAMPLE TS
+		INNER JOIN TEST_REQ TR ON TS.TEST_REQ_SEQ = TR.TEST_REQ_SEQ
+		INNER JOIN TEST_SAMPLE_ITEM TSI ON TSI.TEST_SAMPLE_SEQ = TS.TEST_SAMPLE_SEQ
+		LEFT OUTER JOIN SAMPLE S ON TS.SAMPLE_CD = S.SAMPLE_CD
+		LEFT OUTER JOIN COMMON_CODE_DETAIL C1 ON C1.CODE = TS.SAMPLING_METHOD
+		LEFT OUTER JOIN (
+		        SELECT
+		            TEST_STD_NO,
+		            MAX (REV_NO) REV_NO
+		        FROM TEST_STD_REV
+		        GROUP BY TEST_STD_NO
+		    )T ON T.TEST_STD_NO = TS.TEST_STD_NO
+		LEFT OUTER JOIN TEST_STD STD ON STD.TEST_STD_NO = T.TEST_STD_NO
+		LEFT OUTER JOIN TEST_COMMENT TC ON TS.TEST_REQ_SEQ = TC.TEST_REQ_SEQ AND TC.TESTER_ID = #{user_id}
+    <!-- 2019-09-23 정언구. 담당하는 항목만 가져오도록 추가 -->
+    LEFT JOIN DEPT_USER_ITEM DUI ON TSI.TEST_ITEM_CD = DUI.TEST_ITEM_CD
+    <!-- ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ -->
+		WHERE TS.TEST_REQ_SEQ = #{test_req_seq}
+			AND 
+			(
+			    <!-- 시험자-->
+			    TSI.TESTER_ID  = #{user_id}
+			    OR
+			    <!-- 시험자가 부재자거나,-->
+			    TSI.TESTER_ID IN (
+			        SELECT USER_ID
+			        FROM ABSENCE
+			        WHERE
+			            START_DATE   <![CDATA[ <= ]]> SYSDATE
+			        AND END_DATE     <![CDATA[ >= ]]> SYSDATE
+			        AND SUBSTITUTE_ID = #{user_id}
+			    )
+				OR
+				<!-- 팀 -->                
+				TEAM_CD IN (
+				    SELECT TEAM_CD
+				    FROM DEPT_TEAM_USER
+				    WHERE USER_ID = #{user_id}
+				)
+        <!-- 2019-09-23 정언구. 담당하는 항목만 가져오도록 추가 -->  
+        OR 
+        DUI.USER_ID IN (
+          SELECT USER_ID 
+          FROM DEPT_USER_ITEM 
+          WHERE USER_ID = #{user_id}
+    		)
+    		<!-- ㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡㅡ -->
+			)
+		AND TS.STATE = 'B'	
+		ORDER BY TS.TEST_SAMPLE_SEQ
+	</select>
+	
+	<!-- 시료별 성적서 조회 -->
+	<select id="selectsampleReportList" parameterType="ResultInputVO" resultType="ResultInputVO">
+		SELECT 
+			ATT_SEQ,
+			TEST_SAMPLE_SEQ,
+			TRA.TEST_ITEM_CD,
+			(SELECT ANAL.TESTITM_NM FROM ANALYSIS ANAL WHERE ANAL.TESTITM_CD = TRA.TEST_ITEM_CD) AS TEST_ITEM_NM,
+			DECODE(SAMPLE_FLAG, 'I', '항목성적서', '시료성적서') AS SAMPLE_FLAG,
+			<!-- FILE_ATT, -->
+			FILE_NM
+		FROM TEST_REPORT_ATTACH TRA
+		WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+			
+<!-- 				AND TRA.TEST_ITEM_CD = #{test_item_cd} -->
+		ORDER BY CREATE_DATE
+	</select>
+</mapper>

@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="testItemGroup">
+	<select id="selectItemGroupList" parameterType="TestItemVO" resultType="TestItemVO">
+		SELECT G.TEST_ITEM_GROUP_NO
+		,G.TEST_ITEM_GROUP_NM
+		,G.GROUP_DESC
+		,G.DEPT_CD
+		,G.USE_FLAG
+		FROM TEST_ITEM_GROUP G
+		WHERE 1=1
+		<if test="test_item_group_nm != null and test_item_group_nm != '' ">
+			AND UPPER(TEST_ITEM_GROUP_NM) LIKE '%' || UPPER(#{test_item_group_nm}) || '%'
+		</if>
+		<if test="group_desc != null and group_desc != '' ">
+			AND UPPER(GROUP_DESC) LIKE '%' || UPPER(#{group_desc}) || '%'
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND G.DEPT_CD = #{dept_cd}
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY TEST_ITEM_GROUP_NM
+		</if>
+	</select>
+	
+	<!-- 항목별 그룹 관리 - 전체 항목 -->
+	<select id="selectAllTestItemList" parameterType="TestItemVO" resultType="TestItemVO">
+		SELECT * FROM 
+		(
+			SELECT 
+				VW_LIST.*, 
+				ROWNUM AS ROW_NUM, 
+				FLOOR((ROWNUM -1) / #{pageSize} + 1) AS PAGENUM,
+				COUNT(*) OVER() AS TOTALCOUNT, 
+				COUNT(*) OVER() AS TOTAL, 
+				CEIL(COUNT(*) OVER() / #{pageSize}) AS TOTALPAGE
+			FROM 
+			(
+
+				SELECT
+					ANL.TESTITM_CD AS TEST_ITEM_CD,
+					CASE
+					WHEN ANL.TESTITM_NM IS NOT NULL THEN ANL.TESTITM_NM                
+					WHEN ANL.TESTITM_NM IS NULL AND ANL.KOR_NM IS NOT NULL THEN ANL.KOR_NM
+					WHEN ANL.TESTITM_NM IS NULL AND ANL.KOR_NM IS NULL AND ANL.ENG_NM IS NOT NULL THEN ANL.ENG_NM			
+					END AS TEST_ITEM_NM,
+					ANL.ENG_NM AS TEST_ITEM_ENG_NM,
+					<!-- ANL.L_KOR_NM AS TEST_ITEM_TYPE,  식약처항목일때 -->
+					NVL(GET_COMMON_CODE(TESTITM_LCLAS_CD, ''),'') AS TESTITM_LCLAS_NM,
+					NVL(GET_COMMON_CODE(TESTITM_MLSFC_CD, ''),'') AS TESTITM_MLSFC_NM,
+					NCKNM,
+					ABRV,
+					REMN_MTTR_DFN,
+					KFDA_YN,
+					DECODE(USE_YN, 'Y', '예', '아니오') USE_FLAG
+				FROM ANALYSIS ANL
+				WHERE 1=1
+				<if test="test_item_nm != null and test_item_nm != '' ">
+					AND ( UPPER(ANL.TESTITM_NM) LIKE '%' || UPPER(#{test_item_nm}) || '%' OR  UPPER(ANL.KOR_NM) LIKE '%' || UPPER(#{test_item_nm}) || '%' OR UPPER(ANL.ENG_NM) LIKE '%' || UPPER(#{test_item_nm}) || '%' )
+				</if>
+				<if test="testitm_lclas_cd != null and testitm_lclas_cd != '' ">
+					AND ANL.TESTITM_LCLAS_CD = #{testitm_lclas_cd}
+				</if>
+				<if test="testitm_mlsfc_cd != null and testitm_mlsfc_cd != '' ">
+					AND ANL.TESTITM_MLSFC_CD = #{testitm_mlsfc_cd}
+				</if>
+				<if test="sortName != null and sortName != '' ">
+					ORDER BY ${sortName} ${sortType}
+				</if>
+				<if test="sortName == null or sortName == '' ">
+					ORDER BY ANL.KOR_NM
+				</if>
+			) VW_LIST
+	    )  
+		WHERE PAGENUM = #{pageNum}
+	</select>
+
+	<select id="selectTestItemInGroupList" parameterType="TestItemVO" resultType="TestItemVO">
+		SELECT 
+			G.TEST_ITEM_GROUP_NO ,
+			G.USER_ID ,
+			U.USER_NM ,
+			ANAL.TESTITM_CD AS TEST_ITEM_CD,
+			ANAL.TESTITM_NM AS TEST_ITEM_NM,
+			ANAL.ENG_NM AS TEST_ITEM_ENG_NM,
+			NVL(GET_COMMON_CODE(ANAL.TESTITM_LCLAS_CD, ''),'') AS TESTITM_LCLAS_NM,
+			NVL(GET_COMMON_CODE(ANAL.TESTITM_MLSFC_CD, ''),'') AS TESTITM_MLSFC_NM,
+			ANAL.NCKNM,
+			ANAL.ABRV,
+			ANAL.REMN_MTTR_DFN,
+			ANAL.KFDA_YN,
+			DECODE(ANAL.USE_YN, 'Y', '예', '아니오') USE_FLAG,
+			TO_CHAR(ANAL.LAST_UPDT_DTM, 'YYYY-mm-dd') LAST_UPDT_DTM	
+		FROM TEST_ITEM_GROUP_ITEM G
+		INNER JOIN USER_INFO U ON G.USER_ID = U.USER_ID
+		INNER JOIN ANALYSIS ANAL ON G.TEST_ITEM_CD = ANAL.TESTITM_CD
+		WHERE ANAL.USE_YN = 'Y'
+		AND G.TEST_ITEM_GROUP_NO = #{test_item_group_no}
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY G.DISP_ORDER
+		</if>
+	</select>
+
+	<insert id="insertTestItemInGroup" parameterType="TestItemVO">
+		INSERT INTO TEST_ITEM_GROUP_ITEM(
+		TEST_ITEM_GROUP_NO
+		,TEST_ITEM_CD
+		,USER_ID
+		,CREATE_DATE
+		,CREATER_ID
+		,DISP_ORDER
+		)VALUES(
+		#{test_item_group_no}
+		,#{test_item_cd}
+		,#{user_id}
+		, SYSDATE
+		, #{user_id}
+		,#{disp_order}
+		)
+	</insert>
+	<delete id="deleteTestItemInGroup" parameterType="TestItemVO">
+		DELETE FROM TEST_ITEM_GROUP_ITEM
+		WHERE TEST_ITEM_GROUP_NO = #{test_item_group_no}
+	</delete>
+
+	<insert id="insertTestItemGroup" parameterType="TestItemVO">
+		INSERT INTO TEST_ITEM_GROUP(
+		TEST_ITEM_GROUP_NO
+		,TEST_ITEM_GROUP_NM
+		,GROUP_DESC
+		,DEPT_CD
+		,USE_FLAG
+		,CREATE_DATE
+		,CREATER_ID
+		)VALUES(
+		(SELECT LPAD(NVL(MAX(TEST_ITEM_GROUP_NO),0)+1, 6, 0) FROM TEST_ITEM_GROUP)
+		,#{test_item_group_nm}
+		,#{group_desc}
+		,#{dept_cd}
+		,#{use_flag}
+		, SYSDATE
+		, #{user_id}
+		)
+	</insert>
+	<update id="updateTestItemGroup" parameterType="TestItemVO">
+		UPDATE TEST_ITEM_GROUP SET
+		TEST_ITEM_GROUP_NM = #{test_item_group_nm}
+		, GROUP_DESC = #{group_desc}
+		, DEPT_CD = #{dept_cd}
+		, USE_FLAG = #{use_flag}
+		WHERE TEST_ITEM_GROUP_NO = #{test_item_group_no}
+	</update>
+	<delete id="deleteTestItemGroup" parameterType="TestItemVO">
+		DELETE FROM TEST_ITEM_GROUP
+		WHERE TEST_ITEM_GROUP_NO = #{test_item_group_no}
+	</delete>
+	
+
+	<insert id="copyTestItemGroup" parameterType="TestItemVO">
+		DECLARE		
+			new_group_no VARCHAR2(6);
+		BEGIN
+			SELECT LPAD(NVL(MAX(TEST_ITEM_GROUP_NO),0)+1, 6, 0) INTO new_group_no
+			FROM TEST_ITEM_GROUP;
+
+			INSERT INTO TEST_ITEM_GROUP (
+				TEST_ITEM_GROUP_NO, 
+				TEST_ITEM_GROUP_NM, 
+				GROUP_DESC, 
+				DEPT_CD, 
+				USE_FLAG, 
+				CREATER_ID, 
+				CREATE_DATE
+			)
+			SELECT 
+	        	new_group_no AS TEST_ITEM_GROUP_NO,
+				'[복사]'||TEST_ITEM_GROUP_NM AS TEST_ITEM_GROUP_NM, 
+				GROUP_DESC, 
+				#{dept_cd},	
+				'Y', 
+				#{user_id}, 
+				SYSDATE
+			FROM TEST_ITEM_GROUP
+			WHERE TEST_ITEM_GROUP_NO = #{test_item_group_no};
+
+			INSERT INTO TEST_ITEM_GROUP_ITEM (
+				TEST_ITEM_GROUP_NO,
+				TEST_ITEM_CD,
+				DISP_ORDER,
+				DEPT_CD,
+				USER_ID,
+				CREATER_ID,
+				CREATE_DATE
+			)
+			SELECT 
+	        	new_group_no AS TEST_ITEM_GROUP_NO,
+				TEST_ITEM_CD,
+				DISP_ORDER,
+				#{dept_cd},	
+				#{user_id}, 
+				#{user_id}, 
+				SYSDATE
+			FROM TEST_ITEM_GROUP_ITEM
+			WHERE TEST_ITEM_GROUP_NO = #{test_item_group_no};
+
+		END;
+	</insert>	
+	
+</mapper>

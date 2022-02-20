@@ -1,0 +1,356 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="resultStatistical">
+	<select id="selectTatStatisticsColumn" parameterType="MakeGridVO" resultType="String">
+		SELECT
+		<if test="type == 'T'.toString() ">
+			TO_CHAR(TO_DATE(TR.TEST_END, 'YYYY-MM-DD'), 'YYYY-MM-DD') TEST_END
+		</if>
+		<if test="type == 'R'.toString() ">
+			TO_CHAR(TO_DATE(TR.DEADLINE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') DEADLINE_DATE
+		</if>
+		FROM TEST_REQ TR
+		WHERE 1=1
+		<if test="type == 'T'.toString() ">
+			AND TR.STATE NOT IN ('A','B','S')
+			AND TO_CHAR(TO_DATE(TR.TEST_END, 'YYYY-MM-DD'), 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate}
+			GROUP BY TO_CHAR(TO_DATE(TR.TEST_END, 'YYYY-MM-DD'), 'YYYY-MM-DD')
+			ORDER BY TEST_END
+		</if>
+		<if test="type == 'R'.toString() ">
+			AND TR.STATE IN ('G','H')
+			AND TO_CHAR(TO_DATE(TR.DEADLINE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate}
+			GROUP BY TO_CHAR(TO_DATE(TR.DEADLINE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD')
+			ORDER BY DEADLINE_DATE
+		</if>
+	</select>
+	
+	<select id="selectTatStatistics" parameterType="MakeGridVO" resultType="Hashmap">
+			SELECT REQ_CLASS 
+				<foreach collection="head" item="item" index="idx">
+					,SUM(DECODE(TEST_END, #{item}, OVERALL, 0)) AS SUM${idx}
+					,NVL(SUM(DECODE(TEST_END, #{item}, IMPERFECT, 0)),0) AS IMP${idx}
+					,NVL((SUM(DECODE(TEST_END, #{item}, PER, 0))/DECODE(SUM(DECODE(TEST_END, #{item}, OVERALL, 0)),0,NULL,SUM(DECODE(TEST_END, #{item}, OVERALL, 0))))*100, 0) AS PER${idx}
+				</foreach>
+				,SUM(OVERALL) AS TOTAL
+				,NVL(SUM(IMPERFECT), 0) AS TOTAL_IM
+				,NVL(SUM(PER), 0) AS PER
+				,NVL(ROUND((NVL(SUM(PER), 0) /  SUM(OVERALL))*100),0) AS TOTAL_PER
+			FROM(
+				SELECT GET_COMMON_CODE( R.REQ_CLASS, 'C70') AS REQ_CLASS 
+						,COUNT(R.TEST_REQ_SEQ) AS OVERALL
+				       	,(SELECT COUNT(TR.TEST_REQ_SEQ) 
+	                			FROM TEST_REQ TR
+			                    LEFT OUTER JOIN REPORT_DOC D ON TR.TEST_REQ_SEQ =  D.TEST_REQ_SEQ
+			                    LEFT OUTER JOIN REPORT_PUBLISH_LOG L ON TR.TEST_REQ_SEQ =  L.TEST_REQ_SEQ
+			                    WHERE TR.STATE = 'H' 
+			                    AND TR.REQ_CLASS = R.REQ_CLASS 
+			                    AND TR.TEST_END = R.TEST_END 
+			                    AND D.REPORT_DOC_SEQ IS NULL
+			                    AND L.LOG_NO IS NULL
+			                    GROUP BY TR.REQ_CLASS
+			                ) AS PER
+						,(SELECT COUNT (*)  FROM TEST_REQ TR
+						      				LEFT OUTER JOIN REPORT_DOC D ON TR.TEST_REQ_SEQ =  D.TEST_REQ_SEQ
+											LEFT OUTER JOIN REPORT_PUBLISH_LOG L ON TR.TEST_REQ_SEQ =  L.TEST_REQ_SEQ
+											WHERE (TO_DATE(TR.TEST_END, 'YYYY-MM-DD') - TO_DATE((SELECT MAX(TEST_END_DATE) FROM TEST_SAMPLE_ITEM I WHERE I.TEST_REQ_SEQ = TR.TEST_REQ_SEQ  ), 'YYYYMMDD'))   <![CDATA[  <    ]]>    0
+											AND R.REQ_CLASS = TR.REQ_CLASS
+	                						AND R.TEST_END = TR.TEST_END
+				          					AND D.REPORT_DOC_SEQ IS NULL
+											AND L.LOG_NO IS NULL
+											AND TR.STATE NOT IN ('A', 'B', 'S')
+				          					GROUP BY TR.REQ_CLASS,TR.TEST_END
+				          	) AS IMPERFECT 
+				          ,R.TEST_END
+				FROM TEST_REQ R
+				LEFT OUTER JOIN REPORT_DOC D ON R.TEST_REQ_SEQ =  D.TEST_REQ_SEQ
+				LEFT OUTER JOIN REPORT_PUBLISH_LOG L ON R.TEST_REQ_SEQ =  L.TEST_REQ_SEQ
+				WHERE D.REPORT_DOC_SEQ IS NULL
+					AND R.STATE NOT IN ('A', 'B', 'S')
+					AND L.LOG_NO IS NULL
+				GROUP BY R.REQ_CLASS ,R.TEST_END
+				UNION ALL
+				SELECT GET_COMMON_CODE( D.REQ_CLASS, 'C70') AS REQ_CLASS
+						,COUNT(D.REPORT_DOC_SEQ)  AS OVERALL
+				       	,(SELECT COUNT(RD.TEST_REQ_SEQ) 
+		                		FROM REPORT_DOC RD
+			                    LEFT OUTER JOIN REPORT_PUBLISH_LOG L ON RD.TEST_REQ_SEQ =  L.TEST_REQ_SEQ
+			                    WHERE RD.STATE = 'Y' 
+			                    AND RD.REQ_CLASS = D.REQ_CLASS 
+			                    AND RD.TEST_END = D.TEST_END 
+			                    AND L.LOG_NO IS NULL
+			                    GROUP BY RD.REQ_CLASS
+			                ) AS PER
+				        ,(SELECT COUNT (*) FROM REPORT_DOC TR
+									LEFT OUTER JOIN REPORT_PUBLISH_LOG L ON TR.TEST_REQ_SEQ =  L.TEST_REQ_SEQ
+									WHERE (TO_DATE(TR.TEST_END, 'YYYY-MM-DD') - TO_DATE((SELECT MAX(TEST_END_DATE) FROM REPORT_SAMPLE_ITEM I WHERE I.TEST_REQ_SEQ = TR.TEST_REQ_SEQ  ), 'YYYYMMDD'))   <![CDATA[  <    ]]>    0
+									AND D.REQ_CLASS = TR.REQ_CLASS
+	                				AND D.TEST_END = TR.TEST_END
+				         			AND L.LOG_NO IS NULL
+				          			GROUP BY TR.REQ_CLASS,TR.TEST_END
+				          ) AS IMPERFECT
+				         ,D.TEST_END
+				FROM REPORT_DOC D
+				LEFT OUTER JOIN REPORT_PUBLISH_LOG L ON D.TEST_REQ_SEQ =  L.TEST_REQ_SEQ
+				WHERE L.LOG_NO IS NULL
+				GROUP BY D.REQ_CLASS ,D.TEST_END
+				UNION ALL
+				SELECT GET_COMMON_CODE( L.REQ_CLASS, 'C70') AS REQ_CLASS
+						,COUNT(L.LOG_NO)  AS OVERALL
+				    	,(SELECT COUNT(RL.TEST_REQ_SEQ) 
+		                			FROM REPORT_PUBLISH_LOG RL
+				                    WHERE RL.PUBLISH_GBN IN ('P01001')
+				                    AND RL.REQ_CLASS = L.REQ_CLASS 
+				                    AND RL.TEST_END = L.TEST_END 
+		                    		GROUP BY RL.REQ_CLASS
+							) AS PER
+				        ,(SELECT COUNT (*) 
+				        			FROM REPORT_PUBLISH_LOG TR
+									WHERE (TO_DATE(TR.TEST_END, 'YYYY-MM-DD') - TO_DATE((SELECT MAX(TEST_END_DATE) FROM REPORT_SAMPLE_ITEM_PL I WHERE I.TEST_REQ_SEQ = TR.TEST_REQ_SEQ  ), 'YYYYMMDD'))  <![CDATA[  <    ]]>    0
+									AND PUBLISH_GBN IN ('P01001')
+									AND L.REQ_CLASS = TR.REQ_CLASS
+	                				AND L.TEST_END = TR.TEST_END
+				          			GROUP BY TR.REQ_CLASS,TR.TEST_END
+				          ) AS IMPERFECT
+				        ,L.TEST_END
+				FROM REPORT_PUBLISH_LOG L
+				WHERE PUBLISH_GBN IN ('P01001')
+				GROUP BY L.REQ_CLASS ,L.TEST_END
+			)
+			WHERE TO_CHAR(TO_DATE(TEST_END, 'YYYY-MM-DD'), 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate}
+			GROUP BY  REQ_CLASS
+			ORDER BY REQ_CLASS
+	</select>
+	
+	<select id="selectTatReportStatistics" parameterType="MakeGridVO" resultType="Hashmap">
+			SELECT REQ_CLASS
+				<foreach collection="head" item="item" index="idx">
+					,SUM(DECODE(TO_CHAR(TO_DATE(DEADLINE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD'), #{item}, OVERALL1 + OVERALL2, 0)) AS SUM${idx}
+					,SUM(DECODE(TO_CHAR(TO_DATE(DEADLINE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD'), #{item}, IMP, 0)) AS IMP${idx}
+					<!-- ,SUM(DECODE(TO_CHAR(TO_DATE(DEADLINE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD'), #{item}, (OVERALL2/(OVERALL1 + OVERALL2))*100, 0)) AS PER${idx} -->
+					,SUM(DECODE(TO_CHAR(TO_DATE(DEADLINE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD'), #{item}, OVERALL2, 0))/DECODE((SUM(DECODE(TO_CHAR(TO_DATE(DEADLINE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD'),  #{item}, OVERALL1, 0))+SUM(DECODE(TO_CHAR(TO_DATE(DEADLINE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD'),  #{item}, OVERALL2, 0))), 0, NULL, (SUM(DECODE(TO_CHAR(TO_DATE(DEADLINE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD'),  #{item}, OVERALL1, 0))+SUM(DECODE(TO_CHAR(TO_DATE(DEADLINE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD'),  #{item}, OVERALL2, 0))))*100 AS PER${idx}
+			 </foreach>
+				,NVL(SUM(OVERALL1), 0) + NVL(SUM(OVERALL2), 0) AS TOTAL
+		        ,(NVL(NVL(SUM(OVERALL2), 0)/(NVL(SUM(OVERALL1), 0) + NVL(SUM(OVERALL2), 0)), 0)*100) AS TOTAL_PER
+		        ,NVL(SUM(IMP),0) AS TOTAL_IM
+			FROM
+			(
+				SELECT GET_COMMON_CODE( R1.REQ_CLASS , 'C70') AS REQ_CLASS
+						,R1.DEADLINE_DATE
+				        ,COUNT(R1.TEST_REQ_SEQ) AS OVERALL1
+				        ,TO_NUMBER(0) AS OVERALL2
+				        ,TO_NUMBER(0) AS IMP
+				FROM TEST_REQ R1
+				WHERE R1.STATE = 'G'
+				AND R1.TEST_REQ_SEQ NOT IN (SELECT L.TEST_REQ_SEQ FROM REPORT_PUBLISH_LOG L WHERE R1.TEST_REQ_SEQ = L.TEST_REQ_SEQ )
+				GROUP BY R1.REQ_CLASS ,R1.DEADLINE_DATE
+				UNION ALL
+				SELECT GET_COMMON_CODE( R2.REQ_CLASS , 'C70') AS REQ_CLASS
+						,R2.DEADLINE_DATE
+				        ,TO_NUMBER(0) AS OVERALL1
+				        ,COUNT(R2.TEST_REQ_SEQ) AS OVERALL2
+				        ,(SELECT COUNT(*)
+						            FROM REPORT_PUBLISH_LOG TR
+						            WHERE TR.PUBLISH_GBN = ('P01001')
+						            AND TR.REQ_CLASS = R2.REQ_CLASS
+						            AND TR.DEADLINE_DATE = R2.DEADLINE_DATE
+						            AND ((TO_DATE(TR.LOG_DATE) - TO_DATE(TR.DEADLINE_DATE, 'YYYYMMDD')) <![CDATA[  >    ]]> 0)
+						            GROUP BY TR.REQ_CLASS, TR.DEADLINE_DATE
+				          ) AS IMP
+				FROM TEST_REQ R2
+				JOIN REPORT_PUBLISH_LOG L ON L.TEST_REQ_SEQ = R2.TEST_REQ_SEQ
+				WHERE R2.STATE = 'H'
+				AND L.PUBLISH_GBN = ('P01001')
+				GROUP BY R2.REQ_CLASS ,R2.DEADLINE_DATE
+			)
+			WHERE TO_CHAR(TO_DATE(DEADLINE_DATE, 'YYYY-MM-DD'), 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate}
+			GROUP BY REQ_CLASS
+			ORDER BY REQ_CLASS
+	</select>
+	
+	<select id="selectTatDetailList" parameterType="AcceptVO" resultType="AcceptVO">
+			SELECT R.TEST_REQ_SEQ 
+								,R.TEST_REQ_NO
+								,TO_CHAR(TO_DATE(R.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YY-MM-DD') AS SAMPLE_ARRIVAL_DATE
+								,TO_CHAR(TO_DATE(R.TEST_END, 'YYYY-MM-DD'), 'YY-MM-DD') AS TEST_END
+								,TO_CHAR(TO_DATE(R.DEADLINE_DATE, 'YYYY-MM-DD'), 'YY-MM-DD') AS DEADLINE_DATE
+								, R.REQ_NM 
+								,(SELECT PRC_NM FROM PROCESS WHERE R.STATE = PRC_CD) AS STATE
+			FROM TEST_REQ R
+			LEFT OUTER JOIN REPORT_DOC D ON R.TEST_REQ_SEQ =  D.TEST_REQ_SEQ
+			LEFT OUTER JOIN REPORT_PUBLISH_LOG L ON R.TEST_REQ_SEQ =  L.TEST_REQ_SEQ
+			WHERE GET_COMMON_CODE( R.REQ_CLASS, 'C70') =  #{req_class}
+			<if test="startDate != null and startDate != '' ">
+				AND TO_CHAR(TO_DATE(R.TEST_END, 'YYYY-MM-DD'), 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate}
+			</if>
+			<if test="startDate == null or startDate == '' ">
+				AND TO_CHAR(TO_DATE(R.TEST_END, 'YYYY-MM-DD'), 'YYYY-MM-DD') = #{tat_date}
+			</if>
+			AND R.STATE NOT IN ('A', 'B', 'S')
+	      	AND D.REPORT_DOC_SEQ IS NULL
+	      	AND L.LOG_NO IS NULL
+	      	<if test="isImp != null and isImp != '' ">
+	      		AND (TO_DATE(R.TEST_END, 'YYYY-MM-DD') - TO_DATE((SELECT MAX(TEST_END_DATE) FROM TEST_SAMPLE_ITEM I WHERE I.TEST_REQ_SEQ = R.TEST_REQ_SEQ  ), 'YYYYMMDD'))   <![CDATA[  <    ]]>    0
+			</if>
+			UNION ALL
+			SELECT R.TEST_REQ_SEQ 
+								,R.TEST_REQ_NO
+								,TO_CHAR(TO_DATE(R.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YY-MM-DD') AS SAMPLE_ARRIVAL_DATE
+								,TO_CHAR(TO_DATE(R.TEST_END, 'YYYY-MM-DD'), 'YY-MM-DD') AS TEST_END
+								,TO_CHAR(TO_DATE(R.DEADLINE_DATE, 'YYYY-MM-DD'), 'YY-MM-DD') AS DEADLINE_DATE
+								, R.REQ_NM 
+								,(SELECT PRC_NM FROM PROCESS WHERE R.STATE = PRC_CD) AS STATE
+			FROM REPORT_DOC R
+			LEFT OUTER JOIN REPORT_PUBLISH_LOG L ON R.TEST_REQ_SEQ =  L.TEST_REQ_SEQ
+			WHERE GET_COMMON_CODE( R.REQ_CLASS, 'C70') =  #{req_class}
+			<if test="startDate != null and startDate != '' ">
+				AND TO_CHAR(TO_DATE(R.TEST_END, 'YYYY-MM-DD'), 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate}
+			</if>
+			<if test="startDate == null or startDate == '' ">
+				AND TO_CHAR(TO_DATE(R.TEST_END, 'YYYY-MM-DD'), 'YYYY-MM-DD') = #{tat_date}
+			</if>
+      		AND L.LOG_NO IS NULL
+      		<if test="isImp != null and isImp != '' ">
+      			AND (TO_DATE(R.TEST_END, 'YYYY-MM-DD') - TO_DATE((SELECT MAX(TEST_END_DATE) FROM REPORT_SAMPLE_ITEM I WHERE I.REPORT_DOC_SEQ = R.REPORT_DOC_SEQ  ), 'YYYYMMDD'))  <![CDATA[  <    ]]>    0
+			</if>
+			UNION ALL
+			SELECT R.TEST_REQ_SEQ 
+								,R.TEST_REQ_NO
+								,TO_CHAR(TO_DATE(R.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YY-MM-DD') AS SAMPLE_ARRIVAL_DATE
+								,TO_CHAR(TO_DATE(R.TEST_END, 'YYYY-MM-DD'), 'YY-MM-DD') AS TEST_END
+								,TO_CHAR(TO_DATE(R.DEADLINE_DATE, 'YYYY-MM-DD'), 'YY-MM-DD') AS DEADLINE_DATE
+								, R.REQ_NM 
+								,(SELECT PRC_NM FROM PROCESS WHERE R.STATE = PRC_CD) AS STATE
+			FROM REPORT_PUBLISH_LOG R
+			WHERE GET_COMMON_CODE( R.REQ_CLASS, 'C70') =  #{req_class}
+			<if test="startDate != null and startDate != '' ">
+				AND TO_CHAR(TO_DATE(R.TEST_END, 'YYYY-MM-DD'), 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate}
+			</if>
+			<if test="startDate == null or startDate == '' ">
+				AND TO_CHAR(TO_DATE(R.TEST_END, 'YYYY-MM-DD'), 'YYYY-MM-DD') = #{tat_date}
+			</if>
+      		AND R.PUBLISH_GBN IN ('P01001')
+      		<if test="isImp != null and isImp != '' ">
+	      		AND (TO_DATE(R.TEST_END, 'YYYY-MM-DD') - TO_DATE((SELECT MAX(TEST_END_DATE) FROM REPORT_SAMPLE_ITEM_PL I WHERE I.LOG_NO = R.LOG_NO  ), 'YYYYMMDD'))      <![CDATA[  <    ]]>   0
+    		</if>  		
+	</select>
+	
+	<select id="selectTatReason" parameterType="ResultInputVO" resultType="ResultInputVO">
+			SELECT *
+			FROM
+			(
+			      SELECT R.TEST_REQ_SEQ
+								,R.TEST_REQ_NO
+								,TO_CHAR(TO_DATE(R.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YY-MM-DD') AS SAMPLE_ARRIVAL_DATE
+								,I.EXCEED_REASON
+								,TO_CHAR(TO_DATE(I.TEST_END_DATE, 'YYYYMMDD'), 'YY-MM-DD') AS TEST_END_DATE
+				                ,S.SAMPLE_REG_NM
+	              				,(SELECT TESTITM_NM FROM ANALYSIS WHERE I.TEST_ITEM_CD = TESTITM_CD) AS TESTITM_NM
+	              				,S.TEST_SAMPLE_SEQ
+                     	 		,I.TEST_ITEM_SEQ
+				  FROM TEST_REQ R
+			      LEFT OUTER JOIN REPORT_DOC D ON R.TEST_REQ_SEQ =  D.TEST_REQ_SEQ
+				  LEFT OUTER JOIN REPORT_PUBLISH_LOG L ON R.TEST_REQ_SEQ =  L.TEST_REQ_SEQ
+	        	  JOIN TEST_SAMPLE S ON R.TEST_REQ_SEQ = S.TEST_REQ_SEQ
+				  JOIN TEST_SAMPLE_ITEM I ON R.TEST_REQ_SEQ = I.TEST_REQ_SEQ  AND S.TEST_SAMPLE_SEQ = I.TEST_SAMPLE_SEQ
+				  WHERE R.TEST_REQ_SEQ = #{test_req_seq}
+			      AND D.REPORT_DOC_SEQ IS NULL
+			      AND L.LOG_NO IS NULL
+				  UNION ALL
+			      SELECT R.TEST_REQ_SEQ
+								,R.TEST_REQ_NO
+								,TO_CHAR(TO_DATE(R.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YY-MM-DD') AS SAMPLE_ARRIVAL_DATE
+								,I.EXCEED_REASON
+								,TO_CHAR(TO_DATE(I.TEST_END_DATE, 'YYYYMMDD'), 'YY-MM-DD') AS TEST_END_DATE
+								,S.SAMPLE_REG_NM
+	             				,(SELECT TESTITM_NM FROM ANALYSIS WHERE I.TEST_ITEM_CD = TESTITM_CD) AS TESTITM_NM
+	             				,S.TEST_SAMPLE_SEQ
+                     	 		,I.TEST_ITEM_SEQ
+				  FROM REPORT_DOC R
+				  LEFT OUTER JOIN REPORT_PUBLISH_LOG L ON R.TEST_REQ_SEQ =  L.TEST_REQ_SEQ
+				  JOIN REPORT_SAMPLE S ON R.REPORT_DOC_SEQ = S.REPORT_DOC_SEQ
+	        	  JOIN REPORT_SAMPLE_ITEM I ON R.REPORT_DOC_SEQ = I.REPORT_DOC_SEQ AND S.TEST_SAMPLE_SEQ = I.TEST_SAMPLE_SEQ
+				  WHERE R.TEST_REQ_SEQ = #{test_req_seq}
+			      AND L.LOG_NO IS NULL
+				  UNION ALL
+			      SELECT R.TEST_REQ_SEQ
+								,R.TEST_REQ_NO
+								,TO_CHAR(TO_DATE(R.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YY-MM-DD') AS SAMPLE_ARRIVAL_DATE
+								,I.EXCEED_REASON
+								,TO_CHAR(TO_DATE(I.TEST_END_DATE, 'YYYYMMDD'), 'YY-MM-DD') AS TEST_END_DATE
+								,S.SAMPLE_REG_NM
+					            ,(SELECT TESTITM_NM FROM ANALYSIS WHERE I.TEST_ITEM_CD = TESTITM_CD) AS TESTITM_NM
+					            ,S.TEST_SAMPLE_SEQ
+                     	 		,I.TEST_ITEM_SEQ
+				  FROM REPORT_PUBLISH_LOG R
+				  JOIN REPORT_SAMPLE_PL S ON R.LOG_NO = S.LOG_NO
+				  JOIN REPORT_SAMPLE_ITEM_PL I ON R.LOG_NO = I.LOG_NO AND S.TEST_SAMPLE_SEQ = I.TEST_SAMPLE_SEQ
+				  WHERE R.TEST_REQ_SEQ = #{test_req_seq}
+			      AND PUBLISH_GBN IN ('P01001')
+			)
+			ORDER BY TEST_SAMPLE_SEQ, TEST_ITEM_SEQ
+	</select>
+	
+	<select id="selectTatReportDetailList" parameterType="AcceptVO" resultType="AcceptVO">
+			SELECT R1.TEST_REQ_SEQ
+					,R1.TEST_REQ_NO
+					,TO_CHAR(TO_DATE(R1.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YY-MM-DD') AS SAMPLE_ARRIVAL_DATE
+					,TO_CHAR(TO_DATE(R1.TEST_END, 'YYYY-MM-DD'), 'YY-MM-DD') AS TEST_END
+					,TO_CHAR(TO_DATE(R1.DEADLINE_DATE, 'YYYYMMDD'), 'YY-MM-DD') AS DEADLINE_DATE
+					,R1.REQ_NM
+					,(SELECT PRC_NM FROM PROCESS WHERE R1.STATE = PRC_CD) AS STATE
+					,NULL AS TAT_LOG_NO
+			FROM TEST_REQ R1
+			WHERE R1.STATE = 'G'
+			AND R1.TEST_REQ_SEQ NOT IN (SELECT L.TEST_REQ_SEQ FROM REPORT_PUBLISH_LOG L WHERE R1.TEST_REQ_SEQ = L.TEST_REQ_SEQ )
+			AND GET_COMMON_CODE( R1.REQ_CLASS, 'C70') =  #{req_class}
+			<if test="startDate != null and startDate != '' ">
+			 	AND TO_CHAR(TO_DATE(R1.DEADLINE_DATE, 'YYYY-MM-DD'), 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate}
+			</if>
+			<if test="startDate == null or startDate == '' ">
+			 	AND TO_CHAR(TO_DATE(R1.DEADLINE_DATE, 'YYYY-MM-DD'), 'YYYY-MM-DD') = #{tat_date}
+			</if>
+			<if test="isImp != null and isImp != '' ">
+	      		AND R1.LOG_DATE IS NOT NULL
+    		</if>  	
+			UNION ALL
+			SELECT R2.TEST_REQ_SEQ
+					,R2.TEST_REQ_NO
+					,TO_CHAR(TO_DATE(R2.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YY-MM-DD') AS SAMPLE_ARRIVAL_DATE
+					,TO_CHAR(TO_DATE(R2.TEST_END, 'YYYY-MM-DD'), 'YY-MM-DD') AS TEST_END
+					,TO_CHAR(TO_DATE(R2.DEADLINE_DATE, 'YYYYMMDD'), 'YY-MM-DD') AS DEADLINE_DATE
+					,R2.REQ_NM
+					,(SELECT PRC_NM FROM PROCESS WHERE R2.STATE = PRC_CD) AS STATE 
+					,L.LOG_NO AS TAT_LOG_NO
+			FROM TEST_REQ R2
+			JOIN REPORT_PUBLISH_LOG L ON L.TEST_REQ_SEQ = R2.TEST_REQ_SEQ
+			WHERE R2.STATE = 'H'
+			AND L.PUBLISH_GBN = ('P01001')
+			AND GET_COMMON_CODE( R2.REQ_CLASS, 'C70') =  #{req_class}
+			<if test="startDate != null and startDate != '' ">
+				AND TO_CHAR(TO_DATE(R2.DEADLINE_DATE, 'YYYY-MM-DD'), 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate}
+			</if>
+			<if test="startDate == null or startDate == '' ">
+				AND TO_CHAR(TO_DATE(R2.DEADLINE_DATE, 'YYYY-MM-DD'), 'YYYY-MM-DD') = #{tat_date}
+			</if>
+			<if test="isImp != null and isImp != '' ">
+	      		AND L.LOG_DATE - TO_DATE(R2.DEADLINE_DATE, 'YYYY-MM-DD')   <![CDATA[  >    ]]>   1
+    		</if>  	
+	</select>
+		
+	<select id="selectTatReportReason" parameterType="ReportVO" resultType="ReportVO">
+				SELECT L.TEST_REQ_SEQ
+						,L.LOG_NO
+						,L.TEST_REQ_NO
+						,TO_CHAR(TO_DATE(L.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YY-MM-DD') AS SAMPLE_ARRIVAL_DATE
+						,L.REPORT_EXCEED_REASON
+						,TO_CHAR(L.LOG_DATE, 'YY-MM-DD') AS TEST_END_DATE
+						,S.SAMPLE_REG_NM
+				        ,(SELECT TESTITM_NM FROM ANALYSIS WHERE I.TEST_ITEM_CD = TESTITM_CD) AS TESTITM_NM
+				FROM REPORT_PUBLISH_LOG L
+			  	JOIN REPORT_SAMPLE_PL S ON L.LOG_NO = S.LOG_NO
+			  	JOIN REPORT_SAMPLE_ITEM_PL I ON L.LOG_NO = I.LOG_NO AND S.TEST_SAMPLE_SEQ = I.TEST_SAMPLE_SEQ
+				WHERE L.LOG_NO = #{log_no}
+				ORDER BY S.TEST_SAMPLE_SEQ, I.TEST_ITEM_SEQ
+	</select>
+</mapper>

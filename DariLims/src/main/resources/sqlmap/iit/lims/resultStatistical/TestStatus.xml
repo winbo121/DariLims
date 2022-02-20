@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="resultStatistical">
+	<!-- 업무별 통계 리스트 -->
+	<select id="selectTestStatus" parameterType="ResultStatisticalVO" resultType="ResultStatisticalVO">
+		SELECT 
+<!-- 		    COUNT(*) OVER () AS CNT1, -->
+		    COUNT(*) OVER (PARTITION BY R.TEST_REQ_NO,TS.TEST_SAMPLE_SEQ, TSI.TEST_ITEM_CD) AS CNT1,
+		    R.TEST_REQ_NO,
+			GET_COMMON_CODE(R.REQ_TYPE, 'EX1') REQ_TYPE, 
+		    R.TITLE,
+		    TS.TEST_SAMPLE_SEQ,
+		    ( SELECT SAMPLE_NM FROM SAMPLE WHERE TS.SAMPLE_CD = SAMPLE_CD ) AS SAMPLE_CD,
+		    TS.SAMPLE_REG_NM,
+		    ( SELECT TESTITM_NM FROM ANALYSIS WHERE TSI.TEST_ITEM_CD = TESTITM_CD ) AS TEST_ITEM_CD ,
+		    ( SELECT USER_NM FROM USER_INFO WHERE TSI.TESTER_ID = USER_ID ) AS TESTER_ID ,
+		    ( SELECT TEAM_NM FROM DEPT_TEAM WHERE TSI.TEAM_CD = TEAM_CD ) AS TEAM_CD ,
+		    ( SELECT SIMPLE_PRC_NM FROM PROCESS WHERE TSI.STATE = PRC_CD ) AS STATE ,
+		    TSI.RESULT_VAL,
+		    ( SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE TSI.RESULT_TYPE = CODE ) AS RESULT_TYPE,
+		    TO_CHAR(TO_DATE(R.SAMPLE_ARRIVAL_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') AS SAMPLE_ARRIVAL_DATE,
+		    TO_CHAR(TO_DATE(R.DEADLINE_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') AS DEADLINE_DATE,
+		    ( SELECT ORG_NM FROM REQ_ORG WHERE R.REQ_ORG_NO = REQ_ORG_NO ) AS REQ_ORG_NO
+		FROM TEST_REQ R
+		INNER JOIN TEST_SAMPLE TS ON TS.TEST_REQ_SEQ = R.TEST_REQ_SEQ
+		INNER JOIN TEST_SAMPLE_ITEM TSI ON TSI.TEST_SAMPLE_SEQ = TS.TEST_SAMPLE_SEQ
+		WHERE 1=1
+		AND TSI.STATE NOT IN ('A', 'Z', 'S')
+		<if test="type == 'N'.toString() ">
+			AND TSI.TEAM_CD IS NOT NULL
+			<if test="team_cd != null and team_cd != '' ">
+			AND TSI.TEAM_CD = #{team_cd}
+			</if>
+		</if>		
+		<if test="type == 'Y'.toString() ">
+			AND TSI.TESTER_ID IS NOT NULL
+			<if test="user_id != null and user_id != '' ">
+			AND TSI.TESTER_ID = #{user_id}
+			</if>
+		</if>
+		<if test="state != null and state != '' ">
+		AND TSI.STATE = #{state}
+		</if>		
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				AND TO_CHAR(TO_DATE(R.SAMPLE_ARRIVAL_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') BETWEEN #{startDate} AND #{endDate}
+			</if>
+		</if>		
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+	</select>
+</mapper>

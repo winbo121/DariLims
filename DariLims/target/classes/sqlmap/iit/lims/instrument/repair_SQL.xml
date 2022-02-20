@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="repair">
+	<select id="repair" parameterType="repairVO" resultType="repairVO">
+		SELECT RPR_NO
+			, TO_CHAR(TO_DATE( RPR_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') RPR_DATE
+			, BRK_REASON
+			, RPR_CONTENT
+			, RPR_COMPANY
+			, RPR_USER_ID
+			, UI.USER_NM RPR_USER_NM
+			, INST_NO
+			, RPR_TEL
+		FROM INST_RPR_HIS IRH
+        LEFT JOIN USER_INFO UI ON IRH.RPR_USER_ID = UI.USER_ID
+		WHERE INST_NO = #{inst_no}
+	</select>
+	
+	<select id="repairDetail" parameterType="repairVO" resultType="repairVO">
+		SELECT RPR_NO
+			, TO_CHAR(TO_DATE( RPR_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') RPR_DATE
+			, BRK_REASON
+			, RPR_CONTENT
+			, RPR_COMPANY
+			, RPR_USER_ID
+			, UI.USER_NM RPR_USER_NM
+			, INST_NO
+			, RPR_TEL
+		FROM INST_RPR_HIS IRH
+        LEFT JOIN USER_INFO UI ON IRH.RPR_USER_ID = UI.USER_ID
+		WHERE 1=1
+		<if test="rpr_no != null and rpr_no != '' ">
+			AND RPR_NO = #{rpr_no}
+		</if>
+	</select>
+
+	<insert id="insertRepair" parameterType="repairVO">	
+		INSERT INTO INST_RPR_HIS(
+		            RPR_NO
+		            ,INST_NO
+		            ,RPR_DATE
+		            ,BRK_REASON
+		            ,RPR_CONTENT
+		            ,RPR_COMPANY
+		            ,RPR_USER_ID
+		            ,RPR_TEL
+		    )VALUES(
+		    		(SELECT LPAD(NVL(MAX(RPR_NO),0)+1,6,0) FROM INST_RPR_HIS)
+				    , #{inst_no}
+		            , REPLACE(#{rpr_date}, '-', '')
+				    , #{brk_reason}
+				    , #{rpr_content}
+				    , #{rpr_company}
+				    , #{rpr_user_id}    
+				    , #{rpr_tel}
+		    )
+	</insert>
+	
+	<update id="updateRepair" parameterType="repairVO">				
+		UPDATE INST_RPR_HIS SET 
+			RPR_DATE = REPLACE(#{rpr_date}, '-', '')
+			,BRK_REASON = #{brk_reason}
+			,RPR_CONTENT = #{rpr_content}
+			,RPR_COMPANY = #{rpr_company}
+			,RPR_USER_ID = #{rpr_user_id}
+			,INST_NO = #{inst_no}
+			,RPR_TEL = #{rpr_tel}
+		WHERE RPR_NO = #{key}
+	</update>
+	
+	<delete id="deleteRepair" parameterType="repairVO">
+		DELETE INST_RPR_HIS 
+		WHERE RPR_NO = #{rpr_no}
+	</delete>
+</mapper>

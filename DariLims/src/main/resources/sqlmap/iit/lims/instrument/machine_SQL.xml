@@ -1,0 +1,955 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="machine">
+
+	<select id="machine" parameterType="machineVO" resultType="machineVO">
+		
+	   <if test="cntType=='13'">
+	  
+		    <![CDATA[ SELECT A.INST_NO
+					, INST_MNG_NO
+					, INST_KOR_NM
+					, INST_ENG_NM
+					, TO_CHAR(TO_DATE( INST_BUY_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') INST_BUY_DATE
+					, INST_VND_NM
+					, INST_VND_TEL
+					, MAKE_NATION
+					, SUB_INST
+					, LAS_YN
+					, KOLAS_YN
+					, FLD_USE
+					, MANUAL
+					, SOFTWARE
+					, SERIAL_NUMBER
+					, CALI_PERIOD
+					, CALI_PERIOD_FLAG
+					, PWR
+					, TO_CHAR(TO_DATE( INSTL_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') INSTL_DATE
+					, INSTL_PLC
+					, TO_NUMBER(REPLACE(BUY_COST, ',', '')) BUY_COST
+					, AST_NO
+					, END_YEAR
+					, A.USE_FLAG
+					, (SELECT USER_NM FROM USER_INFO WHERE H.MNG_ID = USER_ID ) AS MNG_NM
+					, (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = DECODE(H.MNG_DEPT_CD , null, A.DEPT_CD, H.MNG_DEPT_CD)) AS DEPT_NM
+					, (SELECT USER_NM FROM USER_INFO WHERE H.MNG_SUB_ID = USER_ID ) AS MNG_SUB_NM
+					, (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = H.MNG_SUB_DEPT_CD) AS MNG_SUB_DEPT_NM
+					, (SELECT USER_NM FROM USER_INFO WHERE H2.MNG_ID = USER_ID ) AS MNG_NM2
+					, (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = DECODE(H2.MNG_DEPT_CD , null, A.DEPT_CD, H2.MNG_DEPT_CD)) AS DEPT_NM2
+					, (SELECT USER_NM FROM USER_INFO WHERE H2.MNG_SUB_ID = USER_ID ) AS MNG_SUB_NM2
+					, (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = H2.MNG_SUB_DEPT_CD) AS MNG_SUB_DEPT_NM2
+					, INST_JD_NM
+					, INST_JD_NO
+					, USE_PRICE
+					, A.CALI_IO_FLAG
+					, A.CALI_IO
+				FROM INSTRUMENT A
+				JOIN
+				(
+				SELECT MNG_NO, MNG_ID ,INST_NO,MNG_SUB_ID
+				FROM INST_MNG_HIS M
+				WHERE MNG_NO = (SELECT MAX(MNG_NO) FROM INST_MNG_HIS I WHERE I.INST_NO = M.INST_NO AND I.MNG_GBN='B') AND TO_DATE(MNG_START,'YYYY-MM-DD') <= SYSDATE AND TO_DATE(MNG_END,'YYYY-MM-DD') >=(SYSDATE-(INTERVAL '1' DAY))  AND (MNG_ID = (SELECT USER_ID FROM USER_INFO WHERE USER_NM = #{admin_user})  OR MNG_SUB_ID= (SELECT USER_ID FROM USER_INFO WHERE USER_NM = #{admin_user})  )
+				) B
+				ON A.INST_NO = B.INST_NO		
+				LEFT OUTER JOIN
+				(SELECT 
+					IMH.INST_NO,
+					IMH.MNG_NO, 
+					IMH.MNG_ID , 
+					IMH.MNG_DEPT_CD,
+					IMH.MNG_SUB_ID , 
+					IMH.MNG_SUB_DEPT_CD
+				FROM INST_MNG_HIS IMH		
+				INNER JOIN( SELECT DISTINCT INST_NO ,
+				MAX(MNG_NO) OVER (PARTITION BY INST_NO) MNG_NO
+				FROM INST_MNG_HIS 
+			    WHERE MNG_GBN = 'A' AND SYSDATE > TO_DATE(MNG_START,'YYYYMMDD') AND TO_DATE(MNG_END,'YYYYMMDD') > SYSDATE) RH 
+			    ON IMH.INST_NO = RH.INST_NO AND IMH.MNG_NO = RH.MNG_NO
+				WHERE IMH.MNG_GBN = 'A' AND SYSDATE > TO_DATE(IMH.MNG_START,'YYYYMMDD') AND TO_DATE(IMH.MNG_END,'YYYYMMDD') > SYSDATE
+				) H ON H.INST_NO = A.INST_NO
+				LEFT OUTER JOIN
+				(SELECT 
+					IMH2.INST_NO,
+					IMH2.MNG_NO, 
+					IMH2.MNG_ID , 
+					IMH2.MNG_DEPT_CD,
+					IMH2.MNG_SUB_ID , 
+					IMH2.MNG_SUB_DEPT_CD
+				FROM INST_MNG_HIS IMH2		
+				INNER JOIN( SELECT DISTINCT INST_NO ,
+				MAX(MNG_NO) OVER (PARTITION BY INST_NO) MNG_NO
+				FROM INST_MNG_HIS 
+			    WHERE MNG_GBN = 'B' AND SYSDATE > TO_DATE(MNG_START,'YYYYMMDD') AND TO_DATE(MNG_END,'YYYYMMDD') > SYSDATE) RH2
+			    ON IMH2.INST_NO = RH2.INST_NO AND IMH2.MNG_NO = RH2.MNG_NO
+				WHERE IMH2.MNG_GBN = 'B' AND SYSDATE > TO_DATE(IMH2.MNG_START,'YYYYMMDD') AND TO_DATE(IMH2.MNG_END,'YYYYMMDD') > SYSDATE
+				) H2 ON H2.INST_NO = A.INST_NO
+				WHERE 1=1 AND ADD_MONTHS(SYSDATE,2) >= TO_DATE(CRT_DATE,'YYYY-MM-DD') AND (SYSDATE-(INTERVAL '1' DAY)) <=  TO_DATE(CRT_DATE,'YYYY-MM-DD')]]>
+		
+		</if>
+		
+	    <if test='cntType=="14"'>
+	    
+			<![CDATA[  SELECT A.INST_NO
+					, INST_MNG_NO
+					, INST_KOR_NM
+					, INST_ENG_NM
+					, TO_CHAR(TO_DATE( INST_BUY_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') INST_BUY_DATE
+					, INST_VND_NM
+					, INST_VND_TEL
+					, MAKE_NATION
+					, SUB_INST
+					, LAS_YN
+					, KOLAS_YN
+					, FLD_USE
+					, MANUAL
+					, SOFTWARE
+					, SERIAL_NUMBER
+					, CALI_PERIOD
+					, CALI_PERIOD_FLAG
+					, PWR
+					, TO_CHAR(TO_DATE( INSTL_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') INSTL_DATE
+					, INSTL_PLC
+					, TO_NUMBER(REPLACE(BUY_COST, ',', '')) BUY_COST
+					, AST_NO
+					, END_YEAR
+					, A.USE_FLAG
+					, (SELECT USER_NM FROM USER_INFO WHERE H.MNG_ID = USER_ID ) AS MNG_NM
+					, (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = DECODE(H.MNG_DEPT_CD , null, A.DEPT_CD, H.MNG_DEPT_CD)) AS DEPT_NM
+					, (SELECT USER_NM FROM USER_INFO WHERE H.MNG_SUB_ID = USER_ID ) AS MNG_SUB_NM
+					, (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = H.MNG_SUB_DEPT_CD) AS MNG_SUB_DEPT_NM
+					, (SELECT USER_NM FROM USER_INFO WHERE H2.MNG_ID = USER_ID ) AS MNG_NM2
+					, (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = DECODE(H2.MNG_DEPT_CD , null, A.DEPT_CD, H2.MNG_DEPT_CD)) AS DEPT_NM2
+					, (SELECT USER_NM FROM USER_INFO WHERE H2.MNG_SUB_ID = USER_ID ) AS MNG_SUB_NM2
+					, (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = H2.MNG_SUB_DEPT_CD) AS MNG_SUB_DEPT_NM2
+					, INST_JD_NM
+					, INST_JD_NO
+					, USE_PRICE
+					, A.CALI_IO_FLAG
+					, A.CALI_IO
+				FROM INSTRUMENT A
+				JOIN
+				(
+				SELECT MNG_NO, MNG_ID ,INST_NO,MNG_SUB_ID
+				FROM INST_MNG_HIS M
+				WHERE MNG_NO = (SELECT MAX(MNG_NO) FROM INST_MNG_HIS I WHERE I.INST_NO = M.INST_NO AND I.MNG_GBN='A') AND TO_DATE(MNG_START,'YYYY-MM-DD') <= SYSDATE AND TO_DATE(MNG_END,'YYYY-MM-DD') >= (SYSDATE-(INTERVAL '1' DAY))   AND (MNG_ID = (SELECT USER_ID FROM USER_INFO WHERE USER_NM=#{admin_user}) /**P*/ OR MNG_SUB_ID= (SELECT USER_ID FROM USER_INFO WHERE USER_NM=#{admin_user}) /**P*/ )
+				) B
+				ON A.INST_NO = B.INST_NO		
+				LEFT OUTER JOIN
+				(SELECT 
+					IMH.INST_NO,
+					IMH.MNG_NO, 
+					IMH.MNG_ID , 
+					IMH.MNG_DEPT_CD,
+					IMH.MNG_SUB_ID , 
+					IMH.MNG_SUB_DEPT_CD
+				FROM INST_MNG_HIS IMH		
+				INNER JOIN( SELECT DISTINCT INST_NO ,
+				MAX(MNG_NO) OVER (PARTITION BY INST_NO) MNG_NO
+				FROM INST_MNG_HIS 
+			    WHERE MNG_GBN = 'A' AND SYSDATE > TO_DATE(MNG_START,'YYYYMMDD') AND TO_DATE(MNG_END,'YYYYMMDD') > SYSDATE) RH 
+			    ON IMH.INST_NO = RH.INST_NO AND IMH.MNG_NO = RH.MNG_NO
+				WHERE IMH.MNG_GBN = 'A' AND SYSDATE > TO_DATE(IMH.MNG_START,'YYYYMMDD') AND TO_DATE(IMH.MNG_END,'YYYYMMDD') > SYSDATE
+				) H ON H.INST_NO = A.INST_NO
+				LEFT OUTER JOIN
+				(SELECT 
+					IMH2.INST_NO,
+					IMH2.MNG_NO, 
+					IMH2.MNG_ID , 
+					IMH2.MNG_DEPT_CD,
+					IMH2.MNG_SUB_ID , 
+					IMH2.MNG_SUB_DEPT_CD
+				FROM INST_MNG_HIS IMH2		
+				INNER JOIN( SELECT DISTINCT INST_NO ,
+				MAX(MNG_NO) OVER (PARTITION BY INST_NO) MNG_NO
+				FROM INST_MNG_HIS 
+			    WHERE MNG_GBN = 'B' AND SYSDATE > TO_DATE(MNG_START,'YYYYMMDD') AND TO_DATE(MNG_END,'YYYYMMDD') > SYSDATE) RH2
+			    ON IMH2.INST_NO = RH2.INST_NO AND IMH2.MNG_NO = RH2.MNG_NO
+				WHERE IMH2.MNG_GBN = 'B' AND SYSDATE > TO_DATE(IMH2.MNG_START,'YYYYMMDD') AND TO_DATE(IMH2.MNG_END,'YYYYMMDD') > SYSDATE
+				) H2 ON H2.INST_NO = A.INST_NO
+				WHERE 1=1 AND ADD_MONTHS(SYSDATE,1) >= TO_DATE(INTCHK_DATE,'YYYY-MM-DD') AND (SYSDATE-(INTERVAL '1' DAY)) <=  TO_DATE(INTCHK_DATE,'YYYY-MM-DD') ]]>			
+		   
+		 </if>
+		 
+		 <if test='cntType=="15"'>
+	    
+			<![CDATA[SELECT A.INST_NO
+					, INST_MNG_NO
+					, INST_KOR_NM
+					, INST_ENG_NM
+					, TO_CHAR(TO_DATE( INST_BUY_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') INST_BUY_DATE
+					, INST_VND_NM
+					, INST_VND_TEL
+					, MAKE_NATION
+					, SUB_INST
+					, LAS_YN
+					, KOLAS_YN
+					, FLD_USE
+					, MANUAL
+					, SOFTWARE
+					, SERIAL_NUMBER
+					, CALI_PERIOD
+					, CALI_PERIOD_FLAG
+					, PWR
+					, TO_CHAR(TO_DATE( INSTL_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') INSTL_DATE
+					, INSTL_PLC
+					, TO_NUMBER(REPLACE(BUY_COST, ',', '')) BUY_COST
+					, AST_NO
+					, END_YEAR
+					, A.USE_FLAG
+					, (SELECT USER_NM FROM USER_INFO WHERE H.MNG_ID = USER_ID ) AS MNG_NM
+					, (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = DECODE(H.MNG_DEPT_CD , null, A.DEPT_CD, H.MNG_DEPT_CD)) AS DEPT_NM
+					, (SELECT USER_NM FROM USER_INFO WHERE H.MNG_SUB_ID = USER_ID ) AS MNG_SUB_NM
+					, (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = H.MNG_SUB_DEPT_CD) AS MNG_SUB_DEPT_NM
+					, (SELECT USER_NM FROM USER_INFO WHERE H2.MNG_ID = USER_ID ) AS MNG_NM2
+					, (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = DECODE(H2.MNG_DEPT_CD , null, A.DEPT_CD, H2.MNG_DEPT_CD)) AS DEPT_NM2
+					, (SELECT USER_NM FROM USER_INFO WHERE H2.MNG_SUB_ID = USER_ID ) AS MNG_SUB_NM2
+					, (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = H2.MNG_SUB_DEPT_CD) AS MNG_SUB_DEPT_NM2
+					, INST_JD_NM
+					, INST_JD_NO
+					, USE_PRICE
+					, A.CALI_IO_FLAG
+					, A.CALI_IO
+				FROM INSTRUMENT A
+				JOIN
+				(
+				SELECT MNG_NO, MNG_ID ,INST_NO,MNG_SUB_ID
+				FROM INST_MNG_HIS M
+				WHERE MNG_NO = (SELECT MAX(MNG_NO) FROM INST_MNG_HIS I WHERE I.INST_NO = M.INST_NO AND I.MNG_GBN='B') AND TO_DATE(MNG_START,'YYYY-MM-DD') <= SYSDATE AND TO_DATE(MNG_END,'YYYY-MM-DD') >= (SYSDATE-(INTERVAL '1' DAY))  AND (MNG_ID = (SELECT USER_ID FROM USER_INFO WHERE USER_NM=#{admin_user}) /**P*/ OR MNG_SUB_ID= (SELECT USER_ID FROM USER_INFO WHERE USER_NM=#{admin_user}) /**P*/ )
+				) B
+				ON A.INST_NO = B.INST_NO		
+				LEFT OUTER JOIN
+				(SELECT 
+					IMH.INST_NO,
+					IMH.MNG_NO, 
+					IMH.MNG_ID , 
+					IMH.MNG_DEPT_CD,
+					IMH.MNG_SUB_ID , 
+					IMH.MNG_SUB_DEPT_CD
+				FROM INST_MNG_HIS IMH		
+				INNER JOIN( SELECT DISTINCT INST_NO ,
+				MAX(MNG_NO) OVER (PARTITION BY INST_NO) MNG_NO
+				FROM INST_MNG_HIS 
+			    WHERE MNG_GBN = 'A' AND SYSDATE > TO_DATE(MNG_START,'YYYYMMDD') AND TO_DATE(MNG_END,'YYYYMMDD') > SYSDATE) RH 
+			    ON IMH.INST_NO = RH.INST_NO AND IMH.MNG_NO = RH.MNG_NO
+				WHERE IMH.MNG_GBN = 'A' AND SYSDATE > TO_DATE(IMH.MNG_START,'YYYYMMDD') AND TO_DATE(IMH.MNG_END,'YYYYMMDD') > SYSDATE
+				) H ON H.INST_NO = A.INST_NO
+				LEFT OUTER JOIN
+				(SELECT 
+					IMH2.INST_NO,
+					IMH2.MNG_NO, 
+					IMH2.MNG_ID , 
+					IMH2.MNG_DEPT_CD,
+					IMH2.MNG_SUB_ID , 
+					IMH2.MNG_SUB_DEPT_CD
+				FROM INST_MNG_HIS IMH2		
+				INNER JOIN( SELECT DISTINCT INST_NO ,
+				MAX(MNG_NO) OVER (PARTITION BY INST_NO) MNG_NO
+				FROM INST_MNG_HIS 
+			    WHERE MNG_GBN = 'B' AND SYSDATE > TO_DATE(MNG_START,'YYYYMMDD') AND TO_DATE(MNG_END,'YYYYMMDD') > SYSDATE) RH2
+			    ON IMH2.INST_NO = RH2.INST_NO AND IMH2.MNG_NO = RH2.MNG_NO
+				WHERE IMH2.MNG_GBN = 'B' AND SYSDATE > TO_DATE(IMH2.MNG_START,'YYYYMMDD') AND TO_DATE(IMH2.MNG_END,'YYYYMMDD') > SYSDATE
+				) H2 ON H2.INST_NO = A.INST_NO
+				WHERE 1=1 AND (SYSDATE-(INTERVAL '1' DAY)) > TO_DATE(CRT_DATE,'YYYY-MM-DD')]]>			
+		   
+		 </if>
+		 
+		 <if test='cntType=="16"'>
+	    
+			<![CDATA[ SELECT A.INST_NO
+					, INST_MNG_NO
+					, INST_KOR_NM
+					, INST_ENG_NM
+					, TO_CHAR(TO_DATE( INST_BUY_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') INST_BUY_DATE
+					, INST_VND_NM
+					, INST_VND_TEL
+					, MAKE_NATION
+					, SUB_INST
+					, LAS_YN
+					, KOLAS_YN
+					, FLD_USE
+					, MANUAL
+					, SOFTWARE
+					, SERIAL_NUMBER
+					, CALI_PERIOD
+					, CALI_PERIOD_FLAG
+					, PWR
+					, TO_CHAR(TO_DATE( INSTL_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') INSTL_DATE
+					, INSTL_PLC
+					, TO_NUMBER(REPLACE(BUY_COST, ',', '')) BUY_COST
+					, AST_NO
+					, END_YEAR
+					, A.USE_FLAG
+					, (SELECT USER_NM FROM USER_INFO WHERE H.MNG_ID = USER_ID ) AS MNG_NM
+					, (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = DECODE(H.MNG_DEPT_CD , null, A.DEPT_CD, H.MNG_DEPT_CD)) AS DEPT_NM
+					, (SELECT USER_NM FROM USER_INFO WHERE H.MNG_SUB_ID = USER_ID ) AS MNG_SUB_NM
+					, (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = H.MNG_SUB_DEPT_CD) AS MNG_SUB_DEPT_NM
+					, (SELECT USER_NM FROM USER_INFO WHERE H2.MNG_ID = USER_ID ) AS MNG_NM2
+					, (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = DECODE(H2.MNG_DEPT_CD , null, A.DEPT_CD, H2.MNG_DEPT_CD)) AS DEPT_NM2
+					, (SELECT USER_NM FROM USER_INFO WHERE H2.MNG_SUB_ID = USER_ID ) AS MNG_SUB_NM2
+					, (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = H2.MNG_SUB_DEPT_CD) AS MNG_SUB_DEPT_NM2
+					, INST_JD_NM
+					, INST_JD_NO
+					, USE_PRICE
+					, A.CALI_IO_FLAG
+					, A.CALI_IO
+				FROM INSTRUMENT A
+				JOIN
+				(
+				SELECT MNG_NO, MNG_ID ,INST_NO,MNG_SUB_ID
+				FROM INST_MNG_HIS M
+				WHERE MNG_NO = (SELECT MAX(MNG_NO) FROM INST_MNG_HIS I WHERE I.INST_NO = M.INST_NO AND I.MNG_GBN='A') AND TO_DATE(MNG_START,'YYYY-MM-DD') <= SYSDATE AND TO_DATE(MNG_END,'YYYY-MM-DD') >= (SYSDATE-(INTERVAL '1' DAY)) AND (MNG_ID = (SELECT USER_ID FROM USER_INFO WHERE USER_NM=#{admin_user}) /**P*/ OR MNG_SUB_ID= (SELECT USER_ID FROM USER_INFO WHERE USER_NM=#{admin_user}) /**P*/ )
+				) B
+				ON A.INST_NO = B.INST_NO		
+				LEFT OUTER JOIN
+				(SELECT 
+					IMH.INST_NO,
+					IMH.MNG_NO, 
+					IMH.MNG_ID , 
+					IMH.MNG_DEPT_CD,
+					IMH.MNG_SUB_ID , 
+					IMH.MNG_SUB_DEPT_CD
+				FROM INST_MNG_HIS IMH		
+				INNER JOIN( SELECT DISTINCT INST_NO ,
+				MAX(MNG_NO) OVER (PARTITION BY INST_NO) MNG_NO
+				FROM INST_MNG_HIS 
+			    WHERE MNG_GBN = 'A' AND SYSDATE > TO_DATE(MNG_START,'YYYYMMDD') AND TO_DATE(MNG_END,'YYYYMMDD') > SYSDATE) RH 
+			    ON IMH.INST_NO = RH.INST_NO AND IMH.MNG_NO = RH.MNG_NO
+				WHERE IMH.MNG_GBN = 'A' AND SYSDATE > TO_DATE(IMH.MNG_START,'YYYYMMDD') AND TO_DATE(IMH.MNG_END,'YYYYMMDD') > SYSDATE
+				) H ON H.INST_NO = A.INST_NO
+				LEFT OUTER JOIN
+				(SELECT 
+					IMH2.INST_NO,
+					IMH2.MNG_NO, 
+					IMH2.MNG_ID , 
+					IMH2.MNG_DEPT_CD,
+					IMH2.MNG_SUB_ID , 
+					IMH2.MNG_SUB_DEPT_CD
+				FROM INST_MNG_HIS IMH2		
+				INNER JOIN( SELECT DISTINCT INST_NO ,
+				MAX(MNG_NO) OVER (PARTITION BY INST_NO) MNG_NO
+				FROM INST_MNG_HIS 
+			    WHERE MNG_GBN = 'B' AND SYSDATE > TO_DATE(MNG_START,'YYYYMMDD') AND TO_DATE(MNG_END,'YYYYMMDD') > SYSDATE) RH2
+			    ON IMH2.INST_NO = RH2.INST_NO AND IMH2.MNG_NO = RH2.MNG_NO
+				WHERE IMH2.MNG_GBN = 'B' AND SYSDATE > TO_DATE(IMH2.MNG_START,'YYYYMMDD') AND TO_DATE(IMH2.MNG_END,'YYYYMMDD') > SYSDATE
+				) H2 ON H2.INST_NO = A.INST_NO
+				WHERE 1=1 AND (SYSDATE-(INTERVAL '1' DAY)) > TO_DATE(INTCHK_DATE,'YYYY-MM-DD')]]>			
+		   
+		 </if>
+		   
+		 <if test="cntType=='' or cntType==null">
+		   		 SELECT A.INST_NO
+					, INST_MNG_NO
+					, INST_KOR_NM
+					, INST_ENG_NM
+					, TO_CHAR(TO_DATE( INST_BUY_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') INST_BUY_DATE
+					, INST_VND_NM
+					, INST_VND_TEL
+					, MAKE_NATION
+					, SUB_INST
+					, LAS_YN
+					, KOLAS_YN
+					, FLD_USE
+					, MANUAL
+					, SOFTWARE
+					, SERIAL_NUMBER
+					, CALI_PERIOD
+					, CALI_PERIOD_FLAG
+					, PWR
+					, TO_CHAR(TO_DATE( INSTL_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') INSTL_DATE
+					, INSTL_PLC
+					, TO_NUMBER(REPLACE(BUY_COST, ',', '')) BUY_COST
+					, AST_NO
+					, END_YEAR
+					, A.USE_FLAG
+					, (SELECT USER_NM FROM USER_INFO WHERE H.MNG_ID = USER_ID ) AS MNG_NM
+					, (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = DECODE(H.MNG_DEPT_CD , null, A.DEPT_CD, H.MNG_DEPT_CD)) AS DEPT_NM
+					, (SELECT USER_NM FROM USER_INFO WHERE H.MNG_SUB_ID = USER_ID ) AS MNG_SUB_NM
+					, (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = H.MNG_SUB_DEPT_CD) AS MNG_SUB_DEPT_NM
+					, (SELECT USER_NM FROM USER_INFO WHERE H2.MNG_ID = USER_ID ) AS MNG_NM2
+					, (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = DECODE(H2.MNG_DEPT_CD , null, A.DEPT_CD, H2.MNG_DEPT_CD)) AS DEPT_NM2
+					, (SELECT USER_NM FROM USER_INFO WHERE H2.MNG_SUB_ID = USER_ID ) AS MNG_SUB_NM2
+					, (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = H2.MNG_SUB_DEPT_CD) AS MNG_SUB_DEPT_NM2
+					, INST_JD_NM
+					, INST_JD_NO
+					, USE_PRICE
+					, A.CALI_IO_FLAG
+					, A.CALI_IO
+				FROM INSTRUMENT A		
+				LEFT OUTER JOIN
+				(SELECT 
+					IMH.INST_NO,
+					IMH.MNG_NO, 
+					IMH.MNG_ID , 
+					IMH.MNG_DEPT_CD,
+					IMH.MNG_SUB_ID , 
+					IMH.MNG_SUB_DEPT_CD
+				FROM INST_MNG_HIS IMH		
+				INNER JOIN( SELECT DISTINCT INST_NO ,
+				MAX(MNG_NO) OVER (PARTITION BY INST_NO) MNG_NO
+				FROM INST_MNG_HIS 
+			    WHERE MNG_GBN = 'A' AND SYSDATE > TO_DATE(MNG_START,'YYYYMMDD') AND TO_DATE(MNG_END,'YYYYMMDD') > SYSDATE) RH 
+			    ON IMH.INST_NO = RH.INST_NO AND IMH.MNG_NO = RH.MNG_NO
+				WHERE IMH.MNG_GBN = 'A' AND SYSDATE > TO_DATE(IMH.MNG_START,'YYYYMMDD') AND TO_DATE(IMH.MNG_END,'YYYYMMDD') > SYSDATE
+				) H ON H.INST_NO = A.INST_NO
+				LEFT OUTER JOIN
+				(SELECT 
+					IMH2.INST_NO,
+					IMH2.MNG_NO, 
+					IMH2.MNG_ID , 
+					IMH2.MNG_DEPT_CD,
+					IMH2.MNG_SUB_ID , 
+					IMH2.MNG_SUB_DEPT_CD
+				FROM INST_MNG_HIS IMH2		
+				INNER JOIN( SELECT DISTINCT INST_NO ,
+				MAX(MNG_NO) OVER (PARTITION BY INST_NO) MNG_NO
+				FROM INST_MNG_HIS 
+			    WHERE MNG_GBN = 'B' AND SYSDATE > TO_DATE(MNG_START,'YYYYMMDD') AND TO_DATE(MNG_END,'YYYYMMDD') > SYSDATE) RH2
+			    ON IMH2.INST_NO = RH2.INST_NO AND IMH2.MNG_NO = RH2.MNG_NO
+				WHERE IMH2.MNG_GBN = 'B' AND SYSDATE > TO_DATE(IMH2.MNG_START,'YYYYMMDD') AND TO_DATE(IMH2.MNG_END,'YYYYMMDD') > SYSDATE
+				) H2 ON H2.INST_NO = A.INST_NO
+				WHERE 1=1   
+		 </if>
+		
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND (H.MNG_DEPT_CD = #{dept_cd} OR H.MNG_SUB_DEPT_CD = #{dept_cd} OR
+				 H2.MNG_DEPT_CD = #{dept_cd} OR H2.MNG_SUB_DEPT_CD = #{dept_cd})
+		</if>
+		<if test="cali == 'cali_period_flag' "> 
+			AND CALI_PERIOD_FLAG = 'Y'
+		</if>
+		<if test="cali == 'cali_io_flag' ">
+			AND CALI_IO_FLAG = 'Y'
+		</if>
+		<!-- 교정주기 내부외부 나누기 -->
+		<if test="admin_user != null and admin_user != '' ">
+			AND ((SELECT USER_NM FROM USER_INFO WHERE H.MNG_ID = USER_ID ) like '%' || UPPER( #{admin_user} ) || '%' OR
+				 (SELECT USER_NM FROM USER_INFO WHERE H.MNG_SUB_ID = USER_ID ) like '%' || UPPER( #{admin_user} ) || '%' OR
+				 (SELECT USER_NM FROM USER_INFO WHERE H2.MNG_ID = USER_ID ) like '%' || UPPER( #{admin_user} ) || '%' OR
+				 (SELECT USER_NM FROM USER_INFO WHERE H2.MNG_SUB_ID = USER_ID ) like '%' || UPPER( #{admin_user} ) || '%')
+		</if>
+		<if test="inst_mng_no != null and inst_mng_no != '' ">
+			AND UPPER(INST_MNG_NO) like '%' || UPPER( #{inst_mng_no} ) || '%'
+		</if>
+		<if test="inst_kor_nm != null and inst_kor_nm != '' ">
+			AND (UPPER(INST_KOR_NM) like '%' || UPPER( #{inst_kor_nm} ) || '%' OR
+			UPPER(INST_ENG_NM) like '%' || UPPER( #{inst_kor_nm} ) || '%')
+		</if>
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				AND TO_CHAR(TO_DATE(INST_BUY_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate}
+			</if>
+		</if>
+		<if test="buy_cost_start != null and buy_cost_start != ''">
+			<if test="buy_cost_end != null and buy_cost_end != ''">
+				AND BUY_COST BETWEEN TO_NUMBER(#{buy_cost_start}) AND TO_NUMBER(#{buy_cost_end})
+			</if>
+		</if>
+		<if test="inst_vnd_nm != null and inst_vnd_nm != '' ">
+			AND UPPER(INST_VND_NM) like '%' || UPPER( #{inst_vnd_nm} ) || '%'
+		</if>
+		<if test="serial_number != null and serial_number != '' ">
+			AND SERIAL_NUMBER like '%' || #{serial_number} || '%'
+		</if>
+		<if test="inst_vnd_tel != null and inst_vnd_tel != '' ">
+			AND INST_VND_TEL like '%' || #{inst_vnd_tel} || '%'
+		</if>
+		<if test="make_nation != null and make_nation != '' ">
+			AND UPPER(MAKE_NATION) like '%' || UPPER( #{make_nation} ) || '%'
+		</if>
+		<if test="main_part != null and main_part != '' ">
+			AND UPPER(MAIN_PART) like '%' || UPPER( #{main_part} ) || '%'
+		</if>
+		<if test="sub_inst != null and sub_inst != '' ">
+			AND UPPER(SUB_INST) like '%' || UPPER( #{sub_inst} ) || '%'
+		</if>
+		<if test="las_yn != null and las_yn != '' ">
+			AND LAS_YN = #{las_yn}
+		</if>
+		<if test="kolas_yn != null and kolas_yn != '' ">
+			AND KOLAS_YN = #{kolas_yn}
+		</if>
+		<if test="fld_use != null and fld_use != '' ">
+			AND UPPER(FLD_USE) like '%' || UPPER( #{fld_use} ) || '%'
+		</if>
+		<if test="cali_period != null and cali_period != '' ">
+			AND CALI_PERIOD like '%' || #{cali_period} || '%'
+		</if>
+		<if test="pwr != null and pwr != '' ">
+			AND UPPER(PWR) like '%' || UPPER( #{pwr} ) || '%'
+		</if>
+		<if test="instl_date != null and instl_date != '' ">
+			AND INSTL_DATE like '%' || REPLACE(#{instl_date}, '-', '') || '%'
+		</if>
+		<if test="instl_plc != null and instl_plc != '' ">
+			AND UPPER(INSTL_PLC) like '%' || UPPER( #{instl_plc} ) || '%'
+		</if>
+		<if test="buy_cost != null and buy_cost != '' ">
+			AND BUY_COST like '%' || #{buy_cost} || '%'
+		</if>
+		<if test="ast_no != null and ast_no != '' ">
+			AND UPPER(AST_NO) like '%' || UPPER( #{ast_no} ) || '%'
+		</if>
+		<if test="end_year != null and end_year != '' ">
+			AND END_YEAR like '%' || #{end_year} || '%'
+		</if>
+		<if test="use_flag != null and use_flag != '' ">
+			AND A.USE_FLAG = #{use_flag}
+		</if>
+		<if test="inst_jd_nm != null and inst_jd_nm != '' ">
+			AND UPPER(INST_JD_NM) like '%' || UPPER( #{inst_jd_nm} ) || '%'
+		</if>
+		<if test="inst_jd_no != null and inst_jd_no != '' ">
+			AND UPPER(INST_JD_NO) like '%' || UPPER( #{inst_jd_no} ) || '%'
+		</if>
+		<if test="use_his_flag != null and use_his_flag != '' ">
+			AND UPPER(USE_HIS_FLAG) like '%' || UPPER( #{use_his_flag} ) || '%'
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY INST_NO
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+	</select>
+
+	<select id="machineDetail" parameterType="machineVO" resultType="machineVO">
+		SELECT INST_NO
+			,INST_MNG_NO
+			,INST_KOR_NM
+			,INST_ENG_NM
+			,TO_CHAR(TO_DATE( INST_BUY_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') INST_BUY_DATE
+			,INST_VND_NM
+			,INST_VND_TEL
+			,MAKE_NATION
+			,MAIN_PART
+			,SUB_INST
+			,LAS_YN
+			,KOLAS_YN
+			,FLD_USE
+			,MANUAL
+			,SOFTWARE
+			,CALI_PERIOD
+			,CALI_PERIOD_FLAG
+			,PWR
+			,TO_CHAR(TO_DATE( INSTL_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') INSTL_DATE
+			,INSTL_PLC
+			,REPLACE(TO_CHAR(TO_NUMBER(BUY_COST), '999,999,999,999,999'), ' ', '') BUY_COST
+			,CMT
+			,IMG_FILE_NM
+			,AST_NO
+			,END_YEAR
+			,A.USE_FLAG
+			,ADD_FILE
+			,INST_JD_NM
+			,INST_JD_NO
+			,USE_HIS_FLAG
+			,USE_PRICE
+			,NTIS_NO
+			,ETUBE_NO
+			,MANAGE_FLAG
+			,MODEL_NM
+			,SERIAL_NUMBER
+			,CALI_IO_FLAG
+			,CALI_IO
+			,TO_CHAR(TO_DATE(INTCHK_DATE, 'YYYY-MM-DD'),'YYYY-MM-DD') INTCHK_DATE
+			,TO_CHAR(TO_DATE(CRT_DATE, 'YYYY-MM-DD'),'YYYY-MM-DD') CRT_DATE
+		FROM INSTRUMENT A
+		WHERE INST_NO = #{key}
+	</select>
+
+	<select id="machineDown" parameterType="machineVO" resultType="machineVO">
+		SELECT ADD_FILE, IMG_FILE_NM
+		FROM INSTRUMENT
+		WHERE INST_NO = #{inst_no}
+	</select>
+
+	<select id="machineDept" parameterType="machineVO" resultType="machineVO">
+		SELECT DEPT_NM, DEPT_CD
+		FROM DEPART
+	</select>
+
+	<insert id="insertMachine" parameterType="machineVO">
+		INSERT INTO INSTRUMENT(
+			INST_NO
+			<if test="inst_mng_no != null and inst_mng_no != '' ">
+			,INST_MNG_NO
+			</if>
+			<if test="inst_kor_nm != null and inst_kor_nm != '' ">
+			,INST_KOR_NM
+			</if>
+			<if test="inst_eng_nm != null and inst_eng_nm != '' ">
+			,INST_ENG_NM
+			</if>
+			<if test="inst_buy_date != null and inst_buy_date != '' ">
+			,INST_BUY_DATE
+			</if>
+			<if test="inst_vnd_nm != null and inst_vnd_nm != '' ">
+			,INST_VND_NM
+			</if>
+			<if test="inst_vnd_tel != null and inst_vnd_tel != '' ">
+			,INST_VND_TEL
+			</if>
+			<if test="make_nation != null and make_nation != '' ">
+			,MAKE_NATION
+			</if>
+			<if test="main_part != null and main_part != '' ">
+			,MAIN_PART
+			</if>
+			<if test="sub_inst != null and sub_inst != '' ">
+			,SUB_INST
+			</if>
+			,LAS_YN
+			,KOLAS_YN
+			,FLD_USE
+			<if test="manual != null and manual != '' ">
+			,MANUAL
+			</if>
+			<if test="software != null and software != '' ">
+			,SOFTWARE
+			</if>
+			<if test="cali_period != null and cali_period != '' ">
+			,CALI_PERIOD
+			</if>
+			,CALI_PERIOD_FLAG
+			<if test="pwr != null and pwr != '' ">
+			,PWR
+			</if>
+			<if test="instl_date != null and instl_date != '' ">
+			,INSTL_DATE
+			</if>
+			<if test="instl_plc != null and instl_plc != '' ">
+			,INSTL_PLC
+			</if>
+			<if test="buy_cost != null and buy_cost != '' ">
+			,BUY_COST
+			</if>
+			<if test="cmt != null and cmt != '' ">
+			,CMT
+			</if>
+			<if test="use_price != null and use_price != '' ">
+			,USE_PRICE
+			</if>
+			<if test="img_file_nm != null and img_file_nm != '' ">
+				,IMG_FILE_NM
+			</if>
+			<if test="ast_no != null and ast_no != '' ">
+			,AST_NO
+			</if>
+			<if test="end_year != null and end_year != '' ">
+			,END_YEAR
+			</if>
+			,USE_FLAG
+			,CREATE_DATE
+			,CREATER_ID
+			,UPDATE_DATE
+			,UPDATER_ID
+			<if test="add_file != null and add_file != '' ">
+				,ADD_FILE
+			</if>
+			<if test="inst_jd_nm != null and inst_jd_nm != '' ">
+			,INST_JD_NM
+			</if>
+			<if test="inst_jd_no != null and inst_jd_no != '' ">
+			,INST_JD_NO
+			</if>
+			,USE_HIS_FLAG
+			<if test="ntis_no != null and ntis_no != '' ">
+			,NTIS_NO
+			</if>
+			<if test="etube_no != null and etube_no != '' ">
+			,ETUBE_NO
+			</if>
+			<if test="manage_flag != null and manage_flag != '' ">
+			,MANAGE_FLAG
+			</if>
+			<if test="model_nm != null and model_nm != '' ">
+			,MODEL_NM
+			</if>
+			<if test="serial_number != null and serial_number != '' ">
+			,SERIAL_NUMBER
+			</if>
+			<if test="cali_io_flag != null and cali_io_flag != '' ">
+			,CALI_IO_FLAG
+			</if>
+			<if test="cali_io != null and cali_io != '' ">
+			,CALI_IO
+			</if>
+			<if test="intchk_date != null and intchk_date != '' ">
+			, INTCHK_DATE
+			</if>
+			<if test="crt_date != null and crt_date != '' ">
+			, CRT_DATE
+			</if>
+		)VALUES(
+			(SELECT LPAD(NVL(MAX(INST_NO),0)+1,4,0) FROM INSTRUMENT)
+			<if test="inst_mng_no != null and inst_mng_no != '' ">
+			, #{inst_mng_no}
+			</if>
+			<if test="inst_kor_nm != null and inst_kor_nm != '' ">
+			, #{inst_kor_nm}
+			</if>
+			<if test="inst_eng_nm != null and inst_eng_nm != '' ">
+			, #{inst_eng_nm}
+			</if>
+			<if test="inst_buy_date != null and inst_buy_date != '' ">
+			, REPLACE(#{inst_buy_date}, '-', '')
+			</if>
+			<if test="inst_vnd_nm != null and inst_vnd_nm != '' ">
+			, #{inst_vnd_nm}
+			</if>
+			<if test="inst_vnd_tel != null and inst_vnd_tel != '' ">
+			, #{inst_vnd_tel}
+			</if>
+			<if test="make_nation != null and make_nation != '' ">
+			, #{make_nation}
+			</if>
+			<if test="main_part != null and main_part != '' ">
+			, #{main_part}
+			</if>
+			<if test="sub_inst != null and sub_inst != '' ">
+			, #{sub_inst}
+			</if>
+			, #{las_yn}
+			, #{kolas_yn}
+			, #{fld_use}
+			<if test="manual != null and manual != '' ">
+			, #{manual}
+			</if>
+			<if test="software != null and software != '' ">
+			, #{software}
+			</if>
+			<if test="cali_period != null and cali_period != '' ">
+				, #{cali_period}
+			</if>
+			, #{cali_period_flag}
+			<if test="pwr != null and pwr != '' ">
+			, #{pwr}
+			</if>
+			<if test="instl_date != null and instl_date != '' ">
+			, REPLACE(#{instl_date}, '-', '')
+			</if>
+			<if test="instl_plc != null and instl_plc != '' ">
+			, #{instl_plc}
+			</if>
+			<if test="buy_cost != null and buy_cost != '' ">
+			, REPLACE(#{buy_cost}, ',', '')
+			</if>
+			<if test="cmt != null and cmt != '' ">
+			, #{cmt}
+			</if>
+			<if test="use_price != null and use_price != '' ">
+			, #{use_price}
+			</if>
+			<if test="img_file_nm != null and img_file_nm != '' ">
+				, #{img_file_nm}
+			</if>
+			<if test="ast_no != null and ast_no != '' ">
+			, #{ast_no}
+			</if>
+			<if test="end_year != null and end_year != '' ">
+			, #{end_year}
+			</if>
+			, #{use_flag}
+			, SYSDATE
+			, #{user_id}
+			, SYSDATE
+			, #{user_id}
+			<if test="add_file != null and add_file != '' ">
+				, #{add_file}
+			</if>
+			<if test="inst_jd_nm != null and inst_jd_nm != '' ">
+			, #{inst_jd_nm}
+			</if>
+			<if test="inst_jd_no != null and inst_jd_no != '' ">
+			, #{inst_jd_no}
+			</if>
+			, 'Y'
+			<if test="ntis_no != null and ntis_no != '' ">
+			, #{ntis_no}
+			</if>
+			<if test="etube_no != null and etube_no != '' ">
+			, #{etube_no}
+			</if>
+			<if test="manage_flag != null and manage_flag != '' ">
+			, #{manage_flag}
+			</if>
+			<if test="model_nm != null and model_nm != '' ">
+			, #{model_nm}
+			</if>
+			<if test="serial_number != null and serial_number != '' ">
+			, #{serial_number}
+			</if>
+			<if test="cali_io_flag != null and cali_io_flag != '' ">
+			, #{cali_io_flag}
+			</if>
+			<if test="cali_io != null and cali_io != '' ">
+			, #{cali_io}
+			</if>
+			<if test="intchk_date != null and intchk_date != '' ">
+			, REPLACE(#{intchk_date}, '-', '')
+			</if>
+			<if test="crt_date != null and crt_date != '' ">
+			, REPLACE(#{crt_date} , '-', '')
+			</if>
+		)
+	</insert>
+
+	<update id="updateMachine" parameterType="machineVO">
+		UPDATE INSTRUMENT SET
+		INST_MNG_NO = #{inst_mng_no}
+			,INST_KOR_NM = #{inst_kor_nm}
+			,INST_ENG_NM = #{inst_eng_nm}
+			,INST_BUY_DATE = REPLACE(#{inst_buy_date}, '-', '')
+			,INST_VND_NM = #{inst_vnd_nm}
+			,INST_VND_TEL = #{inst_vnd_tel}
+			,MAKE_NATION = #{make_nation}
+			,MAIN_PART = #{main_part}
+			,SUB_INST = #{sub_inst}
+			,LAS_YN = #{las_yn}
+			,KOLAS_YN = #{kolas_yn}
+			,FLD_USE = #{fld_use}
+			,MANUAL = #{manual}
+			,SOFTWARE = #{software}
+			<if test="cali_period != null and cali_period != '' ">
+				,CALI_PERIOD = #{cali_period}
+			</if>
+			<if test="cali_period == null or cali_period == '' ">
+				,CALI_PERIOD = ''
+			</if>
+			,CALI_PERIOD_FLAG = #{cali_period_flag}
+			,PWR = #{pwr}
+			,INSTL_DATE = REPLACE(#{instl_date}, '-', '')
+			,INSTL_PLC = #{instl_plc}
+			,BUY_COST = REPLACE(#{buy_cost}, ',', '')
+			,CMT = #{cmt}
+			<if test="img_file_nm != null and img_file_nm != '' ">
+				,IMG_FILE_NM = #{img_file_nm}
+			</if>
+			,AST_NO = #{ast_no}
+			,END_YEAR = #{end_year}
+			,USE_FLAG = #{use_flag}
+			,UPDATE_DATE = SYSDATE
+			,UPDATER_ID = #{user_id}
+			<if test="add_file != null and add_file != '' ">
+				,ADD_FILE = #{add_file}
+			</if>
+			,INTCHK_DATE=REPLACE(#{intchk_date}, '-', '')
+			,CRT_DATE=REPLACE(#{crt_date}, '-', '')
+			,INST_JD_NM = #{inst_jd_nm}
+			,INST_JD_NO = #{inst_jd_no}
+			,USE_HIS_FLAG = #{use_his_flag}
+			,USE_PRICE = #{use_price}
+			,NTIS_NO = #{ntis_no}
+			,ETUBE_NO = #{etube_no}
+			,MANAGE_FLAG = #{manage_flag}
+			,MODEL_NM = #{model_nm}
+			,SERIAL_NUMBER = #{serial_number}
+			,CALI_IO_FLAG = #{cali_io_flag}
+			,CALI_IO = #{cali_io}
+		WHERE INST_NO = #{inst_no}
+	</update>
+
+	<update id="deleteMachine" parameterType="machineVO">
+		UPDATE INSTRUMENT SET
+		USE_FLAG = 'N'
+		WHERE INST_NO = #{inst_no}
+	</update>
+
+	<select id="machineDeleteFlag" parameterType="machineVO" resultType="machineVO">
+		SELECT COUNT(*) DEL_COUNT
+		FROM INSTRUMENT A
+		LEFT JOIN INST_CRT_HIS B ON A.INST_NO = B.INST_NO
+		LEFT JOIN INST_RPR_HIS C ON A.INST_NO = C.INST_NO
+		LEFT JOIN INST_USE_HIS D ON A.INST_NO = D.INST_NO
+		WHERE INST_NO = #{inst_no}
+	</select>
+
+	<select id="machineImage" parameterType="machineVO" resultType="machineVO">
+		SELECT ADD_FILE
+		FROM INSTRUMENT A
+		WHERE INST_NO = #{inst_no}
+	</select>
+
+	<!-- 장비관리 - 관리자이력 리스트 -->
+	<select id="selectMachineManager" parameterType="machineVO" resultType="machineVO">
+		SELECT
+			IMH.INST_NO
+			, IMH.MNG_NO
+			, IMH.MNG_DEPT_CD DEPT_CD 
+			, D.DEPT_NM
+			, (SELECT USER_NM FROM USER_INFO WHERE IMH.MNG_ID = USER_ID) AS MNG_NM
+			, IMH.MNG_ID
+			, IMH.MNG_SUB_DEPT_CD
+			, SUBD.DEPT_NM AS MNG_SUB_DEPT_NM
+			, (SELECT USER_NM FROM USER_INFO WHERE IMH.MNG_SUB_ID = USER_ID) AS MNG_SUB_NM
+			, IMH.MNG_SUB_ID
+			, TO_CHAR(TO_DATE( IMH.MNG_START, 'YYYY-MM-DD' ),'YYYY-MM-DD') MNG_START
+			, TO_CHAR(TO_DATE( IMH.MNG_END, 'YYYY-MM-DD' ),'YYYY-MM-DD') MNG_END
+		FROM INST_MNG_HIS IMH
+		LEFT OUTER JOIN DEPART D ON D.DEPT_CD = IMH.MNG_DEPT_CD
+		LEFT OUTER JOIN DEPART SUBD ON SUBD.DEPT_CD = IMH.MNG_SUB_DEPT_CD
+		WHERE IMH.INST_NO = #{inst_no}
+		AND MNG_GBN = #{mng_gbn}
+		ORDER BY MNG_NO DESC
+	</select>
+	
+	<!-- 장비관리 - 관리자이력 등록 및 수정 -->
+	<insert id="insertManager" parameterType="machineVO">
+		MERGE INTO INST_MNG_HIS
+		USING DUAL ON (
+			INST_NO = #{inst_no}
+			AND MNG_NO = #{mng_no}
+		)
+		WHEN MATCHED THEN
+		UPDATE SET
+		MNG_ID = #{mng_id}
+		, MNG_DEPT_CD = #{dept_cd}
+		, MNG_SUB_ID = #{mng_sub_id}
+		, MNG_SUB_DEPT_CD = #{mng_sub_dept_cd}
+		<if test="mng_start != null and mng_start != '' ">
+			, MNG_START = REPLACE(#{mng_start}, '-', '')
+		</if>
+		<if test="mng_end != null and mng_end != '' ">
+			, MNG_END = REPLACE(#{mng_end}, '-', '')
+		</if>
+		, MNG_GBN = #{mng_gbn}
+		WHEN NOT MATCHED THEN
+		INSERT (
+			INST_NO
+			, MNG_NO
+			, MNG_ID
+			, MNG_DEPT_CD
+			, MNG_SUB_ID
+			, MNG_SUB_DEPT_CD
+			<if test="mng_start != null and mng_start != '' ">
+				, MNG_START
+			</if>
+			<if test="mng_end != null and mng_end != '' ">
+				, MNG_END
+			</if>
+			, MNG_GBN
+		) VALUES (
+			#{inst_no}
+			, (SELECT LPAD(NVL(MAX(MNG_NO),0)+1, 3, 0) MNG_NO FROM INST_MNG_HIS WHERE INST_NO = #{inst_no})
+			, #{mng_id}
+			, #{dept_cd}
+			, #{mng_sub_id}
+			, #{mng_sub_dept_cd}
+			<if test="mng_start != null and mng_start != '' ">
+				, REPLACE(#{mng_start}, '-', '')
+			</if>
+			<if test="mng_end != null and mng_end != '' ">
+				, REPLACE(#{mng_end}, '-', '')
+			</if>
+			, #{mng_gbn}
+		)
+	</insert>
+	
+	<!-- 장비관리 - 관리자이력 삭제 -->
+	<delete id="deleteManager" parameterType="machineVO">
+		DELETE FROM INST_MNG_HIS
+		WHERE INST_NO = #{inst_no} 
+		AND MNG_NO = #{mng_no}
+		AND MNG_GBN = #{mng_gbn}
+	</delete>	
+</mapper>

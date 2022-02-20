@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="useLog">
+	<select id="useLog" parameterType="useLogVO" resultType="useLogVO">
+		SELECT INST_NO
+		    , USE_NO
+		    , TO_CHAR( USE_SDATE,'YYYY-MM-DD') USE_SDATE
+		    , TO_CHAR( USE_SDATE,'HH24') USE_STIME
+		    , TO_CHAR( USE_EDATE,'YYYY-MM-DD') USE_EDATE
+		    , TO_CHAR( USE_EDATE,'HH24') USE_ETIME
+		    , USE_PURPOSE
+		    , HIS_USER
+		    , UI.USER_NM HIS_USER_NM
+		    , USE_ETC
+		    , USE_TIME
+		FROM INST_USE_HIS IUH
+		LEFT JOIN USER_INFO UI ON IUH.HIS_USER = UI.USER_ID
+		WHERE INST_NO = #{inst_no}
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				AND TO_CHAR(USE_SDATE,'YYYY-MM-DD') BETWEEN #{startDate} AND #{endDate}
+			</if>
+		</if>
+		<if test="sortName == null or sortName == '' ">
+		ORDER BY USE_SDATE DESC
+		</if>
+		<if test="sortName != null and sortName != '' ">
+		ORDER BY ${sortName} ${sortType}
+		</if>
+	</select>
+
+	<insert id="insertUseLog" parameterType="useLogVO">
+		INSERT INTO INST_USE_HIS(
+		            USE_NO
+		            ,INST_NO
+		            ,USE_SDATE
+		            ,USE_EDATE
+		            ,USE_PURPOSE
+		            ,HIS_USER
+		            ,USE_ETC
+		            ,USE_TIME
+		    )VALUES(
+		    		(SELECT LPAD(NVL(MAX(USE_NO),0)+1,6,0) FROM INST_USE_HIS)
+				    , #{inst_no}
+				    , TO_DATE(REPLACE(#{use_sdate}, '-', '') || #{use_stime} ,'YYYYMMDDHH24MI')
+					<if test="use_edate != null and use_edate != ''">
+				    , TO_DATE(REPLACE(#{use_edate}, '-', '') || #{use_etime} ,'YYYYMMDDHH24MI')
+				    </if>
+					<if test="use_edate == null or use_edate == ''">
+				    , TO_DATE(REPLACE(#{use_sdate}, '-', '') || #{use_stime} ,'YYYYMMDDHH24MI') + (1/24)
+				    </if>
+				    , #{use_purpose}
+				    , #{his_user}
+				    , #{use_etc}
+				    , #{use_time}
+		    )
+	</insert>
+	
+	<update id="updateUseLog" parameterType="useLogVO">				
+		UPDATE INST_USE_HIS SET
+			INST_NO = #{inst_no}
+			, USE_SDATE = TO_DATE(REPLACE(#{use_sdate}, '-', '') || #{use_stime} ,'YYYYMMDDHH24')
+			, USE_EDATE = TO_DATE(REPLACE(#{use_edate}, '-', '') || #{use_etime} ,'YYYYMMDDHH24')
+			, USE_PURPOSE = #{use_purpose}
+			, HIS_USER = #{his_user}
+			, USE_ETC = #{use_etc}
+			, USE_TIME = #{use_time}
+		WHERE USE_NO = #{use_no}
+	</update>
+	
+	<delete id="deleteUseLog" parameterType="useLogVO">
+		DELETE INST_USE_HIS 
+		WHERE USE_NO = #{use_no}
+	</delete>
+</mapper>

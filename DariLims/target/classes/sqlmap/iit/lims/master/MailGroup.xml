@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mailgroup">
+	<!-- 메일그룹 목록 조회 -->
+	<select id="selectListMailGroup" parameterType="HashMap" resultType="CamelListMap">
+		SELECT 
+			 G.MAIL_GROUP_SN
+			,G.MAIL_GROUP_NM
+			,G.MAIL_GROUP_SN AS CODE
+			,G.MAIL_GROUP_NM AS CODE_NM
+			,G.USE_YN
+		 FROM MAIL_GROUP G
+		<!-- JOIN MAIL_GROUP_DETAIL D ON D.MAIL_GROUP_SN = G.MAIL_GROUP_SN -->
+		WHERE 1=1
+		<if test="use_flag != null and use_flag != '' ">
+		     AND G.USE_YN = #{use_flag}
+		</if>
+		<if test="mail_nm != null and mail_nm != '' ">
+			AND UPPER(TRIM(G.MAIL_GROUP_NM)) LIKE '%' || UPPER(TRIM(#{mail_nm})) || '%'
+		</if>
+	</select>
+	
+	<!-- 메일 목록 조회 -->
+	<select id="selectListMailAddress" parameterType="HashMap" resultType="CamelListMap">
+		SELECT 
+			 D.MAIL_GROUP_SN /*메일그룹순번*/
+			,D.MAIL_GROUP_DETAIL_SN /*메일그룹 상세순번*/
+			,D.MAIL_NM /*성명*/
+			,D.MAIL_ADDRESS /*이메일*/
+			,D.USE_YN /*디테일 사용여부*/
+			,G.MAIL_GROUP_NM /*메일 그룹명*/
+			,G.USE_YN AS GROUP_USE_YN /*그룹 사용여부*/
+			,D.MAIL_GROUP_SN || '-' || D.MAIL_GROUP_DETAIL_SN AS check_num
+		FROM MAIL_GROUP_DETAIL D
+		JOIN MAIL_GROUP G ON D.MAIL_GROUP_SN = G.MAIL_GROUP_SN
+		WHERE 1=1
+		<if test="mailGroupSn != null and mailGroupSn != '' ">
+			AND D.MAIL_GROUP_SN  =  #{mailGroupSn} 
+		</if>
+		<if test="mailAddress != null and mailAddress != '' ">
+			AND UPPER(TRIM(D.MAIL_ADDRESS))  like '%' ||  UPPER(TRIM(#{mailAddress}))|| '%'
+		</if>
+		<if test="useYn != null and useYn != '' ">
+			AND D.USE_YN = #{useYn}
+		</if>
+		<if test="mailNm != null and mailNm != '' ">
+			AND UPPER(TRIM(D.MAIL_NM))  like '%' ||  UPPER(TRIM(#{mailNm}))|| '%'
+		</if>
+		<if test="mailGroupNm != null and mailGroupNm != '' ">
+			AND UPPER(TRIM(G.MAIL_GROUP_NM))  like '%' ||  UPPER(TRIM(#{mailGroupNm}))|| '%'
+		</if>
+		<if test="groupUseYn != null and groupUseYn != '' ">
+			AND G.USE_YN = #{groupUseYn}
+		</if>
+		ORDER BY MAIL_GROUP_SN,MAIL_GROUP_DETAIL_SN
+	</select>
+	
+	<!-- 메일그룹 저장 -->
+	<update id="saveMailGroup" parameterType="HashMap">
+		MERGE INTO MAIL_GROUP
+		USING DUAL ON ( MAIL_GROUP_SN = #{mailGroupSn})
+		WHEN MATCHED THEN
+			UPDATE SET  
+			 MAIL_GROUP_NM = #{mailGroupNm}
+			,USE_YN = #{useYn}
+		WHEN NOT MATCHED THEN
+			INSERT (  MAIL_GROUP_SN
+			         ,MAIL_GROUP_NM
+			         ,USE_YN
+			)
+			VALUES ( SQ_MAIL_GROUP.NEXTVAL
+			         ,#{mailGroupNm}
+			         ,#{useYn}
+			)
+	</update>
+	
+	<!-- 메일 주소 저장 -->
+	<update id="saveMailAddress" parameterType="HashMap">
+		MERGE INTO MAIL_GROUP_DETAIL
+		USING DUAL ON ( MAIL_GROUP_SN = #{mailGroupSn} AND MAIL_GROUP_DETAIL_SN = #{mailGroupDetailSn})
+		WHEN MATCHED THEN
+			UPDATE SET  
+			 MAIL_ADDRESS = #{mailAddress}
+			,MAIL_NM = #{mailNm}
+			,USE_YN = #{useYn}
+		WHEN NOT MATCHED THEN
+			INSERT (  MAIL_GROUP_SN
+			         ,MAIL_GROUP_DETAIL_SN
+			         ,MAIL_ADDRESS
+			         ,MAIL_NM
+			         ,USE_YN
+			)
+			VALUES (  #{mailGroupSn}
+			         ,(SELECT NVL(MAX(MAIL_GROUP_DETAIL_SN),0) + 1 FROM MAIL_GROUP_DETAIL WHERE MAIL_GROUP_SN=#{mailGroupSn})
+			         ,#{mailAddress}
+			         ,#{mailNm}
+			         ,#{useYn}
+			)
+	</update>
+	
+	
+	<!-- 메일그룹삭제 -->
+	<delete id="deleteMailGroup" parameterType="HashMap">
+		DELETE FROM MAIL_GROUP WHERE MAIL_GROUP_SN = #{mailGroupSn}
+	</delete>
+	
+	<!-- 메일삭제 -->
+	<delete id="deleteMailAddress" parameterType="HashMap">
+		DELETE FROM MAIL_GROUP_DETAIL 
+		WHERE MAIL_NM = #{mailNm} AND MAIL_ADDRESS = #{mailAddress} 
+	</delete>
+			
+</mapper>

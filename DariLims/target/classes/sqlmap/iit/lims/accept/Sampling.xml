@@ -1,0 +1,783 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="sampling">
+	<select id="selectSamplingList" parameterType="SamplingVO" resultType="SamplingVO">
+		SELECT
+		CASE
+		WHEN P.PRC_CD = 'Q' OR P.PRC_CD = 'R' THEN P.EXT_PRC_NM
+		ELSE P.SIMPLE_PRC_NM
+		END AS STATE
+		,R.TEST_REQ_NO
+		,R.TEST_REQ_SEQ
+		,P.PRC_CD PROCESS
+		,R.TITLE
+		,GET_COMMON_CODE(R.REQ_TYPE,'EX1') REQ_TYPE
+		,GET_COMMON_CODE(R.SENSORY_TEST,'EX1') SENSORY_TEST
+        ,GET_COMMON_CODE(R.TEST_GOAL,'') TEST_GOAL
+		,TO_CHAR(TO_DATE(R.SAMPLE_ARRIVAL_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') SAMPLE_ARRIVAL_DATE
+		,TO_CHAR(TO_DATE(R.DEADLINE_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') DEADLINE_DATE
+		,R.REQ_NM
+		,UW.UNIT_WORK_NM UNIT_WORK_CD
+		,R.REQ_TEL
+		,RD.DEPT_NM
+		, NVL2(RO.ORG_NM , RO.ORG_NM, RD.DEPT_NM ) REQ_ORG_NM
+		,R.DEPT_CD
+		,U.USER_NM
+		,R.ACT_USER_ID
+		,R.ACT_USER_NM
+		,R.REQ_ACT_USER_ID
+		,R.REQ_ACT_USER_NM
+		,U2.USER_NM CREATER_NM
+		,R.CREATER_ID
+		,R.COMMISSION_TYPE
+		,R.SENSORY_TEST
+		,OCD.COMMISSION_AMT_FLAG
+	    ,SP.PICK_NO
+		,CASE WHEN SP.PICK_NO IS NOT NULL THEN 'Y' ELSE 'N' END SAMPLING_YN
+		FROM TEST_REQ R
+		INNER JOIN PROCESS P ON P.PRC_CD = R.STATE
+		LEFT OUTER JOIN DEPART RD ON RD.DEPT_CD = R.DEPT_CD
+		LEFT OUTER JOIN REQ_ORG RO ON RO.REQ_ORG_NO = R.REQ_ORG_NO
+		LEFT OUTER JOIN UNIT_WORK UW ON UW.UNIT_WORK_CD = R.UNIT_WORK_CD
+		LEFT OUTER JOIN USER_INFO U ON U.USER_ID = R.ACT_USER_ID
+		LEFT OUTER JOIN USER_INFO U2 ON U2.USER_ID = R.CREATER_ID		
+		LEFT OUTER JOIN ORG_COMMISSION_DEPOSIT OCD ON OCD.REQ_ORG_NO = R.REQ_ORG_NO AND OCD.TEST_REQ_SEQ = R.TEST_REQ_SEQ
+		LEFT OUTER JOIN SPLORE_PICK SP ON SP.TEST_REQ_SEQ = R.TEST_REQ_SEQ	
+		WHERE (R.REQ_CLASS = 'C70009' OR R.REQ_CLASS = 'C70008')
+		AND R.STATE IN ('A','B','C','D','E','F','G','H')
+		<if test="req_org_nm != null and req_org_nm != '' ">
+			AND UPPER(RO.ORG_NM) like '%' || UPPER( #{req_org_nm} ) || '%'
+		</if>
+		<if test="req_nm != null and req_nm != '' ">
+			AND UPPER(R.REQ_NM) like '%' || UPPER( #{req_nm} ) || '%'
+		</if>
+		<if test="title != null and title != '' ">
+			AND UPPER(R.TITLE) like '%' || UPPER( #{title} ) || '%'
+		</if>
+		<if test="test_req_no != null and test_req_no != '' ">
+			AND UPPER(R.TEST_REQ_NO) like '%' || UPPER(#{test_req_no}) || '%'
+		</if>
+		<if test="req_type != null and req_type != '' ">
+			AND R.REQ_TYPE = #{req_type}
+		</if>
+		<if test="sensory_test != null and sensory_test != '' ">
+			AND R.SENSORY_TEST = #{sensory_test}
+		</if>
+		<if test="unit_work_cd != null and unit_work_cd != '' ">
+			AND R.UNIT_WORK_CD = #{unit_work_cd}
+		</if>
+		<if test="test_goal != null and test_goal != '' ">
+			AND R.TEST_GOAL = #{test_goal}
+		</if>
+		<if test="startDate != null and startDate != ''">
+			<if test="endDate != null and endDate != ''">
+				AND TO_CHAR(TO_DATE(R.SAMPLE_ARRIVAL_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') BETWEEN #{startDate} AND #{endDate}
+			</if>
+		</if>
+		<!-- 의뢰 시험부서 조회조건에서 시험항목 시험부서로 조건 변경 0629 이민아 -->
+		<if test="dept_cd != null and dept_cd != ''">
+			AND R.DEPT_CD = #{dept_cd}
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY R.TEST_REQ_SEQ, R.TEST_REQ_NO DESC
+		</if>
+	</select>
+	
+	<select id="selectSamplingDetail" parameterType="SamplingVO" resultType="SamplingVO">
+		SELECT
+			PICK_NO,
+			TO_CHAR(PICK_DT,'YYYY-MM-DD') AS PICK_DT,
+			PICK_TIME,
+			PICK_LC,
+			PICK_PURPS,
+			PRDUCT_KND,
+			PRDUCT_QY,
+			LT_MG,
+			LT_CO,
+			PICK_DN,
+			PICK_PLACE,
+			PICK_PLACE_METHOD,
+			PICK_UTNSIL_NM,
+			PICK_UTNSIL_MANP,
+			PICK_UTNSIL_UNIT,
+			INCREMENT_PICK_QY,
+			INCREMENT_CO,
+			OUTAGE_MIXTRSPLORE_DT,
+			SUBSTR(OUTAGE_MIXTRSPLORE_DT,1,2) AS OUTAGE_MIXTRSPLORE_DTH,
+			SUBSTR(OUTAGE_MIXTRSPLORE_DT,4,2) AS OUTAGE_MIXTRSPLORE_DTM,
+			OUTAGE_MIXTRSPLORE_QY,
+			MESURE_UTNSIL_NM,
+			MESURE_SCOPE,
+			MESURE_MTH,
+			PICK_PLACE_PN,
+			PICK_UTNSIL_PN,
+			LT_ATCH_PN1,
+			LT_ATCH_PN2,
+			LT_ATCH_PN3,
+			LT_ATCH_PN4,
+			MESURE_ATCH_PN1,
+			MESURE_ATCH_PN2,
+			MESURE_ATCH_PN3,
+			MESURE_ATCH_PN4,
+			TEST_REQ_SEQ,
+			SOLID_GBN,
+			RAWMTRL_GBN,
+			WIDTH,
+			VRTICL,
+			SUNGSANG1,
+			SUNGSANG2,
+			SUNGSANG3,
+			SUNGSANG4,
+			SUNGSANG5,
+			SUNGSANG6,
+			SUNGSANG0,
+			SUNGSANG_ETC,
+			BIO_NO
+		FROM SPLORE_PICK
+		WHERE PICK_NO = #{pick_no}
+	</select>
+	
+	<select id="samplingFileDown" parameterType="SamplingVO" resultType="SamplingVO">
+		SELECT ATT_FILE, ADD_FILE_NM
+		FROM SPLORE_PICK
+		WHERE PICK_NO = #{pick_no}
+	</select>
+	
+	<select id="selectPickNo" resultType="String">
+		SELECT NVL(MAX(PICK_NO),0)+1 FROM SPLORE_PICK
+	</select>
+	
+	<insert id="insertSampling" parameterType="SamplingVO">
+		BEGIN
+			INSERT INTO SPLORE_PICK
+			(
+				PICK_NO
+				,TEST_REQ_SEQ
+				<if test="pick_dt != null and pick_dt != ''">
+					,PICK_DT
+				</if>
+				<if test="pick_time != null and pick_time != ''">
+					,PICK_TIME
+				</if>
+				<if test="pick_lc != null and pick_lc != ''">
+					,PICK_LC
+				</if>
+				<if test="pick_purps != null and pick_purps != ''">
+					,PICK_PURPS
+				</if>
+				<if test="prduct_knd != null and prduct_knd != ''">
+					,PRDUCT_KND
+				</if>
+				<if test="prduct_qy != null and prduct_qy != ''">
+					,PRDUCT_QY
+				</if>
+				<if test="lt_mg != null and lt_mg != ''">			
+					,LT_MG
+				</if>
+				<if test="lt_co != null and lt_co != ''">
+					,LT_CO
+				</if>
+				<if test="pick_dn != null and pick_dn != ''">
+					,PICK_DN
+				</if>
+				<if test="pick_place != null and pick_place != ''">
+					,PICK_PLACE
+				</if>
+				<if test="pick_place_method != null and pick_place_method != ''">
+					,PICK_PLACE_METHOD
+				</if>
+				<if test="pick_place_photo != null and pick_place_photo != ''">
+					,PICK_PLACE_PHOTO
+				</if>
+				<if test="pick_utnsil_nm != null and pick_utnsil_nm != ''">			
+					,PICK_UTNSIL_NM
+				</if>
+				<if test="pick_utnsil_manp != null and pick_utnsil_manp != ''">
+					,PICK_UTNSIL_MANP
+				</if>
+				<if test="pick_utnsil_unit != null and pick_utnsil_unit != ''">
+					,PICK_UTNSIL_UNIT
+				</if>
+				<if test="pick_utnsil_photo != null and pick_utnsil_photo != ''">
+					,PICK_UTNSIL_PHOTO
+				</if>
+				<if test="increment_pick_qy != null and increment_pick_qy != ''">
+					,INCREMENT_PICK_QY
+				</if>
+				<if test="increment_co != null and increment_co != ''">
+					,INCREMENT_CO
+				</if>
+				<if test="lt_atch_photo1 != null and lt_atch_photo1 != ''">
+					,LT_ATCH_PHOTO1
+				</if>
+				<if test="lt_atch_photo2 != null and lt_atch_photo2 != ''">
+					,LT_ATCH_PHOTO2
+				</if>
+				<if test="lt_atch_photo3 != null and lt_atch_photo3 != ''">
+					,LT_ATCH_PHOTO3
+				</if>
+				<if test="lt_atch_photo4 != null and lt_atch_photo4 != ''">
+					,LT_ATCH_PHOTO4
+				</if>
+				<if test="outage_mixtrsplore_dt != null and outage_mixtrsplore_dt != ''">
+					,OUTAGE_MIXTRSPLORE_DT
+				</if>
+				<if test="outage_mixtrsplore_qy != null and outage_mixtrsplore_qy != ''">			
+					,OUTAGE_MIXTRSPLORE_QY
+				</if>
+				<if test="mesure_utnsil_nm != null and mesure_utnsil_nm != ''">
+					,MESURE_UTNSIL_NM
+				</if>
+				<if test="mesure_scope != null and mesure_scope != ''">
+					,MESURE_SCOPE
+				</if>
+				<if test="mesure_mth != null and mesure_mth != ''">
+					,MESURE_MTH
+				</if>
+				<if test="mesure_atch_photo1 != null and mesure_atch_photo1 != ''">
+					,MESURE_ATCH_PHOTO1
+				</if>
+				<if test="mesure_atch_photo2 != null and mesure_atch_photo2 != ''">
+					,MESURE_ATCH_PHOTO2
+				</if>
+				<if test="mesure_atch_photo3 != null and mesure_atch_photo3 != ''">
+					,MESURE_ATCH_PHOTO3
+				</if>
+				<if test="mesure_atch_photo4 != null and mesure_atch_photo4 != ''">
+					,MESURE_ATCH_PHOTO4
+				</if>
+				<if test="pick_place_pn != null and pick_place_pn != ''">
+					,PICK_PLACE_PN
+				</if>
+				<if test="pick_utnsil_pn != null and pick_utnsil_pn != ''">
+					,PICK_UTNSIL_PN
+				</if>
+				<if test="lt_atch_pn1 != null and lt_atch_pn1 != ''">
+					,LT_ATCH_PN1
+				</if>
+				<if test="lt_atch_pn2 != null and lt_atch_pn2 != ''">
+					,LT_ATCH_PN2
+				</if>
+				<if test="lt_atch_pn3 != null and lt_atch_pn3 != ''">
+					,LT_ATCH_PN3
+				</if>
+				<if test="lt_atch_pn4 != null and lt_atch_pn4 != ''">
+					,LT_ATCH_PN4
+				</if>
+				<if test="mesure_atch_pn1 != null and mesure_atch_pn1 != ''">
+					,MESURE_ATCH_PN1
+				</if>
+				<if test="mesure_atch_pn2 != null and mesure_atch_pn2 != ''">
+					,MESURE_ATCH_PN2
+				</if>
+				<if test="mesure_atch_pn3 != null and mesure_atch_pn3 != ''">
+					,MESURE_ATCH_PN3
+				</if>
+				<if test="mesure_atch_pn4 != null and mesure_atch_pn4 != ''">
+					,MESURE_ATCH_PN4
+				</if>
+				<if test="solid_gbn != null and solid_gbn != ''">
+					,SOLID_GBN
+				</if>
+				<if test="rawmtrl_gbn != null and rawmtrl_gbn != ''">
+					,RAWMTRL_GBN
+				</if>
+				<if test="width != null and width != ''">
+					,WIDTH
+				</if>
+				<if test="vrticl != null and vrticl != ''">
+					,VRTICL
+				</if>
+				<if test="sungsang1 != null and sungsang1 != ''">
+					,SUNGSANG1
+				</if>
+				<if test="sungsang2 != null and sungsang2 != ''">
+					,SUNGSANG2
+				</if>
+				<if test="sungsang3 != null and sungsang3 != ''">
+					,SUNGSANG3
+				</if>
+				<if test="sungsang4 != null and sungsang4 != ''">
+					,SUNGSANG4
+				</if>
+				<if test="sungsang5 != null and sungsang5 != ''">
+					,SUNGSANG5
+				</if>
+				<if test="sungsang6 != null and sungsang6 != ''">
+					,SUNGSANG6
+				</if>
+				<if test="sungsang0 != null and sungsang0 != ''">
+					,SUNGSANG0
+				</if>
+				<if test="sungsang_etc != null and sungsang_etc != ''">
+					,SUNGSANG_ETC
+				</if>
+				<if test="bio_no != null and bio_no != ''">
+					,BIO_NO
+				</if>
+			)
+			VALUES
+			(
+				#{pick_no}
+				,#{test_req_seq}
+				<if test="pick_dt != null and pick_dt != ''">
+					,REPLACE(#{pick_dt},'-','')
+				</if>
+				<if test="pick_time != null and pick_time != ''">
+					,#{pick_time}
+				</if>
+				<if test="pick_lc != null and pick_lc != ''">
+					,#{pick_lc}
+				</if>
+				<if test="pick_purps != null and pick_purps != ''">
+					,#{pick_purps}
+				</if>
+				<if test="prduct_knd != null and prduct_knd != ''">
+					,#{prduct_knd}
+				</if>
+				<if test="prduct_qy != null and prduct_qy != ''">
+					,#{prduct_qy}
+				</if>
+				<if test="lt_mg != null and lt_mg != ''">			
+					,#{lt_mg}
+				</if>
+				<if test="lt_co != null and lt_co != ''">
+					,#{lt_co}
+				</if>
+				<if test="pick_dn != null and pick_dn != ''">
+					,#{pick_dn}
+				</if>
+				<if test="pick_place != null and pick_place != ''">
+					,#{pick_place}
+				</if>
+				<if test="pick_place_method != null and pick_place_method != ''">
+					,#{pick_place_method}
+				</if>
+				<if test="pick_place_photo != null and pick_place_photo != ''">
+					,#{pick_place_photo}
+				</if>
+				<if test="pick_utnsil_nm != null and pick_utnsil_nm != ''">			
+					,#{pick_utnsil_nm}
+				</if>
+				<if test="pick_utnsil_manp != null and pick_utnsil_manp != ''">
+					,#{pick_utnsil_manp}
+				</if>
+				<if test="pick_utnsil_unit != null and pick_utnsil_unit != ''">
+					,#{pick_utnsil_unit}
+				</if>
+				<if test="pick_utnsil_photo != null and pick_utnsil_photo != ''">
+					,#{pick_utnsil_photo}
+				</if>
+				<if test="increment_pick_qy != null and increment_pick_qy != ''">
+					,#{increment_pick_qy}
+				</if>
+				<if test="increment_co != null and increment_co != ''">
+					,#{increment_co}
+				</if>
+				<if test="lt_atch_photo1 != null and lt_atch_photo1 != ''">
+					,#{lt_atch_photo1}
+				</if>
+				<if test="lt_atch_photo2 != null and lt_atch_photo2 != ''">
+					,#{lt_atch_photo2}
+				</if>
+				<if test="lt_atch_photo3 != null and lt_atch_photo3 != ''">
+					,#{lt_atch_photo3}
+				</if>
+				<if test="lt_atch_photo4 != null and lt_atch_photo4 != ''">
+					,#{lt_atch_photo4}
+				</if>
+				<if test="outage_mixtrsplore_dt != null and outage_mixtrsplore_dt != ''">
+					,#{outage_mixtrsplore_dt}
+				</if>
+				<if test="outage_mixtrsplore_qy != null and outage_mixtrsplore_qy != ''">			
+					,#{outage_mixtrsplore_qy}
+				</if>
+				<if test="mesure_utnsil_nm != null and mesure_utnsil_nm != ''">
+					,#{mesure_utnsil_nm}
+				</if>
+				<if test="mesure_scope != null and mesure_scope != ''">
+					,#{mesure_scope}
+				</if>
+				<if test="mesure_mth != null and mesure_mth != ''">
+					,#{mesure_mth}
+				</if>
+				<if test="mesure_atch_photo1 != null and mesure_atch_photo1 != ''">
+					,#{mesure_atch_photo1}
+				</if>
+				<if test="mesure_atch_photo2 != null and mesure_atch_photo2 != ''">
+					,#{mesure_atch_photo2}
+				</if>
+				<if test="mesure_atch_photo3 != null and mesure_atch_photo3 != ''">
+					,#{mesure_atch_photo3}
+				</if>
+				<if test="mesure_atch_photo4 != null and mesure_atch_photo4 != ''">
+					,#{mesure_atch_photo4}
+				</if>
+				<if test="pick_place_pn != null and pick_place_pn != ''">
+					,#{pick_place_pn}
+				</if>
+				<if test="pick_utnsil_pn != null and pick_utnsil_pn != ''">
+					,#{pick_utnsil_pn}
+				</if>
+				<if test="lt_atch_pn1 != null and lt_atch_pn1 != ''">
+					,#{lt_atch_pn1}
+				</if>
+				<if test="lt_atch_pn2 != null and lt_atch_pn2 != ''">
+					,#{lt_atch_pn2}
+				</if>
+				<if test="lt_atch_pn3 != null and lt_atch_pn3 != ''">
+					,#{lt_atch_pn3}
+				</if>
+				<if test="lt_atch_pn4 != null and lt_atch_pn4 != ''">
+					,#{lt_atch_pn4}
+				</if>
+				<if test="mesure_atch_pn1 != null and mesure_atch_pn1 != ''">
+					,#{mesure_atch_pn1}
+				</if>
+				<if test="mesure_atch_pn2 != null and mesure_atch_pn2 != ''">
+					,#{mesure_atch_pn2}
+				</if>
+				<if test="mesure_atch_pn3 != null and mesure_atch_pn3 != ''">
+					,#{mesure_atch_pn3}
+				</if>
+				<if test="mesure_atch_pn4 != null and mesure_atch_pn4 != ''">
+					,#{mesure_atch_pn4}
+				</if>
+				<if test="solid_gbn != null and solid_gbn != ''">
+					,#{solid_gbn}
+				</if>
+				<if test="rawmtrl_gbn != null and rawmtrl_gbn != ''">
+					,#{rawmtrl_gbn}
+				</if>
+				<if test="width != null and width != ''">
+					,#{width}
+				</if>
+				<if test="vrticl != null and vrticl != ''">
+					,#{vrticl}
+				</if>
+				<if test="sungsang1 != null and sungsang1 != ''">
+					,#{sungsang1}
+				</if>
+				<if test="sungsang2 != null and sungsang2 != ''">
+					,#{sungsang2}
+				</if>
+				<if test="sungsang3 != null and sungsang3 != ''">
+					,#{sungsang3}
+				</if>
+				<if test="sungsang4 != null and sungsang4 != ''">
+					,#{sungsang4}
+				</if>
+				<if test="sungsang5 != null and sungsang5 != ''">
+					,#{sungsang5}
+				</if>
+				<if test="sungsang6 != null and sungsang6 != ''">
+					,#{sungsang6}
+				</if>
+				<if test="sungsang0 != null and sungsang0 != ''">
+					,#{sungsang0}
+				</if>
+				<if test="sungsang_etc != null and sungsang_etc != ''">
+					,#{sungsang_etc}
+				</if>
+				<if test="bio_no != null and bio_no != ''">
+					,#{bio_no}
+				</if>
+				)
+				;
+			UPDATE TEST_REQ SET PICK_NO = #{pick_no} WHERE TEST_REQ_SEQ = #{test_req_seq}
+			;
+			END
+			;
+		
+	</insert>
+	
+	<update id="updateSampling" parameterType="SamplingVO">
+		UPDATE SPLORE_PICK SET
+			SPLORE_TEMP = '' <!-- 임시컬럼 항상 수정 -->
+			<if test="pick_dt != null">
+				,PICK_DT = REPLACE(#{pick_dt},'-','')
+			</if>
+			<if test="pick_time != null">
+				,PICK_TIME = #{pick_time}
+			</if>
+			<if test="pick_lc != null">
+				,PICK_LC = #{pick_lc}
+			</if>
+			<if test="pick_purps != null">
+				,PICK_PURPS = #{pick_purps}
+			</if>
+			<if test="prduct_knd != null">
+				,PRDUCT_KND = #{prduct_knd}
+			</if>
+			<if test="prduct_qy != null">
+				,PRDUCT_QY = #{prduct_qy}
+			</if>
+			<if test="lt_mg != null">			
+				,LT_MG = #{lt_mg}
+			</if>
+			<if test="lt_co != null">
+				,LT_CO = #{lt_co}
+			</if>
+			<if test="pick_dn != null">
+				,PICK_DN = #{pick_dn}
+			</if>
+			<if test="pick_place != null">
+				,PICK_PLACE = #{pick_place}
+			</if>
+			<if test="pick_place_method != null">
+				,PICK_PLACE_METHOD = #{pick_place_method}
+			</if>
+			<if test="pick_place_photo != null">
+				,PICK_PLACE_PHOTO = #{pick_place_photo}
+			</if>
+			<if test="pick_utnsil_nm != null">			
+				,PICK_UTNSIL_NM = #{pick_utnsil_nm}
+			</if>
+			<if test="pick_utnsil_manp != null">
+				,PICK_UTNSIL_MANP = #{pick_utnsil_manp}
+			</if>
+			<if test="pick_utnsil_unit != null">
+				,PICK_UTNSIL_UNIT = #{pick_utnsil_unit}
+			</if>
+			<if test="pick_utnsil_photo != null">
+				,PICK_UTNSIL_PHOTO = #{pick_utnsil_photo}
+			</if>
+			<if test="increment_pick_qy != null">
+				,INCREMENT_PICK_QY = #{increment_pick_qy}
+			</if>
+			<if test="increment_co != null">
+				,INCREMENT_CO = #{increment_co}
+			</if>
+			<if test="lt_atch_photo1 != null">
+				,LT_ATCH_PHOTO1 = #{lt_atch_photo1}
+			</if>
+			<if test="lt_atch_photo2 != null">
+				,LT_ATCH_PHOTO2 = #{lt_atch_photo2}
+			</if>
+			<if test="lt_atch_photo3 != null">
+				,LT_ATCH_PHOTO3 = #{lt_atch_photo3}
+			</if>
+			<if test="lt_atch_photo4 != null">
+				,LT_ATCH_PHOTO4 = #{lt_atch_photo4}
+			</if>
+			<if test="outage_mixtrsplore_dt != null">
+				,OUTAGE_MIXTRSPLORE_DT = #{outage_mixtrsplore_dt}
+			</if>
+			<if test="outage_mixtrsplore_qy != null">			
+				,OUTAGE_MIXTRSPLORE_QY = #{outage_mixtrsplore_qy}
+			</if>
+			<if test="mesure_utnsil_nm != null">
+				,MESURE_UTNSIL_NM = #{mesure_utnsil_nm}
+			</if>
+			<if test="mesure_scope != null">
+				,MESURE_SCOPE = #{mesure_scope}
+			</if>
+			<if test="mesure_mth != null">
+				,MESURE_MTH = #{mesure_mth}
+			</if>
+			<if test="mesure_atch_photo1 != null">
+				,MESURE_ATCH_PHOTO1 = #{mesure_atch_photo1}
+			</if>
+			<if test="mesure_atch_photo2 != null">
+				,MESURE_ATCH_PHOTO2 = #{mesure_atch_photo2}
+			</if>
+			<if test="mesure_atch_photo3 != null">
+				,MESURE_ATCH_PHOTO3 = #{mesure_atch_photo3}
+			</if>
+			<if test="mesure_atch_photo4 != null">
+				,MESURE_ATCH_PHOTO4 = #{mesure_atch_photo4}
+			</if>
+			<if test="pick_place_pn != null">
+				,PICK_PLACE_PN = #{pick_place_pn}
+			</if>
+			<if test="pick_utnsil_pn != null">
+				,PICK_UTNSIL_PN = #{pick_utnsil_pn}
+			</if>
+			<if test="lt_atch_pn1 != null">
+				,LT_ATCH_PN1 = #{lt_atch_pn1}
+			</if>
+			<if test="lt_atch_pn2 != null">
+				,LT_ATCH_PN2 = #{lt_atch_pn2}
+			</if>
+			<if test="lt_atch_pn3 != null">
+				,LT_ATCH_PN3 = #{lt_atch_pn3}
+			</if>
+			<if test="lt_atch_pn4 != null">
+				,LT_ATCH_PN4 = #{lt_atch_pn4}
+			</if>
+			<if test="mesure_atch_pn1 != null">
+				,MESURE_ATCH_PN1 = #{mesure_atch_pn1}
+			</if>
+			<if test="mesure_atch_pn2 != null">
+				,MESURE_ATCH_PN2 = #{mesure_atch_pn2}
+			</if>
+			<if test="mesure_atch_pn3 != null">
+				,MESURE_ATCH_PN3 = #{mesure_atch_pn3}
+			</if>
+			<if test="mesure_atch_pn4 != null">
+				,MESURE_ATCH_PN4 = #{mesure_atch_pn4}
+			</if>
+			<if test="solid_gbn != null and solid_gbn != ''">
+				,SOLID_GBN = #{solid_gbn}
+			</if>
+			<if test="rawmtrl_gbn != null and rawmtrl_gbn != ''">
+				,RAWMTRL_GBN = #{rawmtrl_gbn}
+			</if>
+			<if test="width != null and width != ''">
+				,WIDTH = #{width}
+			</if>
+			<if test="vrticl != null and vrticl != ''">
+				,VRTICL = #{vrticl}
+			</if>
+			<if test="sungsang1 != null and sungsang1 != ''">
+				,SUNGSANG1 = #{sungsang1}
+			</if>
+			<if test="sungsang2 != null and sungsang2 != ''">
+				,SUNGSANG2 = #{sungsang2}
+			</if>
+			<if test="sungsang3 != null and sungsang3 != ''">
+				,SUNGSANG3 = #{sungsang3}
+			</if>
+			<if test="sungsang4 != null and sungsang4 != ''">
+				,SUNGSANG4 = #{sungsang4}
+			</if>
+			<if test="sungsang5 != null and sungsang5 != ''">
+				,SUNGSANG5 = #{sungsang5}
+			</if>
+			<if test="sungsang6 != null and sungsang6 != ''">
+				,SUNGSANG6 = #{sungsang6}
+			</if>
+			<if test="sungsang0 != null and sungsang0 != ''">
+				,SUNGSANG0 = #{sungsang0}
+			</if>
+			<if test="sungsang_etc != null and sungsang_etc != ''">
+				,SUNGSANG_ETC = #{sungsang_etc}
+			</if>
+			<if test="bio_no != null and bio_no != ''">
+				,BIO_NO = #{bio_no}
+			</if>
+		WHERE PICK_NO = #{pick_no}
+	</update>
+	
+	<!-- <update id="updateReqSampling" parameterType="SamplingVO">
+		UPDATE TEST_REQ SET
+			PICK_NO = #{pick_no}
+		WHERE TEST_REQ_SEQ = #{test_req_seq}	
+	</update> -->
+	
+	<select id="selectSamplingLtList" parameterType="SamplingVO" resultType="SamplingVO">
+		SELECT
+		   PICK_NO
+		  ,PICK_LT_NO
+		  ,INCREMENT_NO
+		  ,SUBSTR(LT_DT,1,2) AS LT_DT_H
+		  ,SUBSTR(LT_DT,3,2) AS LT_DT_M
+		  ,LT_PICK_QY
+		FROM SPLORE_PICK_LT
+		WHERE PICK_NO = #{pick_no}
+		ORDER BY TO_NUMBER(INCREMENT_NO)
+	</select>
+	
+	<select id="selectSamplingMesureList" parameterType="SamplingVO" resultType="SamplingVO">
+		SELECT
+			PICK_NO
+			,PICK_MESURE_NO
+			,SPLORE_NO
+			,MESURE_DM
+			,MESURE_LT
+		FROM SPLORE_PICK_MESURE
+		WHERE PICK_NO = #{pick_no}
+		ORDER BY TO_NUMBER(SPLORE_NO)
+	</select>
+	
+	<update id="deleteSamplingLt" parameterType="SamplingVO">
+		DELETE SPLORE_PICK_LT
+		WHERE PICK_NO = #{pick_no}
+	</update>
+	
+	<insert id="insertSamplingLt" parameterType="SamplingVO">
+		<selectKey resultType="string" keyProperty="pick_lt_no" order="BEFORE">
+			SELECT NVL(MAX(PICK_LT_NO),0)+1 FROM SPLORE_PICK_LT WHERE PICK_NO = #{pick_no}
+		</selectKey>
+	
+		INSERT INTO SPLORE_PICK_LT
+		(
+			 PICK_NO
+			,PICK_LT_NO
+			,INCREMENT_NO
+			,LT_DT
+			,LT_PICK_QY
+		)
+		VALUES
+		(
+			 #{pick_no}
+			,#{pick_lt_no}
+			,#{increment_no}
+			,#{lt_dt_h}||#{lt_dt_m}
+			,#{lt_pick_qy}
+		)
+	</insert>
+	
+	<update id="deleteSamplingMesure" parameterType="SamplingVO">
+		DELETE SPLORE_PICK_MESURE
+		WHERE PICK_NO = #{pick_no}
+	</update>
+	
+	<insert id="insertSamplingMesure" parameterType="SamplingVO">
+		<selectKey resultType="string" keyProperty="pick_mesure_no" order="BEFORE">
+			SELECT NVL(MAX(PICK_MESURE_NO),0)+1 FROM SPLORE_PICK_MESURE WHERE PICK_NO = #{pick_no}
+		</selectKey>
+	
+		INSERT INTO SPLORE_PICK_MESURE
+		(
+			 PICK_NO
+			,PICK_MESURE_NO
+			,SPLORE_NO
+			,MESURE_DM
+			,MESURE_LT
+		)
+		VALUES
+		(
+			 #{pick_no}
+			,#{pick_mesure_no}
+			,#{splore_no}
+			,#{mesure_dm}
+			,#{mesure_lt}
+		)
+	</insert>
+	
+	<!-- 채취 정보 저장시 채취로트 생성 -->
+	<insert id="saveSplorePick" parameterType="SamplingVO">
+		INSERT INTO SPLORE_PICK_LT
+		(
+			 PICK_NO
+			,PICK_LT_NO
+			,INCREMENT_NO
+		)
+		VALUES
+		(
+			 #{pick_no}
+			,#{pick_lt_no}
+			,#{increment_no}
+		)
+	</insert>
+	<!-- 채취 정보 저장시 채취측정 생성 -->
+	<insert id="saveMesure" parameterType="SamplingVO">
+		INSERT INTO SPLORE_PICK_MESURE
+		(
+			 PICK_NO
+			,PICK_MESURE_NO
+			,SPLORE_NO
+		)
+		VALUES
+		(
+			 #{pick_no}
+			,#{pick_mesure_no}
+			,#{splore_no}
+		)
+	</insert>
+
+</mapper>

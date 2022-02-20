@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="reqOrg">
+
+	<!-- 의뢰처 리스트 -->
+	<select id="selectReqOrgList" resultType="ReqOrgVO" parameterType="ReqOrgVO">
+		SELECT * FROM 
+		(
+			SELECT 
+				VW_LIST.*, 
+				ROWNUM AS ROW_NUM, 
+				FLOOR((ROWNUM -1) / #{pageSize} + 1) AS PAGENUM,
+				COUNT(*) OVER() AS TOTALCOUNT, 
+				COUNT(*) OVER() AS TOTAL, 
+				CEIL(COUNT(*) OVER() / #{pageSize}) AS TOTALPAGE
+			FROM 
+			(	
+				SELECT 
+					REQ_ORG_NO,
+					ORG_NM,
+					BIZ_NO1 || '-' || BIZ_NO2 || '-' || BIZ_NO3 AS BIZ_NO,					
+					(SELECT CODE_NAME
+			         FROM COMMON_CODE_DETAIL
+			         WHERE CODE = ORG_TYPE) AS ORG_TYPE,
+			        PRE_MAN,
+			       	PAY_NM,
+					PAY_TEL,
+					PAY_EMAIL,
+					PRE_TEL_NUM,
+					PRE_FAX_NUM,
+					CHARGER,
+					CHARGER_TEL,
+					ORG_DESC,
+					ZIP_CODE,
+					ADDR1,
+					ADDR2,
+					DEPT_CD,
+					DISCOUNT_RATE,
+					DISCOUNT_FLAG,
+					BSNSC,
+					ITEM,
+					COR_NO,
+					EMAIL,
+					ENG_NM
+				FROM REQ_ORG
+				WHERE 1=1
+				<if test="org_type != null and org_type != '' ">
+					AND ORG_TYPE = #{org_type}
+				</if>
+				<if test="org_nm != null and org_nm != '' ">
+					AND UPPER(ORG_NM) like '%' || UPPER( #{org_nm} ) || '%' 
+				</if>
+				<if test="charger != null and charger != '' ">
+					AND UPPER(CHARGER) like '%' || UPPER( #{charger} ) || '%' 
+				</if>
+				<if test="charger_tel != null and charger_tel != '' ">
+					AND CHARGER_TEL like '%' ||  #{charger_tel}|| '%' 
+				</if>
+				<if test="email != null and email != '' ">
+					AND UPPER(EMAIL) like '%' || UPPER( #{email} ) || '%' 
+				</if>
+				<if test="biz_no != null and biz_no != '' ">
+					AND UPPER(BIZ_NO1 || '-' || BIZ_NO2 || '-' || BIZ_NO3) like '%' || UPPER( #{biz_no} ) || '%' 
+				</if>
+				<if test="sortName != null and sortName != '' ">
+					ORDER BY ${sortName} ${sortType}
+				</if>
+				<if test="sortName == null and sortName == '' ">
+					ORDER BY REQ_ORG_NO
+				</if>
+			) VW_LIST
+	    )  
+		WHERE PAGENUM = #{pageNum}
+	</select>
+
+	<!-- 의뢰처 상세 조회 -->
+	<select id="selectReqOrgDetail" resultType="ReqOrgVO" parameterType="ReqOrgVO">
+		SELECT 
+			REQ_ORG_NO,
+			ORG_NM,
+			ORG_TYPE,
+			PRE_MAN,
+			PRE_TEL_NUM,
+			PRE_FAX_NUM,
+			CHARGER,
+			CHARGER_TEL,
+			BIZ_NO1,
+			BIZ_NO2,
+			BIZ_NO3,
+			PAY_NM,
+			PAY_TEL,
+			PAY_EMAIL,
+			BIZ_FILE,
+			EMAIL,
+			ORG_DESC,
+			ZIP_CODE,
+			ADDR1,
+			ADDR2,
+			DEPT_CD,
+			DISCOUNT_RATE,
+			DISCOUNT_FLAG,
+			BSNSC,
+			ITEM,
+			COR_NO ,
+			BIZ_WOODEN,
+			WOODEN_TYPE,
+			PAC_TEL_NUM,
+			PAC_FAX_NUM,
+			PAC_ZIP_CODE,
+			PAC_ADDR1,
+			PAC_ADDR2,
+			ENG_NM		 
+		FROM REQ_ORG
+		WHERE REQ_ORG_NO = #{key}
+	</select>
+
+
+	<!-- 의뢰처 복사 기능 -->
+	<insert id="copyReqOrg" parameterType="ReqOrgVO">
+	
+	<selectKey resultType="string" keyProperty="new_req_org" order="BEFORE">
+	   SELECT LPAD(NVL(MAX(REQ_ORG_NO),0)+1,7,0) FROM REQ_ORG
+	</selectKey>
+	
+	INSERT INTO REQ_ORG (
+			 REQ_ORG_NO
+			, ORG_NM
+			, ORG_TYPE
+			, PRE_TEL_NUM
+			, PRE_FAX_NUM
+			, CHARGER
+			, CHARGER_TEL
+			, BIZ_NO1
+			, BIZ_NO2
+			, BIZ_NO3
+			, PAY_NM
+			, PAY_TEL
+			, PAY_EMAIL
+			, PRE_MAN
+			, EMAIL
+			, ORG_DESC
+			, ZIP_CODE
+			, ADDR1
+			, ADDR2
+			, BSNSC
+			, ITEM
+			, COR_NO
+			, CREATER_ID
+			, CREATE_DATE
+			, ORG_NM_EN
+ 			, BIZ_WOODEN
+ 			, WOODEN_TYPE
+			, PAC_TEL_NUM
+			, PAC_FAX_NUM	
+			, ENG_NM
+			, PAC_ZIP_CODE
+			, PAC_ADDR1
+			, PAC_ADDR2
+		)
+		SELECT
+			 #{new_req_org}
+			, '[복사]' || ORG_NM
+			, ORG_TYPE
+			, PRE_TEL_NUM
+			, PRE_FAX_NUM
+			, CHARGER
+			, CHARGER_TEL
+			, BIZ_NO1
+			, BIZ_NO2
+			, BIZ_NO3
+			, PAY_NM
+			, PAY_TEL
+			, PAY_EMAIL
+			, PRE_MAN
+			, EMAIL
+			, ORG_DESC
+			, ZIP_CODE
+			, ADDR1
+			, ADDR2
+			, BSNSC
+			, ITEM
+			, COR_NO
+			, CREATER_ID
+			, CREATE_DATE
+			, ORG_NM_EN
+ 			, BIZ_WOODEN
+ 			, WOODEN_TYPE
+			, PAC_TEL_NUM
+			, PAC_FAX_NUM	
+			, ENG_NM
+			, PAC_ZIP_CODE
+			, PAC_ADDR1
+			, PAC_ADDR2
+			FROM REQ_ORG WHERE REQ_ORG_NO=#{req_org_no}
+	</insert>
+
+	<!-- 의뢰처 등록 -->
+	<insert id="insertReqOrg" parameterType="ReqOrgVO">
+		INSERT INTO REQ_ORG (
+			REQ_ORG_NO
+			, ORG_NM
+			, ORG_TYPE
+			, PRE_TEL_NUM
+			, PRE_FAX_NUM
+			, CHARGER
+			, CHARGER_TEL
+			, BIZ_NO1
+			, BIZ_NO2
+			, BIZ_NO3
+			, PAY_NM
+			, PAY_TEL
+			, PAY_EMAIL
+			, PRE_MAN
+			, EMAIL
+			, ORG_DESC
+			, ZIP_CODE
+			, ADDR1
+			, ADDR2
+			, BSNSC
+			, ITEM
+			, COR_NO
+			, CREATER_ID
+			, CREATE_DATE
+			, ORG_NM_EN
+ 			, BIZ_WOODEN
+ 			, WOODEN_TYPE
+			, PAC_TEL_NUM
+			, PAC_FAX_NUM	
+			, ENG_NM
+			, PAC_ZIP_CODE
+			, PAC_ADDR1
+			, PAC_ADDR2
+		) VALUES (
+			(SELECT LPAD(NVL(MAX(REQ_ORG_NO),0)+1,7,0) FROM REQ_ORG)
+			, #{org_nm}
+			, #{org_type}
+			, #{pre_tel_num}
+			, #{pre_fax_num}
+			, #{charger}
+			, #{charger_tel}
+			, #{biz_no1}
+			, #{biz_no2}
+			, #{biz_no3}
+			, #{pay_nm}
+			, #{pay_tel}
+			, #{pay_email}
+			, #{pre_man}
+			, #{email}
+			, #{org_desc}
+			, REPLACE(#{zip_code}, '-', '')
+			, #{addr1}
+			, #{addr2}
+			, #{bsnsc}
+			, #{item}
+			, #{cor_no}
+			, #{user_id}
+			, SYSDATE
+			, #{org_nm_en}
+ 			, #{biz_wooden}
+ 			, #{wooden_type}
+			, #{pac_tel_num}
+			, #{pac_fax_num}
+			, #{eng_nm} 
+			, #{pac_zip_code}
+			, #{pac_addr1}
+			, #{pac_addr2}
+		)
+	</insert>
+
+	<!-- 의뢰처 수정 -->
+	<update id="updateReqOrg" parameterType="ReqOrgVO">
+		UPDATE REQ_ORG SET
+			ORG_NM = #{org_nm}
+			, ORG_TYPE = #{org_type}
+			, PRE_TEL_NUM = #{pre_tel_num}
+			, PRE_FAX_NUM = #{pre_fax_num}
+			, CHARGER = #{charger}
+			, CHARGER_TEL = #{charger_tel}
+			, BIZ_NO1 = #{biz_no1}
+			, BIZ_NO2 = #{biz_no2}
+			, BIZ_NO3 = #{biz_no3}
+			, PAY_NM = #{pay_nm}
+			, PAY_TEL = #{pay_tel}
+			, PAY_EMAIL = #{pay_email}
+			, PRE_MAN = #{pre_man}
+			, EMAIL = #{email}
+			, ORG_DESC = #{org_desc}			
+			, ZIP_CODE = REPLACE(#{zip_code}, '-', '')
+			, ADDR1 = #{addr1}
+			, ADDR2 = #{addr2}			
+			, BSNSC = #{bsnsc}
+			, ITEM = #{item}
+			, COR_NO = #{cor_no}
+			, UPDATER_ID = #{user_id}
+			, UPDATE_DATE = SYSDATE
+ 			, BIZ_WOODEN = #{biz_wooden}
+ 			, WOODEN_TYPE = #{wooden_type}
+			, PAC_TEL_NUM = #{pac_tel_num}
+			, PAC_FAX_NUM = #{pac_fax_num}
+			, ENG_NM = #{eng_nm}
+			, PAC_ADDR1 = #{pac_addr1}
+			, PAC_ADDR2 = #{pac_addr2}
+			, PAC_ZIP_CODE = #{pac_zip_code}
+		WHERE REQ_ORG_NO = #{req_org_no}
+	</update>
+	
+
+	
+	<!-- 의뢰처 삭제 -->
+	<delete id="deleteReqOrg" parameterType="ReqOrgVO">
+		DELETE REQ_ORG
+		WHERE REQ_ORG_NO = #{req_org_no}
+	</delete>
+
+</mapper>

@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="system">
+
+	<!-- 공통부서 목록 조회 -->
+	<select id="system.selectDeptCmmnList" parameterType="DeptVO" resultType="DeptVO">
+		SELECT  LPAD(' ',4*(LEVEL - 1)) || V_DEPT.DEPT_NM AS LVL_DEPT_NM
+	            , V_DEPT.*
+            FROM
+                (
+                 SELECT DISTINCT DEPT_NM
+                        ,DEPT_CD 
+                        ,PRE_DEPT_CD
+                   FROM VW_POTAL_DEPT
+                  WHERE PRE_DEPT_CD IS NOT NULL
+                )V_DEPT
+            START WITH DEPT_CD = '6112077'
+            CONNECT BY PRIOR DEPT_CD = PRE_DEPT_CD
+			ORDER SIBLINGS BY V_DEPT.PRE_DEPT_CD , V_DEPT.DEPT_CD		  	
+        <if test="dept_nm != null and dept_nm != '' ">
+			WHERE UPPER(DEPT_NM) LIKE '%' || UPPER(#{dept_nm}) || '%'
+		</if>
+	</select>
+	
+	<!-- LIMS사용부서 목록 조회 -->
+	<select id="system.selectDeptLimsList" parameterType="DeptVO" resultType="DeptVO">		
+		SELECT  LPAD(' ',4*(LEVEL - 1)) || V_DEPT.DEPT_NM AS LVL_DEPT_NM
+                , V_DEPT.*
+            FROM
+                (
+                 SELECT DISTINCT DEPT_NM
+                        ,DEPT_CD 
+                        ,PRE_DEPT_CD
+                        ,DEPT_LABEL_CD
+                        ,DEPT_DESC
+                        ,(SELECT DE.DEPT_NM FROM DEPART DE WHERE DE.DEPT_CD = DEPT.PRE_DEPT_CD) AS PRE_DEPT_NM
+                        ,CASE WHEN USE_FLAG = 'Y' THEN '사용'
+                        	 ELSE '미사용' 
+                      	END AS USE_FLAG
+                   FROM DEPART DEPT
+                  WHERE 1=1
+                  <!-- PRE_DEPT_CD IS NOT NULL  -->
+			        <if test="dept_nm != null and dept_nm != '' ">
+						AND UPPER(DEPT_NM) LIKE '%' || UPPER(#{dept_nm}) || '%'
+					</if>
+					<if test="dept_cd != null and dept_cd != '' ">
+						AND DEPT_CD = #{dept_cd}
+					</if>
+					<if test="use_flag != null and use_flag != '' ">
+			         	AND USE_FLAG = #{use_flag}
+			        </if>
+                ) V_DEPT 
+			<if test="dept_cd == null or dept_cd == '' ">
+            START WITH DEPT_CD = 'D000000'
+            </if>
+            CONNECT BY PRIOR DEPT_CD = PRE_DEPT_CD
+            ORDER SIBLINGS BY V_DEPT.PRE_DEPT_CD , V_DEPT.DEPT_CD    
+    
+			<!-- 
+			SELECT  LPAD(' ',4*(LEVEL - 1)) || V_DEPT.DEPT_NM AS LVL_DEPT_NM
+	                , V_DEPT.*
+	            FROM
+	                (
+	                 SELECT DISTINCT DEPT_NM
+	                        ,DEPT_CD 
+	                        ,PRE_DEPT_CD
+	                        ,(SELECT DE.DEPT_NM FROM DEPART DE WHERE DE.DEPT_CD = DEPT.PRE_DEPT_CD) AS PRE_DEPT_NM
+	                        ,CASE WHEN USE_FLAG = 'Y' THEN '사용'
+	                        	 ELSE '미사용' 
+	                      	END AS USE_FLAG
+	                   FROM DEPART DEPT
+			) V_DEPT 
+			START WITH DEPT_CD = 'D000000' 
+			CONNECT BY PRIOR DEPT_CD = PRE_DEPT_CD 
+			ORDER SIBLINGS BY V_DEPT.PRE_DEPT_CD , V_DEPT.DEPT_CD 
+	        <where>
+	         	<if test="dept_nm != null and dept_nm != '' ">
+					AND UPPER(DEPT_NM) LIKE '%' || UPPER(#{dept_nm}) || '%'
+				</if>			
+				<if test="use_flag != null and use_flag != '' ">
+		         	AND USE_FLAG = #{use_flag}
+		        </if>
+	        </where>
+	      	-->
+	</select>
+	
+	<!-- 부서관리 확인 -->
+	<update id="system.saveDeptLims" parameterType="DeptVO">
+		MERGE INTO DEPART A
+		USING (SELECT DISTINCT DEPT_NM,
+		                DEPT_CD, 
+		                PRE_DEPT_NM, 
+		                PRE_DEPT_CD
+		           FROM VW_POTAL_DEPT
+		          WHERE PRE_DEPT_CD IS NOT NULL) B
+		ON (A.DEPT_CD = B.DEPT_CD)
+		WHEN MATCHED THEN
+		    UPDATE SET
+		    A.DEPT_NM = B.DEPT_NM
+		    ,A.PRE_DEPT_CD = B.PRE_DEPT_CD
+		    ,A.UPDATE_DATE = SYSDATE
+		    ,A.UPDATER_ID = #{user_id}
+		    , A.DEPT_TYPE = 'Y'
+		WHEN NOT MATCHED THEN
+		INSERT(A.DEPT_CD, A.DEPT_NM, A.PRE_DEPT_CD, A.USE_FLAG, A.CREATE_DATE, A.CREATER_ID, A.DEPT_TYPE )
+		VALUES(B.DEPT_CD, B.DEPT_NM, B.PRE_DEPT_CD, 'Y', SYSDATE, #{user_id}, 'Y')
+	</update>
+	
+	<!-- 부서관리 수정 -->
+	<update id="system.updateDeptLims" parameterType="DeptVO">
+		UPDATE DEPART
+		   SET USE_FLAG = #{use_flag}
+		       ,UPDATE_DATE = SYSDATE
+		       ,UPDATER_ID = #{user_id}
+	     WHERE DEPT_CD = #{dept_cd}  
+	</update>
+	
+	
+	<select id="selectDeptLimsDetail" parameterType="DeptVO" resultType="DeptVO">
+		SELECT 
+             DEPT_NM
+             ,DEPT_CD
+             ,PRE_DEPT_CD
+             ,DEPT_DESC
+             ,USE_FLAG
+             ,DEPT_LABEL_CD
+			,CHARGER_CD
+        FROM DEPART  
+        WHERE DEPT_CD = #{dept_cd}
+	</select>
+	
+	<insert id="insertDeptInfo" parameterType="DeptVO">
+		INSERT INTO DEPART(
+			DEPT_CD
+			,DEPT_NM
+			,USE_FLAG
+			,PRE_DEPT_CD
+			,DEPT_DESC
+			<if test="dept_type != null and dept_type != '' ">
+         	,DEPT_TYPE
+        	</if>
+        	,DEPT_LABEL_CD
+			,CHARGER_CD
+			,CREATE_DATE
+			,CREATER_ID
+		)VALUES(
+			(SELECT 'D' ||LPAD(NVL(SUBSTR(MAX(DEPT_CD),2,6),0) +1, 6, 0) FROM DEPART)
+			,#{dept_nm}
+			,#{use_flag}
+			,#{pre_dept_cd}
+			,#{dept_desc}
+			<if test="dept_type != null and dept_type != '' ">
+         	,#{dept_type}
+        	</if>
+        	,#{dept_label_cd}
+			,#{charger_cd}
+			,SYSDATE
+			,#{creater_id}
+		) 
+	</insert>
+	
+	<update id="updateDeptInfo" parameterType="DeptVO">
+		UPDATE DEPART SET
+			DEPT_NM = #{dept_nm}
+			,USE_FLAG = #{use_flag}
+			,PRE_DEPT_CD = #{pre_dept_cd}
+			,CHARGER_CD = #{charger_cd}
+			,DEPT_DESC = #{dept_desc}
+			,DEPT_LABEL_CD = #{dept_label_cd} 
+			,UPDATE_DATE = SYSDATE
+			,UPDATER_ID = #{updater_id}
+		WHERE DEPT_CD = #{dept_cd}
+	</update>
+	
+	<select id="selectDeptTeamList" parameterType="DeptVO" resultType="DeptVO">
+		SELECT 
+			DEPT_CD
+			,TEAM_CD
+			,GET_DEPT_NM(DEPT_CD) AS DEPT_NM
+			,TEAM_NM
+			,TEAM_DESC
+			,CASE WHEN USE_FLAG = 'Y' THEN '사용' ELSE '미사용' END AS USE_FLAG
+		FROM DEPT_TEAM
+		WHERE 1=1
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND DEPT_CD = #{dept_cd}
+		</if>
+	</select>
+	
+	<select id="selectDeptTeamUserList" parameterType="DeptVO" resultType="DeptVO">
+		SELECT 
+         DTU.TEAM_CD
+         ,GET_DEPT_NM(DT.DEPT_CD) AS DEPT_NM
+         ,DTU.USER_ID
+         ,GET_USER_NM(DTU.USER_ID) AS USER_NM
+        FROM DEPT_TEAM_USER DTU, DEPT_TEAM DT
+        WHERE DTU.TEAM_CD = #{team_cd}
+        AND DTU.TEAM_CD = DT.TEAM_CD 
+	</select>
+	
+	<select id="selectDeptTeamDetail" parameterType="DeptVO" resultType="DeptVO">
+		SELECT 
+			TEAM_NM
+			,TEAM_DESC
+			,USE_FLAG
+		FROM DEPT_TEAM
+		WHERE DEPT_CD = #{dept_cd}
+		AND TEAM_CD = #{team_cd}
+	</select>
+	
+		
+	<insert id="insertDeptTeam" parameterType="DeptVO">
+		INSERT INTO DEPT_TEAM(
+			DEPT_CD
+			,TEAM_CD
+			,TEAM_NM
+			,TEAM_DESC
+			,USE_FLAG
+		)VALUES(
+			#{dept_cd}
+			,(SELECT 'T' ||LPAD(NVL(SUBSTR(MAX(TEAM_CD),2,3),0) +1, 3, 0) FROM DEPT_TEAM)
+			,#{team_nm}
+			,#{team_desc}
+			,#{use_flag}
+		) 
+	</insert>
+	
+	<update id="updateDeptTeam" parameterType="DeptVO">
+		UPDATE DEPT_TEAM SET
+			USE_FLAG = #{use_flag}
+			,TEAM_NM = #{team_nm}
+			,TEAM_DESC = #{team_desc}
+		WHERE TEAM_CD = #{team_cd}
+	</update>
+	
+	<delete id="deleteDeptTeam" parameterType="DeptVO">
+		BEGIN 
+			DELETE DEPT_TEAM_USER 
+			WHERE TEAM_CD = #{team_cd};
+		
+			DELETE DEPT_TEAM 
+			WHERE TEAM_CD = #{team_cd};
+		END;
+	</delete>
+	
+	<!-- 팀 사용자 중복체크 -->
+	<select id="selectDeptTeamUserChk" parameterType="DeptVO" resultType="int">
+		SELECT COUNT(*) FROM DEPT_TEAM_USER WHERE TEAM_CD = #{team_cd} AND USER_ID = #{user_id} 
+	</select>
+	
+	<!-- 팀 사용자 등록 -->
+	<insert id="insertDeptTeamUser" parameterType="DeptVO">
+		INSERT INTO DEPT_TEAM_USER(
+			TEAM_CD,
+			USER_ID
+		)VALUES(
+			#{team_cd},
+			#{user_id}
+		)
+	</insert>
+	
+	<!-- 팀 사용자 삭제 -->
+	<delete id="deleteDeptTeamUser" parameterType="DeptVO">
+		DELETE FROM DEPT_TEAM_USER
+		WHERE TEAM_CD = #{team_cd} and USER_ID = #{user_id}
+	</delete>
+	
+</mapper>

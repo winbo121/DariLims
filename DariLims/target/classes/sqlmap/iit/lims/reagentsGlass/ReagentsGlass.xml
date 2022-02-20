@@ -1,0 +1,1137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="reagentsGlass">
+
+	<!-- 시약/실험기구 정보 list -->
+	<select id="reagentsGlassInfo" parameterType="reagentsGlassVO" resultType="reagentsGlassVO">
+		SELECT
+            MTLR_NO
+            ,ITEM_NM
+            ,CC.CODE_NAME H_MTLR_INFO
+            ,CC2.CODE_NAME M_MTLR_INFO
+            ,SPEC1
+            ,SPEC2
+            ,SPEC_ETC
+            ,C.CODE_NAME UNIT
+            ,ETC
+            ,A.CREATE_DATE
+            ,CREATE_DEPT
+            ,E.USER_NM
+            ,USE        
+            ,A.USE_FLAG
+            ,B.DEPT_NM
+            ,DECODE (MASTER_YN, 'Y', '마스터', '일반') MASTER_YN
+            ,CONTENT
+            ,A.MTLR_VOL
+        FROM MTLR_INFO A
+        LEFT JOIN DEPART B ON A.CREATE_DEPT = B.DEPT_CD
+        LEFT JOIN COMMON_CODE_DETAIL C ON A.UNIT = C.CODE
+        LEFT JOIN USER_INFO E ON A.CREATER_ID = E.USER_ID
+        LEFT JOIN COMMON_CODE CC ON A.H_MTLR_INFO = CC.CODE
+        LEFT JOIN COMMON_CODE_DETAIL CC2 ON A.M_MTLR_INFO = CC2.CODE
+        WHERE 1=1
+        <if test="h_mtlr_info != null and h_mtlr_info != '' ">
+			AND H_MTLR_INFO = #{h_mtlr_info}
+		</if>
+		<if test="m_mtlr_info != null and m_mtlr_info != '' ">
+			AND M_MTLR_INFO = #{m_mtlr_info}
+		</if>
+		<if test="item_nm != null and item_nm != '' ">
+			AND (UPPER(ITEM_NM) like '%' || UPPER( #{item_nm} ) || '%'
+			OR UPPER(ITEM_NM) like '%' || UPPER( #{item_nm} ) || '%')
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND A.CREATE_DEPT = #{dept_cd}
+		</if>
+		<if test="office_cd != null and office_cd != '' ">
+			AND A.CREATE_DEPT = #{office_cd}
+		</if>
+		<if test="creater_id != null and creater_id != '' ">
+			AND CREATER_ID = #{creater_id}
+		</if>
+		<if test="use_flag != null and use_flag != '' ">
+			AND A.USE_FLAG = #{use_flag}
+		</if>
+		<if test="spec2 != null and spec2 != '' ">
+			AND A.SPEC2 LIKE '%' || #{spec2} || '%'
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY H_MTLR_INFO, CC2.DISP_ORDER , ITEM_NM, SPEC_ETC
+		</if>
+	</select>
+	
+	<!-- 시약/실험기구 정보 Detail -->
+	<select id="reagentsGlassInfoDetail" parameterType="reagentsGlassVO" resultType="reagentsGlassVO">
+		SELECT 
+		    MI.MTLR_NO
+		    , MI.H_MTLR_INFO
+		    , MI.M_MTLR_INFO
+		    , MI.ITEM_NM   
+		    , MI.SPEC1      
+		    , MI.SPEC2
+		    , MI.SPEC_ETC      
+		    , MI.UNIT        
+		    , MI.ETC        
+		    , MI.USE        
+		    , MI.USE_FLAG
+		    , MI.MASTER_YN
+		    , MI.CONTENT
+		    <if test="mtlr_req_no != null and mtlr_req_no != '' ">
+			    , MR.MTLR_MST_NO
+			    , MR.MTLR_REQ_NO
+		    </if>
+		    , MI.MSDS1
+		    , MI.MSDS2
+		    , MI.MSDS3
+		    , MI.MSDS4
+		    , MI.MSDS5
+		    , MI.MSDS6
+		    , MI.MSDS7
+		    , MI.MSDS8
+		    , MI.MSDS9
+		    , MI.MSDS10
+		    , MI.MSDS11
+		    , MI.MSDS12
+		    , MI.MSDS13
+		    , MI.MSDS14
+		    , MI.MSDS15
+		    , MI.MSDS16
+		    , IMG_FILE_NM
+			, ADD_FILE
+			, MI.BARCODE
+			, MI.MTLR_VOL
+		FROM MTLR_INFO MI
+		<if test="mtlr_req_no != null and mtlr_req_no != '' ">
+			INNER JOIN MTLR_REQ MR ON MR.MTLR_NO = MI.MTLR_NO 
+		</if>
+		WHERE MI.MTLR_NO = #{key} 
+		<if test="mtlr_req_no != null and mtlr_req_no != '' ">
+			AND MR.MTLR_REQ_NO = #{mtlr_req_no}
+		</if>	
+	</select>	
+	
+	<!-- MSDS 이미지 조회 -->
+	<select id="reagentsGlassImage" parameterType="reagentsGlassVO" resultType="reagentsGlassVO">
+		SELECT ADD_FILE
+		FROM MTLR_INFO
+		WHERE MTLR_NO = #{mtlr_no}
+	</select>
+	
+	<!-- MSDS 이미지 다운로드 -->
+	<select id="reagentsGlassImageDown" parameterType="reagentsGlassVO" resultType="reagentsGlassVO">
+		SELECT 
+			IMG_FILE_NM, 
+			ADD_FILE
+		FROM MTLR_INFO
+		WHERE MTLR_NO = #{mtlr_no}
+	</select>
+	
+	<!-- 시약/실험기구 정보 등록 -->
+	<insert id="insertReagentsGlassInfo" parameterType="reagentsGlassVO">
+		<selectKey resultType="string" keyProperty="mtlr_no" order="BEFORE">
+			SELECT LPAD(NVL(MAX(MTLR_NO),0)+1,6,0) FROM MTLR_INFO
+		</selectKey>
+		INSERT INTO MTLR_INFO
+		    (
+		    MTLR_NO
+		    ,H_MTLR_INFO
+			,M_MTLR_INFO      
+		    ,ITEM_NM    
+		    ,SPEC1       
+		    ,SPEC2  
+		    ,SPEC_ETC     
+		    ,UNIT        
+		    ,ETC        
+		    ,CREATE_DATE    
+		    ,CREATE_DEPT    
+		    ,CREATER_ID    
+		    ,USE        
+		    ,USE_FLAG 
+		    ,MASTER_YN
+		    ,CONTENT
+		    , MSDS1
+		    , MSDS2
+		    , MSDS3
+		    , MSDS4
+		    , MSDS5
+		    , MSDS6
+		    , MSDS7
+		    , MSDS8
+		    , MSDS9
+		    , MSDS10
+		    , MSDS11
+		    , MSDS12
+		    , MSDS13
+		    , MSDS14
+		    , MSDS15
+		    , MSDS16
+		    , BARCODE
+		    <if test="add_file != null and add_file != '' ">
+				, ADD_FILE
+			</if>
+			<if test="img_file_nm != null and img_file_nm != '' ">
+				, IMG_FILE_NM
+			</if>
+			, MTLR_VOL
+		    )
+		VALUES(
+		      #{mtlr_no}
+		    , #{h_mtlr_info}
+		    , #{m_mtlr_info}
+		    , #{item_nm}
+		    , #{spec1}
+		    , #{spec2}
+		    , #{spec_etc}
+		    , #{unit}
+		    , #{etc}
+		    , SYSDATE
+		    , #{create_dept}
+		    , #{user_id}
+		    , #{use}
+		    , #{use_flag}
+		    , 'Y'
+		    , #{content}
+		    , #{msds1}
+		    , #{msds2}
+		    , #{msds3}
+		    , #{msds4}
+		    , #{msds5}
+		    , #{msds6}
+		    , #{msds7}
+		    , #{msds8}
+		    , #{msds9}
+		    , #{msds10}
+		    , #{msds11}
+		    , #{msds12}
+		    , #{msds13}
+		    , #{msds14}
+		    , #{msds15}
+		    , #{msds16}
+		    , 'R'||'-'||#{mtlr_no}
+		    <if test="add_file != null and add_file != '' ">
+				, #{add_file}
+			</if>
+			<if test="img_file_nm != null and img_file_nm != '' ">
+				, #{img_file_nm}
+			</if>
+			, #{mtlr_vol}
+		    )
+	</insert>
+	
+	<!-- 시약/실험기구 정보 수정 -->
+	<update id="updateReagentsGlassInfo" parameterType="reagentsGlassVO">
+		<!-- 기기번호가 있으면 (마스터 리스트에서 가져온거면)-->
+		<if test="modify_flag != null and modify_flag != '' ">	
+			UPDATE MTLR_REQ 
+			    SET MTLR_NO = #{mtlr_no}
+			WHERE MTLR_REQ_NO = #{mtlr_req_no}
+		</if>
+		
+		<!-- 기기번호가 없으면 -->
+		<if test="modify_flag == null or modify_flag == '' ">
+			UPDATE MTLR_INFO 
+			SET 
+			    H_MTLR_INFO = #{h_mtlr_info}
+			    , M_MTLR_INFO = #{m_mtlr_info}
+			    , ITEM_NM = #{item_nm}
+			    , SPEC1 = #{spec1}
+			    , SPEC2 = #{spec2}
+			    , SPEC_ETC = #{spec_etc}
+			    , UNIT = #{unit}
+			    , ETC = #{etc}
+			    , USE = #{use}
+			    , USE_FLAG = #{use_flag}
+			    , CONTENT = #{content}
+			    , MASTER_YN = #{master_yn}
+			    , MSDS1 = #{msds1}
+			    , MSDS2 = #{msds2}
+			    , MSDS3 = #{msds3}
+			    , MSDS4 = #{msds4}
+			    , MSDS5 = #{msds5}
+			    , MSDS6 = #{msds6}
+			    , MSDS7 = #{msds7}
+			    , MSDS8 = #{msds8}
+			    , MSDS9 = #{msds9}
+			    , MSDS10 = #{msds10}
+			    , MSDS11 = #{msds11}
+			    , MSDS12 = #{msds12}
+			    , MSDS13 = #{msds13}
+			    , MSDS14 = #{msds14}
+			    , MSDS15 = #{msds15}
+			    , MSDS16 = #{msds16}
+			    <if test="img_file_nm != null and img_file_nm != '' ">
+				, IMG_FILE_NM = #{img_file_nm}
+				</if>
+				<if test="add_file != null and add_file != '' ">
+				, ADD_FILE = #{add_file}
+				</if>
+				, MTLR_VOL = #{mtlr_vol}
+			WHERE MTLR_NO = #{mtlr_no}
+		</if>			
+	</update>
+	
+	<!-- 시약/실험기구 정보 삭제 -->
+	<delete id="deleteReagentsGlassInfo" parameterType="reagentsGlassVO">
+		UPDATE MTLR_INFO 
+			SET USE_FLAG = 'N'
+		WHERE MTLR_NO = #{mtlr_no}
+	</delete>
+
+	<!-- 구매정보 -->
+	<select id="selectBuyingInfoList" resultType="reagentsGlassVO" parameterType="reagentsGlassVO">
+		SELECT MTLR_MST_NO, 
+			BUY_STS,
+			BUY_TITLE,
+			(SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = BUY_Q) BUY_Q,		
+			(BUY_YEAR || '년') BUY_YEAR,
+			TO_CHAR(TO_DATE( BUY_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') BUY_DATE,
+			TO_CHAR(TO_DATE( DMD_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') DMD_DATE,
+			BUY_ETC
+		FROM MTLR_MST
+		WHERE 1=1
+		<if test="pageType == 'info' ">
+			AND BUY_STS IS NOT NULL
+		</if>
+		<if test="buy_sts != null and buy_sts != '' ">
+			<if test="buy_sts == 'tempSave' ">
+				AND BUY_STS IS NULL
+			</if>
+			<if test="buy_sts != 'tempSave' ">
+				AND UPPER(BUY_STS) like '%' || UPPER( #{buy_sts} ) || '%'
+			</if>			
+		</if>
+		<if test="buy_title != null and buy_title != '' ">
+			AND UPPER(BUY_TITLE) like '%' || UPPER( #{buy_title} ) || '%' 
+		</if>
+		<if test="buy_year != null and buy_year != '' ">
+			AND BUY_YEAR = #{buy_year}
+		</if>
+		<if test="buy_q != null and buy_q != '' ">
+			AND BUY_Q = #{buy_q}
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY BUY_YEAR DESC, BUY_Q DESC NULLS FIRST, MTLR_MST_NO DESC
+		</if>
+	</select>
+
+	<select id="selectBuyingInfoDetail" resultType="reagentsGlassVO" parameterType="reagentsGlassVO">
+		SELECT MTLR_MST_NO, 
+			BUY_STS,
+			BUY_TITLE,		
+			BUY_Q,
+			BUY_YEAR,
+			TO_CHAR(TO_DATE( BUY_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') BUY_DATE,
+			TO_CHAR(TO_DATE( DMD_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') DMD_DATE,
+			BUY_ETC
+		FROM MTLR_MST
+		WHERE MTLR_MST_NO = #{mtlr_mst_no}
+	</select>
+	
+	<insert id="insertBuyingInfo" parameterType="reagentsGlassVO">
+		INSERT INTO MTLR_MST(
+		    MTLR_MST_NO,
+		    BUY_STS,
+		    BUY_TITLE,
+		    BUY_YEAR,
+		    BUY_Q,
+		    BUY_DATE,
+		    DMD_DATE,
+		    BUY_ETC
+		)VALUES(
+		    (SELECT LPAD(NVL(MAX(MTLR_MST_NO),0)+1,3,0) FROM MTLR_MST),
+		    #{buy_sts},
+		    #{buy_title},
+		    #{buy_year},		    
+		    #{buy_q},
+		    REPLACE(#{buy_date}, '-', ''),
+		    REPLACE(#{dmd_date}, '-', ''),		    
+		    #{buy_etc}
+		)
+	</insert>
+	
+	<update id="updateBuyingInfo" parameterType="reagentsGlassVO">
+		UPDATE MTLR_MST SET 
+			BUY_STS = #{buy_sts},
+			BUY_TITLE = #{buy_title},
+			BUY_DATE = REPLACE(#{buy_date}, '-', ''),
+			DMD_DATE = REPLACE(#{dmd_date}, '-', ''),
+			BUY_ETC = #{buy_etc}
+		WHERE MTLR_MST_NO = #{mtlr_mst_no}
+	</update>
+	
+	<delete id="deleteBuyingInfo" parameterType="reagentsGlassVO">
+		DELETE MTLR_MST 
+		WHERE MTLR_MST_NO = #{mtlr_mst_no}
+	</delete>
+	
+	<!-- 구매요청 -->	
+	<select id="selectBuyingRequestList" resultType="reagentsGlassVO" parameterType="reagentsGlassVO">
+	  	SELECT 
+	  		R.STATE,
+			(SELECT CODE_NAME FROM COMMON_CODE WHERE CODE = I.H_MTLR_INFO) H_MTLR_INFO,
+			(SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = I.M_MTLR_INFO) M_MTLR_INFO,
+			R.MTLR_REQ_NO,
+			R.MTLR_MST_NO,
+			TO_CHAR (R.MTLR_NO) MTLR_NO,
+			R.APPR_FLAG,
+			R.REQ_QTY,
+			I.SPEC2,
+			I.SPEC_ETC,
+			(SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = I.UNIT) UNIT,
+			TO_CHAR (TO_DATE (R.CREATE_DATE, 'YYYY-MM-DD'), 'YYYY-MM-DD') CREATE_DATE,
+			R.CREATE_DEPT,
+			(SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = R.CREATE_DEPT) AS DEPT_NM,
+<!-- 			DECODE((SELECT SUBSTR(DEPT_CD, 0, 4) FROM DEPART WHERE DEPT_CD = R.CREATE_DEPT), 'LIMS', '(사업소)' || (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = R.CREATE_DEPT) , (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = R.CREATE_DEPT)) AS DEPT_NM , -->
+			R.CREATER_ID, 
+			UI.USER_NM USER_NM,
+			R.ORD_NO,
+			R.BUY_GRP_CD,
+			(SELECT ITEM_NM FROM MTLR_INFO WHERE R.MTLR_NO = MTLR_NO) ITEM_NM,
+			DECODE (I.MASTER_YN, 'Y', '마스터', '일반') MASTER_YN,
+			R.MTLR_MST_NO
+		FROM MTLR_REQ R
+		LEFT JOIN MTLR_INFO I ON R.MTLR_NO = I.MTLR_NO
+		LEFT JOIN USER_INFO UI ON UI.USER_ID = R.CREATER_ID
+        WHERE R.MTLR_MST_NO = #{mtlr_mst_no}
+		<!-- 
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND R.CREATE_DEPT = #{dept_cd}
+		</if> -->
+		<if test="item_nm != null and item_nm != '' ">
+			AND UPPER(I.ITEM_NM) like '%' || UPPER( #{item_nm} ) || '%' 
+		</if>
+			<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY R.CREATE_DEPT, I.ITEM_NM
+		</if>
+	</select>
+	
+	<!-- 구매 요청 리스트 등록 -->
+	<insert id="insertBuyingRequestList" parameterType="java.util.HashMap">
+		INSERT INTO MTLR_REQ (
+			MTLR_REQ_NO,
+			MTLR_MST_NO,
+			MTLR_NO,
+			REQ_QTY,
+			CREATE_DATE,
+			CREATE_DEPT,
+			CREATER_ID,
+			STATE
+		) VALUES (
+			(SELECT LPAD(NVL(MAX(MTLR_REQ_NO),0)+1,3,0) FROM MTLR_REQ),
+			#{mtlr_mst_no},
+			#{mtlr_no},
+			#{req_qty},
+			REPLACE(#{create_date}, '-', ''),
+			#{create_dept},
+			#{creater_id},
+			'C39001' <!-- 구매요청 -->
+		)
+	</insert>
+	
+	<update id="updateBuyingRequestList" parameterType="java.util.HashMap">
+		UPDATE MTLR_REQ SET		
+			REQ_QTY = #{req_qty},
+			CREATE_DATE = REPLACE(#{create_date}, '-', ''),
+			CREATER_ID = #{creater_id}
+		WHERE MTLR_MST_NO = #{mtlr_mst_no}
+		AND CREATE_DEPT = #{create_dept}
+		AND MTLR_REQ_NO = #{mtlr_req_no} 
+		AND MTLR_NO = #{mtlr_no}
+	</update>
+	
+	<delete id="deleteBuyingRequestList" parameterType="java.util.HashMap">
+		DELETE MTLR_REQ 
+		WHERE MTLR_MST_NO = #{mtlr_mst_no}
+		AND CREATE_DEPT = #{create_dept}
+		AND MTLR_REQ_NO = #{mtlr_req_no}
+		AND MTLR_NO = #{mtlr_no}
+	</delete>
+	
+	<!-- 구매정보 추가 팝업 -->
+	<select id="popReagentsGlassInfoList" resultType="reagentsGlassVO" parameterType="reagentsGlassVO">
+		SELECT
+            MTLR_NO,
+            (SELECT CODE_NAME FROM COMMON_CODE WHERE CODE = H_MTLR_INFO) H_MTLR_INFO,
+            C.CODE_NAME M_MTLR_INFO,
+            H_MTLR_INFO H_MTLR_INFO_GRID,
+            M_MTLR_INFO M_MTLR_INFO_GRID,
+            ITEM_NM,
+            (SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = UNIT) UNIT,
+            UNIT UNIT_CODE,
+            USE,
+            SPEC1,
+            SPEC2,
+            SPEC_ETC,
+            DECODE(MASTER_YN, 'Y', '마스터', '일반') MASTER_YN,
+            CONTENT,
+            ETC,
+            A.USE_FLAG,
+            A.MTLR_VOL
+        FROM MTLR_INFO A
+        LEFT JOIN COMMON_CODE_DETAIL C ON A.M_MTLR_INFO = C.CODE
+        WHERE A.USE_FLAG = 'Y'
+		<if test="master_yn != null and master_yn != '' ">
+			AND  MASTER_YN = #{master_yn}
+		</if>
+		<if test="item_nm != null and item_nm != '' ">
+			AND UPPER(ITEM_NM) like '%' || UPPER( #{item_nm} ) || '%'
+		</if>
+		<if test="h_mtlr_info != null and h_mtlr_info != '' ">
+			AND H_MTLR_INFO = #{h_mtlr_info}
+		</if>
+		<if test="spec2 != null and spec2 != '' ">
+			AND A.SPEC2 LIKE '%' || #{spec2} || '%'
+		</if>
+		<if test="m_mtlr_info != null and m_mtlr_info != '' ">
+			AND M_MTLR_INFO = #{m_mtlr_info}
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY H_MTLR_INFO, M_MTLR_INFO, ITEM_NM
+		</if>		
+	</select>
+	
+	<!-- 수불 등록 -->	
+	<insert id="insertReceivePay" parameterType="java.util.HashMap">
+		INSERT INTO MTLR_INOUT
+		    (
+		    INOUT_NO
+		    ,MTLR_NO <!--실험기구 코드-->
+		    ,DEPT_CD <!--부서코드-->
+		    ,INOUT_FLAG <!-- 수불구분 -->
+		    ,IN_QTY
+		    ,OUT_QTY
+		    ,IN_DATE
+		    ,OUT_DATE
+		    ,CREATE_DATE
+		    ,CREATER_ID
+		    ,MANAGER_SIGN
+		    ,CHARGER_SIGN
+		    ,INOUT_TXT
+		    ,INOUT_FLAG_DETAIL <!-- 수불상세구분 -->
+		    ,APPR_FLAG <!-- 승인구분 -->
+		    ,PRICE
+		    )
+		VALUES(
+		    (SELECT LPAD(NVL(MAX(INOUT_NO),0)+1,6,0) FROM MTLR_INOUT)
+		    ,#{mtlr_no}			<!--실험기구 코드 #{mtlr_no}-->
+		    ,#{dept_cd}			<!--부서코드 #{dept_cd}-->
+		    ,'C50001'			<!-- 수불구분- 입고 C51000 -->
+		    <if test="fix_qty != null and fix_qty != '' ">
+		    ,#{fix_qty}			<!-- 입고수량#{fix_qty} -->
+		    </if>		    
+		    <if test="fix_qty == null or fix_qty == '' ">
+		    ,#{req_qty}		<!-- 확정수량 -->
+		    </if>
+		    ,''					<!-- 출고수량#{req_qty} -->
+		    ,TO_CHAR(SYSDATE, 'YYYYMMDD') <!-- 입고일#{in_date} -->
+		    ,''					<!-- 출고일 #{out_date} -->
+		    ,TO_CHAR(SYSDATE, 'YYYYMMDD')
+		    ,#{user_id}			<!-- 등록자 ID -->
+		    ,''					<!-- 과장결재 -->
+		    ,''					<!-- 담당결재 -->
+		    ,''					<!-- 수불적요 -->    	 
+		    ,'C51001'			<!-- 수불상세구분 - 검수입고 C51001 -->
+		    ,'N'			<!-- 승인 Y/N -->
+		    ,#{cost}		<!-- 수불금액 -->		    
+		)
+	</insert>
+	
+	<!-- 수불 삭제 -->	
+	<delete id="deleteReceivePay" parameterType="reagentsGlassVO">
+		DELETE MTLR_INOUT
+		WHERE MTLR_NO = #{mtlr_no} <!-- 실험기구 코드 #{mtlr_no}-->
+	</delete>	
+		
+	<select id="selectReagentsGlassInOutList" resultType="reagentsGlassVO" parameterType="reagentsGlassVO">
+		SELECT 
+	        A.MTLR_NO,
+	        A.INOUT_NO,
+	        B.ITEM_NM,
+	        B.CONTENT,
+			(SELECT CODE_NAME FROM COMMON_CODE WHERE CODE = B.H_MTLR_INFO) H_MTLR_INFO,
+	        B.M_MTLR_INFO,
+	        B.SPEC1,
+	        B.SPEC2,
+	        B.SPEC_ETC,
+	        (SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = UNIT) UNIT,
+	        B.USE,      
+	        A.DEPT_CD,
+	        C.DEPT_NM,
+	        A.INOUT_FLAG,
+	        A.IN_QTY,
+	        A.OUT_QTY,
+	        A.IN_DATE,
+	        A.OUT_DATE,
+	        A.CREATE_DATE,
+	        A.CREATER_ID,
+	        A.MANAGER_SIGN,
+	        A.CHARGER_SIGN,
+	        A.INOUT_TXT,
+	        (SELECT NVL(SUM(IN_QTY),0) - NVL(SUM(OUT_QTY),0) FROM MTLR_INOUT
+	        WHERE MTLR_NO = A.MTLR_NO
+	        	AND DEPT_CD IS NOT NULL
+	        <if test="dept_cd != null and dept_cd != '' ">
+	        	AND DEPT_CD = #{dept_cd}
+	        </if>	        
+	        ) TOT_QTY,
+        (CASE WHEN IN_DATE IS NULL
+           THEN
+              TO_CHAR(TO_DATE( A.OUT_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD')
+           ELSE
+              TO_CHAR(TO_DATE( A.IN_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD')
+	    END) SORT_DATE,
+	    	B.MTLR_VOL
+        FROM MTLR_INOUT A
+        LEFT JOIN MTLR_INFO B ON A.MTLR_NO = B.MTLR_NO
+        LEFT JOIN DEPART C ON A.DEPT_CD = C.DEPT_CD
+        WHERE A.INOUT_NO IN ( SELECT MAX(INOUT_NO) 
+        FROM MTLR_INOUT WHERE DEPT_CD = A.DEPT_CD GROUP BY MTLR_NO )
+        <if test="dept_cd != null and dept_cd != '' ">
+        	AND A.DEPT_CD = #{dept_cd}
+        </if>        
+        <if test="item_nm != null and item_nm != '' ">
+			AND UPPER(B.ITEM_NM) like '%' || UPPER( #{item_nm} ) || '%'
+		</if>
+		<if test="h_mtlr_info != null and h_mtlr_info != '' ">
+			AND B.H_MTLR_INFO = #{h_mtlr_info}
+		</if>
+		<if test="spec2 != null and spec2 != '' ">
+			AND B.SPEC2 LIKE '%' || #{spec2} || '%'
+		</if>
+		<if test="m_mtlr_info != null and m_mtlr_info != '' ">
+			AND B.M_MTLR_INFO = #{m_mtlr_info}
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY SORT_DATE DESC, A.MTLR_NO
+		</if>
+		
+	</select>
+		
+	<!-- 수불현황 - 수정하기-->
+	<update id="updateReagentsGlassInOutDetail" parameterType="reagentsGlassVO">
+			UPDATE MTLR_INOUT
+		    SET
+		    INOUT_TXT = #{inout_txt}
+		    WHERE
+		    INOUT_NO = #{inout_no}
+	
+	</update>
+	
+	<!-- 수불현황 - 상세보기 -->
+	<select id="selectReagentsGlassInOutDetail" resultType="reagentsGlassVO" parameterType="reagentsGlassVO">
+		SELECT
+	        A.MTLR_NO,
+	        A.INOUT_NO,
+	        B.ITEM_NM,     
+	        A.DEPT_CD,
+	        C.DEPT_NM,
+	        A.INOUT_FLAG,
+	        DECODE(A.IN_QTY, 0, '', A.IN_QTY) IN_QTY,
+	        DECODE(A.OUT_QTY, 0, '', A.OUT_QTY) OUT_QTY,
+	        A.APPR_FLAG,
+	        A.INOUT_FLAG_DETAIL,
+	        A.TRS_DEPT_CD,
+	        (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = A.TRS_DEPT_CD) AS TRS_DEPT_NM,
+        <if test="pageType != null and pageType == 'state' ">
+	        TO_CHAR(TO_DATE( A.IN_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') IN_DATE,
+	        TO_CHAR(TO_DATE( A.OUT_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') OUT_DATE,
+        </if> 
+        <if test="pageType == null or pageType == '' ">       
+	        (CASE WHEN IN_DATE IS NULL
+	           THEN
+	              TO_CHAR(TO_DATE( A.OUT_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD')
+	           ELSE
+	              TO_CHAR(TO_DATE( A.IN_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD')
+	         END) IN_DATE,
+		</if>       
+	        A.CREATE_DATE,
+	        A.CREATER_ID,
+	        (SELECT USER_NM FROM USER_INFO WHERE USER_ID = A.CREATER_ID AND A.OUT_QTY is not null) USER_NM,	        
+	        (SELECT USER_NM FROM USER_INFO WHERE USER_ID = A.CREATER_ID AND A.INOUT_FLAG_DETAIL = 'C51001') CONFIRM_NM,
+	        A.MANAGER_SIGN,
+	        A.CHARGER_SIGN,
+	        A.INOUT_TXT,
+	        (CASE WHEN IN_DATE IS NULL
+	           THEN
+	              TO_CHAR(TO_DATE( A.OUT_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD')
+	           ELSE
+	              TO_CHAR(TO_DATE( A.IN_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD')
+	         END) ASC_DATE,
+	        DECODE(A.PRICE, 0, '', A.PRICE) PRICE,
+	        B.MTLR_VOL
+        FROM MTLR_INOUT A
+        LEFT JOIN MTLR_INFO B ON A.MTLR_NO = B.MTLR_NO
+        LEFT JOIN DEPART C ON A.DEPT_CD = C.DEPT_CD
+        WHERE 1=1
+        <if test="dept_cd != null and dept_cd != '' ">
+        	AND A.DEPT_CD = #{dept_cd}
+        </if>
+        AND A.MTLR_NO = #{mtlr_no}
+        ORDER BY 
+        A.INOUT_NO,
+        CREATE_DATE DESC 
+        
+	</select>
+	
+	<!-- 시약/실험기구 수불 - 등록 -->
+	<insert id="insertReagentsGlassInOut" parameterType="reagentsGlassVO">
+		INSERT INTO MTLR_INOUT (
+			INOUT_NO,
+			MTLR_NO,
+			DEPT_CD,
+			INOUT_FLAG,
+			INOUT_FLAG_DETAIL,		
+			<if test="trs_dept_cd != null and trs_dept_cd != '' ">
+			TRS_DEPT_CD,
+			</if>
+			<if test="in_qty != null and in_qty != 0 ">
+			IN_QTY,
+			IN_DATE,
+			</if>
+			<if test="out_qty != null and out_qty != 0 ">
+			OUT_QTY,
+			OUT_DATE,		
+			</if>
+			<if test="price != null and price != '' ">
+			PRICE,
+			</if>
+			CREATE_DATE,
+			CREATER_ID,
+			INOUT_TXT,
+			APPR_FLAG	
+		) VALUES (
+			(SELECT LPAD(NVL(MAX(INOUT_NO),0)+1,6,0) FROM MTLR_INOUT),
+			#{mtlr_no},
+			#{dept_cd},
+			#{inout_flag},
+			#{inout_flag_detail},
+			<if test="trs_dept_cd != null and trs_dept_cd != '' ">
+			#{trs_dept_cd},
+			</if>
+			<if test="in_qty != null and in_qty != 0 ">
+			#{in_qty},
+			<if test="in_date != null and in_date != '' ">
+			REPLACE(#{in_date}, '-', ''),
+			</if>
+			<if test="in_date == null or in_date == '' ">
+			REPLACE(SYSDATE, '-', ''),
+			</if>
+			</if>
+			<if test="out_qty != null and out_qty != 0 ">
+			#{out_qty},
+			REPLACE(#{in_date}, '-', ''),
+			</if>		
+	<!-- 		REPLACE(#{price}, ',', ''), -->
+			<if test="price != null and price != '' ">
+			#{price},
+			</if>
+			TO_CHAR(SYSDATE, 'YYYYMMDD'),
+			#{user_id},
+			#{inout_txt},
+			'N'
+		)		
+	</insert>
+	
+	<update id="updateReagentsGlassInOut" parameterType="reagentsGlassVO">
+		UPDATE MTLR_INOUT SET
+			INOUT_FLAG = #{inout_flag},
+			INOUT_FLAG_DETAIL = #{inout_flag_detail},
+			<if test="trs_dept_cd != null and trs_dept_cd != '' ">
+			TRS_DEPT_CD = #{trs_dept_cd},
+			</if>
+			<if test="in_qty != null and in_qty != 0 ">
+			IN_QTY = #{in_qty},
+			IN_DATE = REPLACE(#{in_date}, '-', ''),
+			OUT_QTY = '',
+			OUT_DATE = '',
+			</if>
+			<if test="out_qty != null and out_qty != 0 ">
+			OUT_QTY = #{out_qty},
+			OUT_DATE = REPLACE(#{in_date}, '-', ''),
+			IN_QTY = '',
+			IN_DATE = '',
+			</if>
+	<!-- 		PRICE = REPLACE(#{price}, ',', ''), -->
+			<if test="price != null and price != '' ">
+			PRICE = #{price},
+			</if>
+			CREATE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+			CREATER_ID = #{user_id},
+			INOUT_TXT = #{inout_txt}	
+		WHERE INOUT_NO = #{inout_no}
+			AND MTLR_NO = #{mtlr_no}
+			AND DEPT_CD = #{dept_cd}				
+	</update>
+	
+	<!-- 수불 확인(결재) list -->	
+	<select id="receivePayPaymentList" resultType="reagentsGlassVO" parameterType="reagentsGlassVO">
+		SELECT
+            INOUT_NO
+            ,C.DEPT_CD CREATE_DEPT
+            ,B.ITEM_NM
+<!--             ,TRS_DEPT_CD -->
+			,A.TRS_DEPT_CD
+			,(SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = A.TRS_DEPT_CD) AS TRS_DEPT_NM
+<!--             ,DECODE((SELECT SUBSTR(DEPT_CD, 0, 4) FROM DEPART WHERE DEPT_CD = A.TRS_DEPT_CD), 'LIMS', '(사업소)' || (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = A.TRS_DEPT_CD) , (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = A.TRS_DEPT_CD)) AS TRS_DEPT_NM -->
+            ,INOUT_FLAG
+            ,IN_QTY
+            ,OUT_QTY
+            ,(CASE WHEN IN_DATE IS NULL
+               THEN
+                  TO_CHAR(TO_DATE( A.OUT_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD')
+               ELSE
+                  TO_CHAR(TO_DATE( A.IN_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD')
+             END) IN_DATE
+            ,OUT_DATE
+            ,A.CREATE_DATE
+            ,A.CREATER_ID
+            ,MANAGER_SIGN
+            ,CHARGER_SIGN
+            ,INOUT_TXT
+            ,APPR_FLAG
+            ,A.PRICE
+            ,(SELECT CODE_NAME FROM COMMON_CODE WHERE CODE = B.H_MTLR_INFO) H_MTLR_INFO
+        	,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = B.M_MTLR_INFO) M_MTLR_INFO
+        	,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = A.INOUT_FLAG_DETAIL) INOUT_FLAG_DETAIL 
+        FROM MTLR_INOUT A
+        LEFT JOIN MTLR_INFO B ON A.MTLR_NO = B.MTLR_NO
+        LEFT JOIN USER_INFO C ON A.CREATER_ID = C.USER_ID
+        WHERE A.DEPT_CD = #{create_dept}
+		<if test="mtlr_no != null and mtlr_no != '' ">
+			AND UPPER(B.ITEM_KOR_NM) like '%' || UPPER( #{mtlr_no} ) || '%'
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND A.TRS_DEPT_CD = #{dept_cd}
+		</if>
+		<if test="office_cd != null and office_cd != '' ">
+			AND A.TRS_DEPT_CD = #{office_cd}
+		</if>
+		<if test="appr_flag != null and appr_flag != '' ">
+			AND APPR_FLAG = #{appr_flag}
+		</if>
+		<if test="inout_flag != null and inout_flag != '' ">
+			AND INOUT_FLAG = #{inout_flag}
+		</if>
+		<if test="inout_flag_detail != null and inout_flag_detail != '' ">
+			AND INOUT_FLAG_DETAIL = #{inout_flag_detail}
+		</if>
+		<if test="h_mtlr_info != null and h_mtlr_info != '' ">
+			AND H_MTLR_INFO = #{h_mtlr_info}
+		</if>
+		<if test="m_mtlr_info != null and m_mtlr_info != '' ">
+			AND M_MTLR_INFO = #{m_mtlr_info}
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY H_MTLR_INFO, M_MTLR_INFO, ITEM_NM
+		</if>
+		<!-- WHERE TOT_QTY > 0  -->
+	</select>
+	
+	<!-- 수불 확인(결재) 승인 -->	
+	<update id="updateReceivePayPayment" parameterType="java.util.HashMap">
+		UPDATE MTLR_INOUT SET
+			<if test="appr_flag != null and appr_flag != '' ">
+			APPR_FLAG = #{appr_flag}		<!-- 과장결제  -->
+			</if>
+		WHERE INOUT_NO = #{inout_no}
+	</update>
+	
+	
+	<!-- 시약/실험기구 - 수불현황 -->
+	<select id="selectReagentsGlassStateList" resultType="reagentsGlassVO" parameterType="reagentsGlassVO">
+		SELECT 
+	        A.MTLR_NO,
+	        A.INOUT_NO,
+	        (SELECT CODE_NAME FROM COMMON_CODE WHERE CODE = H_MTLR_INFO) H_MTLR_INFO,
+	        (SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = M_MTLR_INFO) M_MTLR_INFO,
+	        B.ITEM_NM,
+	        B.SPEC1,
+	        B.SPEC2,
+	        B.SPEC_ETC,
+	        B.CONTENT,
+	        (SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = UNIT) UNIT,
+	        B.USE,      
+	        A.DEPT_CD,
+	        (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = A.DEPT_CD) AS DEPT_NM ,
+<!-- 	        DECODE((SELECT SUBSTR(DEPT_CD, 0, 4) FROM DEPART WHERE DEPT_CD = A.DEPT_CD), 'LIMS', '(사업소)' || (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = A.DEPT_CD) , (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = A.DEPT_CD)) AS DEPT_NM , -->
+<!-- 	        C.DEPT_NM, -->
+	        A.INOUT_FLAG,
+	        A.IN_QTY,
+	        A.OUT_QTY,
+	        A.IN_DATE,
+	        A.OUT_DATE,
+	        A.CREATE_DATE,
+	        A.CREATER_ID,
+	        A.MANAGER_SIGN,
+	        A.CHARGER_SIGN,
+	        A.INOUT_TXT,     
+	        (CASE WHEN IN_DATE IS NULL
+	           	THEN
+	              	TO_CHAR(TO_DATE( A.OUT_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD')
+	           	ELSE
+	              	TO_CHAR(TO_DATE( A.IN_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD')
+	         	END) ASC_DATE,
+	        (SELECT  NVL(SUM(IN_QTY),0)- NVL(SUM(OUT_QTY),0) FROM MTLR_INOUT WHERE A.MTLR_NO = MTLR_NO 	AND A.DEPT_CD = DEPT_CD
+	        <if test="dept_cd != null and dept_cd != '' ">
+	        AND DEPT_CD = #{dept_cd}
+	        </if>
+	        ) TOT_QTY,
+	        B.MTLR_VOL
+        FROM MTLR_INOUT A
+        LEFT JOIN MTLR_INFO B ON A.MTLR_NO = B.MTLR_NO
+        LEFT JOIN DEPART C ON A.DEPT_CD = C.DEPT_CD
+        WHERE A.INOUT_NO IN ( SELECT MAX(INOUT_NO) FROM MTLR_INOUT WHERE DEPT_CD = A.DEPT_CD GROUP BY MTLR_NO )
+        <if test="dept_cd != null and dept_cd != '' ">
+        	AND A.DEPT_CD = #{dept_cd}
+        </if>
+        <if test="office_cd != null and office_cd != '' ">
+        	AND A.DEPT_CD = #{office_cd}
+        </if>
+        <if test="item_nm != null and item_nm != '' ">
+			AND UPPER(B.ITEM_NM) like '%' || UPPER( #{item_nm} ) || '%'
+		</if>
+		<!-- <if test="item_eng_nm != null and item_eng_nm != '' ">
+			AND UPPER(B.ITEM_ENG_NM) like '%' || UPPER( #{item_eng_nm} ) || '%'
+		</if> -->
+		<if test="h_mtlr_info != null and h_mtlr_info != '' ">
+			AND B.H_MTLR_INFO = #{h_mtlr_info}
+		</if>
+		<if test="m_mtlr_info != null and m_mtlr_info != '' ">
+			AND B.M_MTLR_INFO = #{m_mtlr_info}
+		</if>
+		<if test="spec2 != null and spec2 != '' ">
+			AND B.SPEC2 LIKE '%' || #{spec2} || '%'
+		</if>
+		<if test="buy_year != null and buy_year != '' ">
+			AND TO_CHAR(TO_DATE(A.IN_DATE), 'YYYY') = #{buy_year}
+		</if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY ASC_DATE DESC, A.MTLR_NO
+		</if>
+	</select>
+	
+	<!-- 구매 품목 현황 -->
+	<select id="buyingProductStateList" resultType="reagentsGlassVO" parameterType="reagentsGlassVO">
+		SELECT
+		    A.MTLR_MST_NO
+		    ,A.MTLR_REQ_NO
+		    ,B.MTLR_NO
+		    ,(SELECT CODE_NAME FROM COMMON_CODE WHERE CODE = B.H_MTLR_INFO) H_MTLR_INFO
+        	,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = B.M_MTLR_INFO) M_MTLR_INFO
+		    ,B.ITEM_NM
+		    ,B.SPEC1
+		    ,B.SPEC2
+		    ,B.SPEC_ETC
+		    ,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = C.BUY_Q) BUY_Q
+		    ,(C.BUY_YEAR || '년') BUY_YEAR
+		    ,A.FIX_QTY
+		    ,(SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = A.CREATE_DEPT) AS DEPT_CD
+<!-- 		    ,DECODE((SELECT SUBSTR(DEPT_CD, 0, 4) FROM DEPART WHERE DEPT_CD = A.CREATE_DEPT), 'LIMS', '(사업소)' || (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = A.CREATE_DEPT) , (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = A.CREATE_DEPT)) AS DEPT_CD -->
+		    ,A.COST
+		    ,(CASE WHEN A.STATE IN
+		        'C39005'
+		        THEN
+		        TO_CHAR(TO_DATE( A.CONFIRM_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD')
+		        ELSE
+		        '-'
+		        END) CONFIRM_DATE
+		    ,A.STATE
+		    ,TO_CHAR(TO_DATE( C.DMD_DATE, 'YYYY-MM-DD' ),'YYYY-MM-DD') DMD_DATE
+		    ,B.MTLR_VOL
+		FROM MTLR_REQ A
+		LEFT JOIN MTLR_INFO B ON A.MTLR_NO = B.MTLR_NO
+		LEFT JOIN MTLR_MST C ON A.MTLR_MST_NO = C.MTLR_MST_NO
+		WHERE 1=1
+		<if test="h_mtlr_info != null and h_mtlr_info != '' ">
+			AND H_MTLR_INFO = #{h_mtlr_info}
+		</if>
+		<if test="m_mtlr_info != null and m_mtlr_info != '' ">
+			AND M_MTLR_INFO = #{m_mtlr_info}
+		</if>
+		<if test="dept_cd != null and dept_cd != '' ">
+        	AND A.CREATE_DEPT = #{dept_cd}
+        </if>
+        <if test="office_cd != null and office_cd != '' ">
+        	AND A.CREATE_DEPT = #{office_cd}
+        </if>
+        <!-- 
+		<if test="mtlr_flag != null and mtlr_flag != '' ">
+        	AND MTLR_FLAG = #{mtlr_flag}
+        </if>
+         -->
+		<if test="item_nm != null and item_nm != '' ">
+			AND UPPER(B.ITEM_NM) like '%' || UPPER( #{item_nm} ) || '%'
+        </if>
+        <if test="spec2 != null and spec2 != '' ">
+			AND B.SPEC2 LIKE '%' || #{spec2} || '%'
+		</if>
+		<if test="buy_q != null and buy_q != '' ">
+			AND UPPER(C.BUY_Q) like '%' || UPPER( #{buy_q} ) || '%'
+        </if>
+		<if test="buy_year != null and buy_year != '' ">
+			AND UPPER(C.BUY_YEAR) like '%' || UPPER( #{buy_year} ) || '%'
+        </if>
+		<if test="state != null and state != '' ">
+			AND A.STATE = #{state}
+        </if>
+        <if test="mtlr_no != null and mtlr_no != '' ">
+			AND B.MTLR_NO = #{mtlr_no}
+        </if>
+		<if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+			ORDER BY CONFIRM_DATE DESC, B.H_MTLR_INFO, B.M_MTLR_INFO, B.ITEM_NM
+		</if>
+	</select>
+	
+	<!-- 시약 시약초자 팝업 신규등록 --> 
+<!-- 	<select id="insertPopReagentsGlassInfo" parameterType="reagentsGlassVO" resultType="String">
+		SELECT INSERT_MTLR_INFO( 
+			#{mtlr_flag}, 
+		    #{item_eng_nm}, 
+		    #{item_kor_nm}, 
+		    #{spec}, 
+		    #{unit}, 
+		    #{etc}, 
+		    #{create_dept}, 
+		    #{user_id}, 
+		    #{use}, 
+		    #{use_flag}, 
+		    #{master_yn}
+           ) FROM DUAL
+	</select> -->
+	
+	
+	<!-- 시약 시약초자 팝업 수정 -->
+	<update id="updatePopReagentsGlassInfo" parameterType="reagentsGlassVO">
+		UPDATE MTLR_INFO SET
+			BUY_STS = #{mtlr_flag}
+			,BUY_STS = #{mtlr_flag}
+			,BUY_STS = #{mtlr_flag}
+			,BUY_STS = #{mtlr_flag}
+			,BUY_STS = #{mtlr_flag}
+			,BUY_STS = #{mtlr_flag}
+		WHERE MTLR_NO = #{mtlr_no}
+	</update>
+	
+	<!-- 구매확정 진행상태 -> '검수완료' 변경 -->
+	<update id="updateStateBuyingConfirm" parameterType="reagentsGlassVO">
+		UPDATE MTLR_REQ SET
+            STATE = 'C39005',
+            <if test="confirm_date == null or confirm_date == '' ">
+            	CONFIRM_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+            </if>
+            <if test="confirm_date != null and confirm_date != '' ">
+            	CONFIRM_DATE = REPLACE(#{confirm_date}, '-', ''),
+            </if>            
+            CONFIRM_ETC = #{confirm_etc}
+        WHERE MTLR_REQ_NO = #{mtlr_req_no}
+	</update>
+	
+	<!-- 시약/실험기구 마스터여부 -> '마스터로' 변경 -->
+	<update id="updateReagentsGlassInfoMaster" parameterType="reagentsGlassVO">
+		UPDATE MTLR_INFO SET
+            MASTER_YN = 'Y'
+        WHERE MTLR_NO = #{mtlr_no}
+	</update>
+	
+	<parameterMap id="paramMap" type="reagentsGlassVO">
+	    <parameter property="h_mtlr_info" 	jdbcType="VARCHAR" javaType="java.lang.String" mode="IN"/>
+		<parameter property="m_mtlr_info" 		jdbcType="VARCHAR" javaType="java.lang.String" mode="IN" />
+		<parameter property="item_nm" 	jdbcType="VARCHAR" javaType="java.lang.String" mode="IN" />
+		<parameter property="spec1" 	jdbcType="VARCHAR" javaType="java.lang.String" mode="IN"/>
+		<parameter property="spec2" 	jdbcType="VARCHAR" javaType="java.lang.String" mode="IN"/>
+		<parameter property="spec_etc" 	jdbcType="VARCHAR" javaType="java.lang.String" mode="IN"/>
+		<parameter property="unit" 		jdbcType="VARCHAR" javaType="java.lang.String" mode="IN" />
+		<parameter property="etc" 	jdbcType="VARCHAR" javaType="java.lang.String" mode="IN" />
+		<parameter property="create_dept" 	jdbcType="VARCHAR" javaType="java.lang.String" mode="IN"/>
+		<parameter property="user_id" 		jdbcType="VARCHAR" javaType="java.lang.String" mode="IN" />
+		<parameter property="use" 	jdbcType="VARCHAR" javaType="java.lang.String" mode="IN" />
+		<parameter property="use_flag" 	jdbcType="VARCHAR" javaType="java.lang.String" mode="IN"/>
+		<parameter property="content" 	jdbcType="VARCHAR" javaType="java.lang.String" mode="IN"/>
+		<parameter property="mtlr_vol" 	jdbcType="VARCHAR" javaType="java.lang.String" mode="IN"/>
+		<parameter property="mtlr_no" 	jdbcType="VARCHAR" javaType="java.lang.String" mode="OUT" />
+	</parameterMap>
+	<select id="insertPopReagentsGlassInfo" statementType="CALLABLE" parameterMap="paramMap">
+	    { call ADD_MTLR_INFO(?,?,?,?,?,?,?,?,?,?,?,?,?,?) }
+	</select>
+	
+	
+	<!-- 구매검수 리스트 조회 -->	
+	<select id="selectBuyingConfirmList" resultType="reagentsGlassVO" parameterType="reagentsGlassVO"> 
+		SELECT
+            D.MTLR_REQ_NO       
+            ,A.MTLR_MST_NO
+<!--             ,MTLR_CNFR_NO -->
+            ,C.ITEM_NM
+            ,C.MTLR_NO
+            ,C.MASTER_YN
+            ,C.SPEC1
+            ,C.SPEC2
+            ,C.SPEC_ETC
+            ,F.CODE_NAME UNIT
+            ,C.CONTENT
+            ,C.ETC
+            ,C.USE
+            ,C.USE_FLAG
+            ,D.REQ_QTY
+            ,A.FIX_QTY
+            ,A.CONFIRM_DATE CREATE_DATE
+<!--             ,DECODE((SELECT SUBSTR(DEPT_CD, 0, 4) FROM DEPART WHERE DEPT_CD = A.CREATE_DEPT), 'LIMS', '(사업소)' || (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = A.CREATE_DEPT) , (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = A.CREATE_DEPT)) AS CREATE_DEPT -->
+            ,(SELECT DEPT_NM FROM DEPART WHERE A.CREATE_DEPT = DEPT_CD) CREATE_DEPT
+            ,A.CREATE_DEPT AS DEPT_CD
+            ,E.USER_NM
+            ,D.CREATER_ID
+            ,A.COST
+            ,A.STATE
+            ,TO_CHAR(TO_DATE(A.CONFIRM_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') CONFIRM_DATE
+            ,A.CONFIRM_ETC
+            ,(SELECT CODE_NAME FROM COMMON_CODE WHERE CODE = C.H_MTLR_INFO) H_MTLR_INFO
+			,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = C.M_MTLR_INFO) M_MTLR_INFO
+			,C.BARCODE
+			,C.MTLR_VOL
+        FROM MTLR_REQ A
+        LEFT JOIN MTLR_INFO C ON A.MTLR_NO = C.MTLR_NO
+        LEFT JOIN MTLR_REQ D ON A.MTLR_MST_NO = D.MTLR_MST_NO AND A.MTLR_NO = D.MTLR_NO AND A.CREATE_DEPT = D.CREATE_DEPT
+        LEFT JOIN USER_INFO E ON D.CREATER_ID = E.USER_ID
+        LEFT JOIN COMMON_CODE_DETAIL F ON C.UNIT = F.CODE
+        WHERE A.MTLR_MST_NO = #{mtlr_mst_no}       
+        <if test="user_nm != null and user_nm != '' ">
+			AND UPPER(E.USER_NM) like '%' || UPPER( #{user_nm} ) || '%'
+        </if>
+        <if test="creater_id != null and creater_id != '' ">
+			AND UPPER(D.CREATER_ID) like '%' || UPPER( #{creater_id} ) || '%'
+        </if>
+        <if test="spec2 != null and spec2 != '' ">
+			AND C.SPEC2 LIKE '%' || #{spec2} || '%'
+		</if>	
+        <if test="sortName != null and sortName != '' ">
+			ORDER BY ${sortName} ${sortType}
+		</if>
+		<if test="sortName == null or sortName == '' ">
+	        ORDER BY C.H_MTLR_INFO, C.M_MTLR_INFO, C.ITEM_NM, MTLR_MST_NO		
+		</if>		
+	</select>
+</mapper>	

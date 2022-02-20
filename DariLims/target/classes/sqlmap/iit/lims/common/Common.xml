@@ -1,0 +1,1491 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="common">
+    <!-- 로그인 아이디 확인 처리 -->
+	<select id="selectUserIdCheck" parameterType="userInfoVO" resultType="int">
+		SELECT COUNT(USER_ID) AS CNT
+		FROM USER_INFO
+		WHERE USER_ID = #{user_id}
+	</select>
+
+	<!-- 로그인 패스워드 확인 처리 -->
+	<select id="common.selectUserPwCheck" parameterType="userInfoVO" resultType="int">
+		SELECT COUNT(USER_ID) AS CNT
+		FROM USER_INFO
+		WHERE USER_ID = #{user_id}
+		AND USER_PW = #{user_pw}
+	</select>
+	
+	<!-- 로그인 IP 확인 처리 -->
+	<select id="common.selectUserIpCheck" parameterType="userInfoVO" resultType="int">
+		<if test="user_ip != '0:0:0:0:0:0:0:1'.toString()">
+			SELECT COUNT(IP_SEQ) AS CNT
+			FROM ACCESS_IP_MANAGE
+			WHERE 1=1
+				AND TO_NUMBER(REPLACE(START_IP, '.' , '')) <![CDATA[ <= ]]> TO_NUMBER(REPLACE(#{user_ip}, '.' , '')) 
+				AND TO_NUMBER(REPLACE(END_IP, '.' , '')) <![CDATA[ >= ]]> TO_NUMBER(REPLACE(#{user_ip}, '.' , ''))
+				AND USE_FLAG = 'Y'
+		</if>
+		<if test="user_ip == '0:0:0:0:0:0:0:1'.toString()">
+			SELECT COUNT(IP_SEQ) AS CNT
+			FROM ACCESS_IP_MANAGE
+		</if>
+	</select>
+
+	<!-- 로그인 처리 -->
+	<select id="common.selectUserInfoCheck" parameterType="userInfoVO" resultType="userInfoVO">
+		SELECT UI.USER_NM ,
+	        UI.USER_ID ,
+	        UI.RANK_NM ,
+	        UI.RANK_CD ,
+	        DP.DEPT_NM ,
+	        UI.DEPT_CD ,
+	        UI.USE_FLAG ,
+	        VW.TOTAL_ROLE_NO ,
+	        VW.TOTAL_ROLE_NM
+        FROM USER_INFO UI 
+        LEFT JOIN DEPART DP ON DP.DEPT_CD = UI.DEPT_CD
+        LEFT JOIN
+        (SELECT USER_ID,
+            LTRIM (SYS_CONNECT_BY_PATH (ROLE_GROUP_NM, '|'), '|') AS TOTAL_ROLE_NM ,
+            LTRIM (SYS_CONNECT_BY_PATH (ROLE_NO, '|'), '|') AS TOTAL_ROLE_NO
+        FROM
+            (SELECT USER_ID,
+                ROLE_GROUP_NM,
+                ROLE_NO,
+                ROW_NUMBER () OVER (PARTITION BY USER_ID ORDER BY USER_ID) RN,
+                COUNT (*) OVER (PARTITION BY USER_ID) CNT
+            FROM
+            (   SELECT RG.ROLE_NO,
+                    RG.ROLE_GROUP_NM ,
+                    RGU.USER_ID
+                FROM ROLE_GROUP RG
+                LEFT OUTER JOIN ROLE_GROUP_USER RGU
+                ON RG.ROLE_NO = RGU.ROLE_NO
+                WHERE RGU.USER_ID = #{user_id}
+            )
+        )
+        WHERE LEVEL = CNT
+        START WITH RN = 1
+        CONNECT BY PRIOR USER_ID = USER_ID
+        AND PRIOR RN = RN - 1
+        ) VW ON VW.USER_ID = UI.USER_ID 
+        WHERE UI.USER_ID = #{user_id}
+        AND UI.USER_PW = #{user_pw}
+	</select>   
+    
+    
+    <select id="selectSampleList" parameterType="DemoSampleVO" resultType="DemoSampleVO">
+	    SELECT * FROM (
+	        SELECT VW_LIST.*, ROWNUM AS ROW_NUM, FLOOR((ROWNUM -1) / #{pageSize} + 1) AS PAGENUM,
+	               COUNT(*) OVER() AS TOTALCOUNT, COUNT(*) OVER() AS TOTAL, CEIL(COUNT(*) OVER() / #{pageSize}) AS TOTALPAGE
+	        FROM (	
+			  	SELECT
+                   TSI.TEST_SAMPLE_SEQ
+                   ,TSI.TEST_ITEM_SEQ
+                   ,TSI.RESULT_VAL
+                   ,TSI.REPORT_DISP_VAL
+                   ,TSI.STD_VAL 
+                  FROM TEST_SAMPLE_ITEM TSI
+				<where>
+				<if test="test_sample_seq != '' and test_sample_seq != null" >
+					 TEST_SAMPLE_SEQ LIKE '%' || #{test_sample_seq}|| '%' 
+				</if>
+			  	</where>
+	        ) VW_LIST
+	    )  
+		WHERE PAGENUM = #{pageNum}
+    </select>
+    
+    <select id="selectSampleListMAP" parameterType="DemoSampleVO" resultType="Map">
+        SELECT
+	        TSI.TEST_SAMPLE_SEQ
+	        ,TSI.TEST_ITEM_SEQ
+	        ,TSI.RESULT_VAL
+	        ,TSI.REPORT_DISP_VAL
+	        ,TSI.STD_VAL
+	        ,ANAL.TESTITM_NM AS TEST_ITEM_NM
+	        ,ANAL.ENG_NM AS TEST_ITEM_ENG_NM 
+        FROM TEST_SAMPLE_ITEM TSI, ANALYSIS ANAL
+        WHERE TSI.TEST_ITEM_CD = TI.TEST_ITEM_CD
+        	AND TEST_SAMPLE_SEQ LIKE '15-0017%'
+        ORDER BY TEST_SAMPLE_SEQ, TEST_ITEM_SEQ
+    </select>
+    
+   	<select id="preMenu" parameterType="hashmap" resultType="roleVO">
+		SELECT 
+			MENU_CD,
+			MENU_NM,
+			MENU_URL
+		FROM MENU
+		WHERE USE_FLAG = 'Y'
+			AND SUBSTR(MENU_CD, 3, 4) = '0000'
+		ORDER BY DISP_ORDER
+	</select>
+
+	<select id="menu" parameterType="hashmap" resultType="roleVO">
+		SELECT DISTINCT MN.MENU_CD,
+			MN.MENU_NM,
+			MN.MENU_URL,
+			MN.DISP_ORDER
+		FROM MENU MN
+		JOIN ROLE_GROUP_MENU RGM ON RGM.MENU_CD = MN.MENU_CD
+		JOIN ROLE_GROUP_USER RGU ON RGU.ROLE_NO = RGM.ROLE_NO
+		WHERE RGU.USER_ID = #{user_id}
+			AND MN.USE_FLAG = 'Y'
+			AND SUBSTR(MN.MENU_CD, 3, 2) != '00'
+			AND SUBSTR(MN.MENU_CD, 5, 2) = '00'
+		ORDER BY MN.DISP_ORDER
+	</select>
+	
+	<!--  접수 - 의뢰정보 팝업 -->
+	<select id="selectAcceptInfo" parameterType="AcceptVO" resultType="AcceptVO">
+		SELECT
+			R.TEST_REQ_NO
+			, R.TEST_REQ_SEQ
+			, R.TITLE
+			, R.REQ_TYPE TYPE
+			, GET_COMMON_CODE(REQ_TYPE,'EX1') REQ_TYPE
+			, R.REQ_NM
+			, TO_CHAR(TO_DATE(R.REQ_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') REQ_DATE
+			, TO_CHAR(TO_DATE(R.DEADLINE_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') DEADLINE_DATE
+			, R.REQ_TEL
+			, O.ZIP_CODE
+            , O.ADDR1
+            , O.ADDR2
+			, R.REQ_BASIS
+			, R.REQ_MESSAGE
+<!-- 			, D2.DEPT_NM SUPV_DEPT_CD -->
+			, UW.UNIT_WORK_NM UNIT_WORK_CD
+			, GET_COMMON_CODE(TEST_GOAL,'') TEST_GOAL
+			, R.FEE_TOT
+			, R.TRAVEL_EXP
+			, D1.DEPT_NM DEPT_CD
+			, P.SIMPLE_PRC_NM STATE
+			, P.PRC_CD PROCESS
+			, R.REQ_ORG_NO
+			, O.ORG_NM AS REQ_ORG_NM
+			, R.ACT_USER_ID
+			, #{pageType} PAGETYPE
+			, (SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = R.COMMISSION_TYPE ) AS COMMISSION_TYPE
+			, TO_CHAR(OCD.DEPOSIT_DATE,'YYYY-MM-DD') AS DEPOSIT_DATE
+            , NVL(NVL2(R.DISCOUNT_RATE, R.FEE_TOT - ( CASE WHEN R.DISCOUNT_FLAG = 'Y' THEN R.FEE_TOT * (R.DISCOUNT_RATE * 0.01) ELSE 0 END ), R.FEE_TOT),0) AS COMMISSION_AMT_DET
+            , O2.ORG_NM AS TAX_REQ_ORG_NM
+            , R.ADMIN_MESSAGE <!-- 관리자 메모 추가했습니다.-->
+            , GET_COMMON_CODE(REQ_CLASS,'C70') REQ_CLASS
+            , R.EXPRESS_FLAG  
+            , GET_COMMON_CODE(COMMISSION_TYPE,'C61') REQ_CLASS
+            , R.RAWDATA_FLAG
+			, (SELECT EST_TITLE FROM ESTIMATE EST WHERE EST.EST_NO = R.EST_NO) AS EST_TITLE
+			, R.EST_CHECK
+			, R.ACCEPT_METHOD
+			, O.CHARGER_TEL
+			, O.EMAIL
+			, R.REQ_PLANT_NM
+			, R.REQ_PLANT_ADDR
+			, R.REQ_PLANT_TEL
+			, (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = R.SALES_DEPT_CD) AS SALES_DEPT_CD
+			, (SELECT USER_NM FROM USER_INFO WHERE USER_ID = R.SALES_USER_ID) AS SALES_USER_ID
+			, R.CALCULATION
+			, (TO_CHAR(TO_DATE(R.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YYYY-MM-DD')) AS SAMPLE_ARRIVAL_DATE
+			, R.TEST_END
+			, (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = R.QUALITY_DEPT_CD1) AS QUALITY_DEPT_CD1
+			, (SELECT DEPT_NM FROM DEPART WHERE DEPT_CD = R.QUALITY_DEPT_CD2) AS QUALITY_DEPT_CD2
+			, (SELECT USER_NM FROM USER_INFO WHERE USER_ID = R.QUALITY_USER_ID1) AS QUALITY_USER_ID1	
+			, (SELECT USER_NM FROM USER_INFO WHERE USER_ID = R.QUALITY_USER_ID2) AS QUALITY_USER_ID2	
+			, R.TEST_COUNT
+			, R.SAMPLING_NO
+			, R.SAMPLE_NUM
+			, R.TEST_PLACE
+			, R.ZIP_CODE AS TEST_ZIP_CODE
+			, R.ADDR1 AS TEST_ADDR1
+			, R.ADDR2 AS TEST_ADDR2
+			, R.ADDR1_ENG
+			, R.ADDR2_ENG
+			, R.ADDR_REPORT
+			, R.TEL_REPORT
+			, R.FAX_REPORT
+			, R.BARCODE_DESC
+			, R.ADDR_REPORT
+			, R.TEL_REPORT
+			, R.FAX_REPORT 
+		FROM TEST_REQ R
+		INNER JOIN PROCESS P ON P.PRC_CD = R.STATE
+		LEFT OUTER JOIN DEPART D1 ON D1.DEPT_CD = R.DEPT_CD
+		LEFT OUTER JOIN DEPART D2 ON D2.DEPT_CD = R.SUPV_DEPT_CD
+		LEFT OUTER JOIN	UNIT_WORK UW ON UW.UNIT_WORK_CD = R.UNIT_WORK_CD
+		LEFT OUTER JOIN REQ_ORG O ON O.REQ_ORG_NO = R.REQ_ORG_NO
+		INNER JOIN REQ_ORG O2 ON O2.REQ_ORG_NO = R.REQ_ORG_NO3
+        INNER JOIN ORG_COMMISSION_DEPOSIT OCD ON OCD.REQ_ORG_NO = O.REQ_ORG_NO AND OCD.TEST_REQ_SEQ = R.TEST_REQ_SEQ
+		WHERE R.TEST_REQ_SEQ = #{test_req_seq}
+	</select>
+
+	<!--  접수 - 의뢰정보 팝업 분석결과 -->
+	<select id="selectTestComment" resultType="AcceptVO" parameterType="AcceptVO">
+		SELECT
+			U.USER_NM, TC.TEST_CMT
+		FROM TEST_COMMENT TC
+		LEFT OUTER JOIN USER_INFO U ON U.USER_ID = TC.TESTER_ID
+		WHERE TEST_REQ_SEQ = #{test_req_seq}
+		<if test="user_id != null and user_id != '' ">
+			AND TESTER_ID = #{user_id}
+		</if>
+		AND TC.TEST_CMT IS NOT NULL
+	</select>
+	
+	<!-- 시료별 히스토리 등록 -->
+	<insert id="insertSampleHistory" parameterType="HistoryVO">
+		INSERT INTO SAMPLE_HISTORY (
+			SAMPLE_HIS_SEQ
+			, TEST_SAMPLE_SEQ
+			, DEPT_CD
+			, USER_ID
+			, SAMPLE_STATE
+			, WORK_DATE
+			<if test="test_dept_cd != null and test_dept_cd != '' ">
+				, TEST_DEPT_CD
+			</if>
+			<if test="colla_flag != null and colla_flag != '' ">
+				, COLLA_FLAG
+			</if>
+			<if test="etc != null and etc != '' ">
+				, ETC
+			</if>
+			<if test="return_flag != null and return_flag != '' ">
+				, RETURN_FLAG
+			</if>
+			<if test="test_req_seq != null and test_req_seq != '' ">
+			, TEST_REQ_SEQ
+			</if>
+		) VALUES (
+			(SELECT LPAD(NVL(MAX(SAMPLE_HIS_SEQ), 0)+1 , 8, 0 ) FROM SAMPLE_HISTORY)
+			, #{test_sample_seq}
+			, #{dept_cd}
+			, #{user_id}
+			, #{sample_state}
+			, SYSDATE
+			<if test="test_dept_cd != null and test_dept_cd != '' ">
+				, #{test_dept_cd}
+			</if>
+			<if test="colla_flag != null and colla_flag != '' ">
+				, #{colla_flag}
+			</if>
+			<if test="etc != null and etc != '' ">
+				, #{etc}
+			</if>
+			<if test="return_flag != null and return_flag != '' ">
+				, #{return_flag}
+			</if>
+			<if test="test_req_seq != null and test_req_seq != '' ">
+			, #{test_req_seq}
+			</if>
+		)
+	</insert>
+
+
+	<insert id="insertSampleHistoryAll" parameterType="AcceptVO">
+		INSERT INTO SAMPLE_HISTORY(
+			SAMPLE_HIS_SEQ
+			, TEST_SAMPLE_SEQ
+			, DEPT_CD
+			, USER_ID
+			, SAMPLE_STATE
+			, WORK_DATE
+			<if test="test_dept_cd != null and test_dept_cd != '' ">
+				, TEST_DEPT_CD
+			</if>
+			<if test="colla_flag != null and colla_flag != '' ">
+				, COLLA_FLAG
+			</if>
+			<if test="return_flag != null and return_flag != '' ">
+				, RETURN_FLAG
+			</if>
+			, TEST_REQ_SEQ
+			, ETC
+		)SELECT 
+			(SELECT LPAD(NVL(MAX(SAMPLE_HIS_SEQ), 0)+1 , 8, 0 ) FROM SAMPLE_HISTORY)
+			, TEST_SAMPLE_SEQ
+			, #{dept_cd}
+			, #{user_id}
+			, #{sample_state}
+			, SYSDATE
+			<if test="test_dept_cd != null and test_dept_cd != '' ">
+				, #{test_dept_cd}
+			</if>
+			<if test="colla_flag != null and colla_flag != '' ">
+				, #{colla_flag}
+			</if>
+			<if test="return_flag != null and return_flag != '' ">
+				, #{return_flag}
+			</if>
+			, TEST_REQ_SEQ
+			, #{etc}
+		FROM TEST_SAMPLE
+		WHERE TEST_REQ_SEQ = #{test_req_seq}
+	</insert>
+
+	<insert id="returnToBegining" parameterType="AcceptVO">
+		BEGIN
+
+		INSERT INTO SAMPLE_HISTORY(
+			SAMPLE_HIS_SEQ
+			, TEST_SAMPLE_SEQ
+			, DEPT_CD
+			, TEST_DEPT_CD
+			, USER_ID
+			, SAMPLE_STATE
+			, WORK_DATE
+			, TEST_REQ_SEQ
+			, ETC
+		)SELECT 
+		    (SELECT LPAD(NVL(MAX(SAMPLE_HIS_SEQ), 0)+1 , 8, 0 ) FROM SAMPLE_HISTORY) SAMPLE_HIS_SEQ
+			, TEST_SAMPLE_SEQ
+			, #{dept_cd}
+			, #{dept_cd}
+			, #{user_id}
+			, 'Z'
+			, SYSDATE
+			, #{test_req_seq}
+			, '[접수취소]'
+		FROM TEST_SAMPLE
+		WHERE TEST_REQ_SEQ = #{test_req_seq};
+
+		UPDATE TEST_SAMPLE_ITEM SET
+			STATE = 'A'
+		WHERE TEST_REQ_SEQ = #{test_req_seq};
+
+		UPDATE TEST_SAMPLE 
+			SET STATE = 'A'
+		WHERE TEST_REQ_SEQ = #{test_req_seq};
+
+		UPDATE TEST_REQ SET
+			STATE = 'A'
+		WHERE TEST_REQ_SEQ = #{test_req_seq};
+
+		END;
+	</insert>
+	
+	<!--  접수 - 진행상황 팝업 -->
+	<select id="selectStateInfoList" parameterType="SampleStateVO" resultType="SampleStateVO">
+		SELECT
+		TS.TEST_SAMPLE_SEQ ,TS.TEST_SAMPLE_NO, TS.SAMPLE_REG_NM
+        FROM TEST_SAMPLE TS
+        WHERE TS.TEST_REQ_SEQ = #{test_req_seq} OR TS.TEST_SAMPLE_SEQ = #{test_sample_seq}
+        ORDER BY TS.TEST_SAMPLE_SEQ
+	</select>
+	
+	<!--  접수 - 진행상태 -->
+	<select id="selectStateInfo" parameterType="SampleStateVO" resultType="SampleStateVO">
+		SELECT
+			SAMPLE_HIS_SEQ
+			,TEST_SAMPLE_SEQ
+			,USER_ID
+			,GET_USER_NM(USER_ID) AS USER_NM
+			,SAMPLE_STATE AS SAMPLE_STATE_CD
+			,GET_STATE_NM(SAMPLE_STATE, COLLA_FLAG, 'N') AS SAMPLE_STATE_NM
+			,TO_CHAR(WORK_DATE,'YY-MM-DD hh24:mi') AS WORK_DATE
+			,TEST_DEPT_CD DEPT_CD
+			,GET_DEPT_NM(TEST_DEPT_CD) AS DEPT_NM
+			,COLLA_FLAG
+			,ETC AS ETC
+		FROM SAMPLE_HISTORY
+		WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND TEST_DEPT_CD = #{dept_cd}
+		</if>
+		
+		ORDER BY SAMPLE_HIS_SEQ
+	</select>
+	
+	<!--  접수 - 결과보기 -->
+	<select id="selectAcceptResultInfo" parameterType="MakeGridVO" resultType="Hashmap">
+		SELECT 
+			ANAL.TESTITM_CD,
+			ANAL.TESTITM_NM AS TEST_ITEM_NM
+		<foreach collection="head" item="item" index="idx">
+			, MAX(DECODE(TS.TEST_SAMPLE_NO, #{item}, TSI.REPORT_DISP_VAL, null)) AS R${idx}
+		</foreach>
+		FROM TEST_SAMPLE_ITEM TSI
+		INNER JOIN TEST_SAMPLE TS ON TS.TEST_SAMPLE_SEQ = TSI.TEST_SAMPLE_SEQ
+		INNER JOIN ANALYSIS ANAL ON ANAL.TESTITM_CD = TSI.TEST_ITEM_CD
+		WHERE TS.TEST_REQ_SEQ = #{test_req_seq}
+		GROUP BY ANAL.TESTITM_CD, ANAL.TESTITM_NM, TSI.REPORT_ORDER<!-- , TSI.TEST_ITEM_SEQ //항목삭제했다가 다시 생성하면 다른 항목으로 인식해서 두줄로 나옴 -->
+		ORDER BY TSI.REPORT_ORDER, ANAL.TESTITM_NM
+	</select>
+	
+	<!--  접수 - 결과보기 -->
+	<select id="selectAcceptResultInfoColumn" parameterType="MakeGridVO" resultType="String">
+		SELECT
+		NVL(TS.TEST_SAMPLE_NO,'접수대기') || '♥■◆' || TS.SAMPLE_REG_NM
+		FROM TEST_SAMPLE TS
+		WHERE TS.TEST_REQ_SEQ = #{test_req_seq}
+		ORDER BY TS.TEST_SAMPLE_SEQ
+	</select>
+	
+	<!-- 주소 -->
+	<select id="selectAddrList" parameterType="ZipCodeVO" resultType="ZipCodeVO">
+		SELECT LAST.* FROM ( 
+			SELECT 
+				ROWNUM rNum, 
+				A.*
+			FROM (
+				SELECT				
+					SIDO || ' ' || SIGUN || ' ' || HAENGJEONG_NM || ' ' || JIBUM_BUNJI  || DECODE(JIBUM_HO, '0', '', '-' ||JIBUM_HO ) AS JIBUN_ADDR,
+				    SIDO || ' ' || SIGUN || ' ' || DORO_NM  || ' ' || BUILDING_BON AS DORO_ADDR,
+				    ZIPCODE AS ZIP_CODE,
+				    SIGUN_BUILDING_NM AS GUN_NM
+				FROM ZIP_ADDR
+				WHERE SIDO = #{sido} 
+				<!-- 통합 검색 -->
+				<if test="select_bun == 'all'">
+					<if test="addr != null and addr != '' ">
+						AND (
+			                DORO_NM LIKE '%' || #{addr} || '%'
+							OR LAW_EUBMYEON LIKE '%' || #{addr} || '%'
+			                OR HAENGJEONG_NM LIKE '%' || #{addr} || '%'
+			                OR SIGUN_BUILDING_NM LIKE '%' || #{addr} || '%'
+						    )
+				    </if>
+					<if test="addr_bunji != null and addr_bunji != '' ">
+						AND (JIBUM_BUNJI = #{addr_bunji} OR BUILDING_BON = #{addr_bunji})
+					</if>
+				</if>
+				
+				<!-- 지번으로 -->
+				<if test="select_bun == 'jibun'">
+					AND (LAW_EUBMYEON LIKE '%' || #{addr_nm} || '%' OR HAENGJEONG_NM LIKE '%' || #{addr_nm} || '%')
+					<if test="addr_bunji != null and addr_bunji != '' ">
+				    	AND JIBUM_BUNJI = #{addr_bunji}
+				    </if>
+					<if test="addr_bubunji != null and addr_bubunji != '' ">
+				   		AND JIBUM_HO = #{addr_bubunji}
+				    </if>
+				</if>
+				
+				<!-- 도로명으로 -->
+				<if test="select_bun == 'doro'">
+					AND DORO_NM LIKE '%' || #{addr_nm} || '%'
+					<if test="addr_bunji != null and addr_bunji != '' ">
+						AND BUILDING_BON = #{addr_bunji}
+					</if>
+					<if test="addr_bubunji != null and addr_bubunji != '' ">
+						AND BUILDING_BOO = #{addr_bubunji}
+					</if>
+				</if>
+				
+				<if test="gun_nm != null and gun_nm != '' ">
+					AND SIGUN_BUILDING_NM LIKE '%' || #{gun_nm} || '%'
+				</if>				
+			) A
+		) LAST		
+		WHERE rNum BETWEEN #{firstIndex} +1 AND #{firstIndex} + #{recordCountPerPage}
+		ORDER BY rNum
+	</select>
+	
+	
+	<!-- 주소 페이징 -->
+	<select id="addrZipCnt" parameterType="ZipCodeVO" resultType="int">	
+		SELECT COUNT(*) 
+		FROM (
+			SELECT *
+			FROM ZIP_ADDR
+			WHERE SIDO = #{sido} 
+			<!-- 통합 검색 -->
+			<if test="select_bun == 'all'">
+				<if test="addr != null and addr != '' ">
+					AND (
+		                DORO_NM LIKE '%' || #{addr} || '%'
+						OR LAW_EUBMYEON LIKE '%' || #{addr} || '%'
+		                OR HAENGJEONG_NM LIKE '%' || #{addr} || '%'
+					    OR SIGUN_BUILDING_NM LIKE '%' || #{addr} || '%'
+					    )
+			    </if>
+				<if test="addr_bunji != null and addr_bunji != '' ">
+					AND (JIBUM_BUNJI = #{addr_bunji} OR BUILDING_BON = #{addr_bunji})
+				</if>
+			</if>
+				
+			<!-- 지번으로 -->
+			<if test="select_bun == 'jibun'">
+				AND (LAW_EUBMYEON LIKE '%' || #{addr_nm} || '%' OR HAENGJEONG_NM LIKE '%' || #{addr_nm} || '%')
+				<if test="addr_bunji != null and addr_bunji != '' ">
+			    	AND JIBUM_BUNJI = #{addr_bunji}
+			    </if>
+				<if test="addr_bubunji != null and addr_bubunji != '' ">
+			   		AND JIBUM_HO = #{addr_bubunji}
+			    </if>
+			</if>
+			
+			<!-- 도로명으로 -->
+			<if test="select_bun == 'doro'">
+				AND DORO_NM LIKE '%' || #{addr_nm} || '%'
+				<if test="addr_bunji != null and addr_bunji != '' ">
+					AND BUILDING_BON = #{addr_bunji}
+				</if>
+				<if test="addr_bubunji != null and addr_bubunji != '' ">
+					AND BUILDING_BOO = #{addr_bubunji}
+				</if>
+			</if>
+			
+			<if test="gun_nm != null and gun_nm != '' ">
+				AND SIGUN_BUILDING_NM LIKE '%' || #{gun_nm} || '%'
+			</if>
+		)
+	</select>
+	
+	<!-- 프로세스 상태 업데이트 -->
+	<update id="updateTestState" statementType="CALLABLE" parameterType="AcceptVO">
+		{ call UPDATE_TEST_STATE(#{test_req_seq}, #{test_sample_seq}, #{test_item_seq}, #{state})}
+	</update>
+
+	<update id="updateTestStateAll" statementType="CALLABLE" parameterType="AcceptVO">
+		{ call UPDATE_TEST_STATE_ALL(#{test_req_seq}, #{state})}
+	</update>
+	
+	<!-- 반려 리스트 -->
+	<select id="selectReturnCommentList" parameterType="AcceptVO" resultType="ResultApprovalVO">
+		SELECT
+			TSI.TEST_REQ_SEQ
+			, TSI.TEST_SAMPLE_SEQ
+			, TSI.TEST_ITEM_SEQ
+			, TS.SAMPLE_REG_NM
+			, ANAL.TESTITM_CD AS TEST_ITEM_CD
+			, ANAL.TESTITM_NM AS TEST_ITEM_NM
+			, TSI.TEST_DEPT_CD
+			, TD.DEPT_NM
+			, TSI.TESTER_ID
+			, TUI.USER_NM
+			, TSI.RETURN_FLAG
+			, TSI.RETURN_COMMENT
+		FROM TEST_SAMPLE_ITEM TSI
+		INNER JOIN TEST_SAMPLE TS ON TS.TEST_SAMPLE_SEQ = TSI.TEST_SAMPLE_SEQ
+		INNER JOIN ANALYSIS ANAL ON ANAL.TESTITM_CD = TSI.TEST_ITEM_CD
+		LEFT JOIN DEPART TD ON TD.DEPT_CD = TSI.TEST_DEPT_CD
+		INNER JOIN USER_INFO TUI ON TUI.USER_ID = TSI.TESTER_ID
+		LEFT OUTER JOIN DEPART PD ON PD.DEPT_CD = TSI.TEST_DEPT_CD
+		WHERE 1=1
+		<if test="type == 'show' ">
+			AND TSI.RETURN_FLAG = 'Y'
+		</if>
+		<if test="type != 'show' ">
+			AND TSI.RETURN_FLAG = 'R'
+		</if>
+		<if test="type == 'sect' ">
+			<if test="test_dept_cd != null and test_dept_cd != '' ">
+				AND ( TSI.TEST_DEPT_CD = #{test_dept_cd} OR PD.PRE_DEPT_CD = #{test_dept_cd} )
+			</if>
+		</if>
+		<if test="test_req_seq != null and test_req_seq != '' ">
+			AND TS.TEST_REQ_SEQ = #{test_req_seq}
+		</if>
+		<if test="user_id != null and user_id != '' ">
+			AND (
+			TSI.TESTER_ID = #{user_id} OR TSI.TESTER_ID IN (SELECT USER_ID FROM ABSENCE WHERE START_DATE <![CDATA[ <= ]]>
+			TO_CHAR(SYSDATE, 'YYYYMMDD') AND END_DATE <![CDATA[ <= ]]>
+			TO_CHAR(SYSDATE, 'YYYYMMDD') AND SUBSTITUTE_ID = #{user_id} ) 
+			)
+			OR
+	        <!-- 팀 -->               
+	        TSI.TEAM_CD IN (
+		        SELECT TEAM_CD
+		        FROM DEPT_TEAM_USER
+		        WHERE USER_ID = #{user_id}
+	        )
+		</if>
+		ORDER BY TSI.TEST_SAMPLE_SEQ, TSI.DISP_ORDER
+	</select>
+	
+	<!-- 반려 여부 수정 N -->
+	<update id="cancelReturnFlag" parameterType="AcceptVO">
+		UPDATE TEST_SAMPLE_ITEM SET
+		RETURN_FLAG = 'N'
+		, RETURN_COMMENT = NULL
+		WHERE TEST_SAMPLE_SEQ = #{test_sample_seq}
+		AND TEST_ITEM_SEQ = #{test_item_seq}
+	</update>
+	
+	<!-- 반려 여부 수정 R -->
+	<update id="copyReturnFlag" parameterType="AcceptVO">
+		UPDATE TEST_SAMPLE_ITEM SET
+		RETURN_FLAG = 'R'
+		, RETURN_COMMENT = #{return_comment}
+		WHERE SUBSTR(TEST_SAMPLE_SEQ , 0 , 7 ) = SUBSTR(#{test_sample_seq} , 0 , 7 )
+		AND TEST_ITEM_CD = #{test_item_cd}
+		<if test="type == 'sect' ">
+			<if test="test_dept_cd != null and test_dept_cd != '' ">
+				AND TEST_DEPT_CD = #{test_dept_cd}
+			</if>
+		</if>
+	</update>
+	
+	<!-- 반려 수정 -->
+	<update id="updateReturnComment" parameterType="AcceptVO">
+		UPDATE TEST_REQ SET
+			RETURN_FLAG = #{return_flag}, 
+			RETURN_COMMENT = #{return_comment}
+		WHERE TEST_REQ_SEQ = #{test_req_seq}
+	</update>
+	
+	<!-- 결재선 삭제 -->
+	<update id="deleteApprLine" parameterType="AcceptVO">
+		DELETE APPR_LINE WHERE TEST_REQ_SEQ = #{test_req_seq}
+	</update>
+	
+	<select id="selectSampleSeqList" parameterType="String" resultType="String">
+		SELECT TEST_SAMPLE_SEQ
+		FROM TEST_SAMPLE
+		WHERE TEST_REQ_SEQ = #{test_req_seq}
+	</select>
+	
+	<!-- RDMS -->
+	<select id="selectRDMSViwer" parameterType="hashmap" resultType="String">
+		SELECT BinderItemValue_ID
+		FROM RDMS.BinderItemValue
+		<if test="test_req_no != null and test_req_no != '' ">
+			WHERE SUBSTR(UDF1, 1 , 7) = #{test_req_no}
+		</if>
+		<if test="test_req_no == null or test_req_no == '' ">
+			WHERE SUBSTR(UDF1, 1 , 9) = #{test_sample_seq}
+			<if test="test_item_seq != null and test_item_seq != '' ">
+				AND SUBSTR(UDF2, 10 , 3) IN ( ${test_item_seq} )
+			</if>
+		</if>
+	</select>
+	
+	<!-- RDMS 등록 -->
+	<insert id="insertRDMSViewer" parameterType="hashmap">
+		INSERT INTO RDMS.viewerlist(docguid, otherdb, docid1, docid2, docid3, Readuser, createDate)
+		VALUES(#{uuid}, 'InterfaceIT_RDMS', #{docIDs},'','',#{userID},SYSDATE)
+	</insert>
+	
+	<!--  반려(항목) -->
+	<update id="updateReturnFlag" parameterType="AcceptVO">
+		UPDATE TEST_SAMPLE_ITEM SET
+		RETURN_FLAG = #{return_flag}
+		WHERE TEST_SAMPLE_SEQ IN ( ${test_sample_seq} )
+		AND TEST_ITEM_SEQ IN ( ${test_item_seq} )
+	</update>
+	
+	
+	<!-- 메인 처리임박 리스트 -->
+	<select id="selectDeadlineSampleList" parameterType="UserInfoVO" resultType="AcceptVO">
+		SELECT 
+			TR.TEST_REQ_NO
+			, TO_CHAR(TO_DATE(TR.DEADLINE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') DEADLINE_DATE
+			, TR.TITLE
+			, TO_CHAR(TO_DATE(TR.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') SAMPLE_ARRIVAL_DATE
+			, TR.REQ_NM
+			, CASE
+		WHEN TO_CHAR(SYSDATE, 'YYYYMMDD') > TR.DEADLINE_DATE THEN 'Y'
+		ELSE 'N'
+		END AS TYPE
+		FROM TEST_REQ TR
+		WHERE TR.STATE NOT IN ('Z', 'A', 'S', 'G', 'H')
+		AND TR.STATE != 'F'
+<!-- 		AND TR.DEPT_CD = #{dept_cd} -->
+		AND TR.DEADLINE_DATE <![CDATA[ <= ]]>
+		TO_CHAR(SYSDATE, 'YYYYMMDD') + 3
+		ORDER BY DEADLINE_DATE 
+	</select>
+	
+	<!-- 메인 시험대기 접수리스트  -->
+	<select id="selectResultInputList" parameterType="UserInfoVO" resultType="AcceptVO">
+	<!-- 선불인 접수건은 결제가 완료되야 나옴 -->
+	SELECT * FROM (
+		SELECT
+			DISTINCT TS.TEST_SAMPLE_SEQ
+			, R.TEST_REQ_NO
+			, TS.SAMPLE_REG_NM
+			, TO_CHAR(TO_DATE(R.DEADLINE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') DEADLINE_DATE
+			, R.REQ_NM
+			, TO_CHAR(TO_DATE(R.SAMPLE_ARRIVAL_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') SAMPLE_ARRIVAL_DATE
+			, 
+			CASE
+			WHEN TO_CHAR(SYSDATE, 'YYYYMMDD') > R.DEADLINE_DATE THEN 'Y'
+			ELSE 'N'
+			END AS TYPE
+			,
+			CASE
+				WHEN
+			    ( SELECT COMMISSION_AMT_FLAG
+			             FROM ORG_COMMISSION_DEPOSIT
+			             WHERE REQ_ORG_NO  = R.REQ_ORG_NO
+			                     AND TEST_REQ_SEQ = R.TEST_REQ_SEQ
+			                     AND R.COMMISSION_TYPE = 'C61001'
+			    ) = 'Y'
+				THEN 'Y'
+				WHEN R.COMMISSION_TYPE NOT IN ('C61001')  THEN 'Y'
+				ELSE 'N'
+			END COMMISSION_AMT_FLAG 
+		FROM TEST_SAMPLE TS
+		INNER JOIN TEST_REQ R ON R.TEST_REQ_SEQ = TS.TEST_REQ_SEQ
+		LEFT OUTER JOIN DEPART D ON D.DEPT_CD = R.DEPT_CD
+		WHERE TS.TEST_SAMPLE_SEQ IN
+		(
+		SELECT DISTINCT TEST_SAMPLE_SEQ
+		FROM TEST_SAMPLE_ITEM TSI
+		WHERE 1=1
+		<!--
+		<if test="dept_cd != null and dept_cd != '' ">
+			AND TEST_DEPT_CD = #{dept_cd}
+		</if>
+		-->
+		<if test="user_id != null and user_id != '' ">
+			AND (	TESTER_ID = #{user_id} 
+					OR 
+					TESTER_ID IN (SELECT USER_ID FROM ABSENCE WHERE START_DATE <![CDATA[ <= ]]>
+					TO_CHAR(SYSDATE, 'YYYYMMDD') AND END_DATE <![CDATA[ >= ]]>
+					TO_CHAR(SYSDATE, 'YYYYMMDD') AND SUBSTITUTE_ID = #{user_id} )
+					OR
+			        <!-- 팀 -->               
+			        TSI.TEAM_CD IN (
+				        SELECT TEAM_CD
+				        FROM DEPT_TEAM_USER
+				        WHERE USER_ID = #{user_id}
+			        )					
+				)
+		</if>
+		AND STATE = 'B'
+		AND R.STOP_FLAG = 'N'
+		)
+		ORDER BY DEADLINE_DATE 
+	) WHERE 1=1
+		<if test="commission_flag == 'Y'.toString()">
+		<!-- 수수료 사용 FLAG (추후작업) -->
+		AND COMMISSION_AMT_FLAG = 'Y'
+		</if>
+		
+	</select>
+	
+	<!-- 메인 카운터(시험) -->
+	<select id="selectResultMainCntList" parameterType="UserInfoVO" resultType="CommonVO">
+		SELECT
+		(	SELECT COUNT(*) 
+			FROM TEST_REQ TR 
+			WHERE TR.STATE = 'A' AND STOP_FLAG = 'N'
+			AND TO_CHAR(TO_DATE(TR.SAMPLE_ARRIVAL_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-3),'YYYY-mm-dd') AND TO_CHAR(SYSDATE,'YYYY-mm-dd')
+			AND TO_CHAR(TO_DATE(TR.DEADLINE_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-3),'YYYY-mm-dd') AND TO_CHAR(ADD_MONTHS(SYSDATE,+1),'YYYY-mm-dd')
+		) AS CNT1 <!--접수대기-->
+		,		
+		(	
+			SELECT 
+			    COUNT(DISTINCT TEST_REQ_SEQ) FROM (
+			    SELECT 
+			    TS.TEST_REQ_SEQ,
+			    CASE
+					WHEN
+					( SELECT COMMISSION_AMT_FLAG
+					         FROM ORG_COMMISSION_DEPOSIT OCD
+					         WHERE REQ_ORG_NO  = R.REQ_ORG_NO
+					                 AND OCD.TEST_REQ_SEQ = R.TEST_REQ_SEQ
+					                 AND R.COMMISSION_TYPE = 'C61001'
+					) = 'Y'
+			    THEN 'Y'
+			    WHEN R.COMMISSION_TYPE NOT IN ('C61001')  THEN 'Y'
+			    ELSE 'N'
+			    END COMMISSION_AMT_FLAG
+			FROM TEST_SAMPLE TS 
+			INNER JOIN TEST_REQ R ON R.TEST_REQ_SEQ = TS.TEST_REQ_SEQ AND R.STOP_FLAG = 'N'
+			WHERE TS.TEST_SAMPLE_SEQ IN ( 
+			    SELECT DISTINCT TEST_SAMPLE_SEQ
+			    FROM TEST_SAMPLE_ITEM TSI
+			    WHERE STATE = 'B'
+		        AND (
+		            TESTER_ID = #{user_id}
+		            OR
+		            TESTER_ID IN(
+		                SELECT USER_ID FROM ABSENCE WHERE START_DATE <![CDATA[ <= ]]>
+		                TO_CHAR(SYSDATE, 'YYYYMMDD') AND END_DATE <![CDATA[ >= ]]>
+		                TO_CHAR(SYSDATE, 'YYYYMMDD') AND SUBSTITUTE_ID = #{user_id}
+		            	)						
+		        	)
+		        AND TS.RESULT_INPUT_TYPE = 'C85001' 
+			    )
+			) WHERE 1=1
+			<if test="commission_flag == 'Y'.toString()">
+				<!-- 수수료 사용 FLAG (추후작업) -->
+				AND COMMISSION_AMT_FLAG = 'Y'
+			</if>			
+		) AS CNT2 <!-- 결과입력대기(시료별) -->
+		,
+		(	
+			SELECT 
+			    COUNT(DISTINCT TEST_REQ_SEQ) FROM (
+			    SELECT 
+			    TS.TEST_REQ_SEQ,
+			    CASE
+					WHEN
+					( SELECT COMMISSION_AMT_FLAG
+					         FROM ORG_COMMISSION_DEPOSIT OCD
+					         WHERE REQ_ORG_NO  = R.REQ_ORG_NO
+					                 AND OCD.TEST_REQ_SEQ = R.TEST_REQ_SEQ
+					                 AND R.COMMISSION_TYPE = 'C61001'
+					) = 'Y'
+			    THEN 'Y'
+			    WHEN R.COMMISSION_TYPE NOT IN ('C61001')  THEN 'Y'
+			    ELSE 'N'
+			    END COMMISSION_AMT_FLAG
+			FROM TEST_SAMPLE TS 
+			INNER JOIN TEST_REQ R ON R.TEST_REQ_SEQ = TS.TEST_REQ_SEQ AND R.STOP_FLAG = 'N'
+			WHERE TS.TEST_SAMPLE_SEQ IN ( 
+			    SELECT DISTINCT TEST_SAMPLE_SEQ
+			    FROM TEST_SAMPLE_ITEM TSI
+			    WHERE STATE = 'B'
+		        AND (
+		            TESTER_ID = #{user_id}
+		            OR
+		            TESTER_ID IN(
+		                SELECT USER_ID FROM ABSENCE WHERE START_DATE <![CDATA[ <= ]]>
+		                TO_CHAR(SYSDATE, 'YYYYMMDD') AND END_DATE <![CDATA[ >= ]]>
+		                TO_CHAR(SYSDATE, 'YYYYMMDD') AND SUBSTITUTE_ID = #{user_id}
+		            	)						
+		        	)
+		        AND TS.RESULT_INPUT_TYPE = 'C85002' 
+			    )
+			) WHERE 1=1
+			<if test="commission_flag == 'Y'.toString()">
+				<!-- 수수료 사용 FLAG (추후작업) -->
+				AND COMMISSION_AMT_FLAG = 'Y'
+			</if>			
+		) AS CNT3, <!-- 결과입력대기(등급별) -->
+ 		(
+ 		SELECT
+ 		COUNT(DISTINCT R.TEST_REQ_NO) 			
+		FROM TEST_SAMPLE TS
+		INNER JOIN TEST_REQ R ON R.TEST_REQ_SEQ = TS.TEST_REQ_SEQ
+		LEFT OUTER JOIN DEPART D ON D.DEPT_CD = R.DEPT_CD
+		LEFT OUTER JOIN COMMON_CODE_DETAIL C1 ON C1.CODE = R.TEST_GOAL
+		LEFT OUTER JOIN UNIT_WORK UW ON UW.UNIT_WORK_CD = R.UNIT_WORK_CD
+		LEFT OUTER JOIN USER_INFO U ON U.USER_ID = R.ACT_USER_ID
+		LEFT OUTER JOIN USER_INFO U2 ON U2.USER_ID = R.CREATER_ID
+		LEFT OUTER JOIN DEPART RD ON RD.DEPT_CD = R.REQ_ORG_NO
+		LEFT OUTER JOIN REQ_ORG RO ON RO.REQ_ORG_NO = R.REQ_ORG_NO
+		 
+		LEFT OUTER JOIN DEPT_TEAM DT ON DT.DEPT_CD = R.DEPT_CD
+		LEFT OUTER JOIN DEPT_TEAM_USER DTU ON DT.TEAM_CD = DTU.TEAM_CD AND DTU.USER_ID =  #{user_id} 
+		 
+		WHERE R.STATE =  'C' /**P*/
+			
+<!--SELECT COUNT(TEST_REQ_SEQ) -->
+<!-- 			FROM ( -->
+<!-- 				SELECT  -->
+<!-- 					DISTINCT SI.TEST_REQ_SEQ, -->
+<!-- 					MAX(SI.STATE) AS MXVAL, -->
+<!-- 					MIN(SI.STATE) AS MNVAL -->
+<!-- 				FROM TEST_SAMPLE_ITEM SI -->
+<!-- 				LEFT OUTER JOIN DEPART PD ON PD.DEPT_CD = SI.TEST_DEPT_CD -->
+<!-- 				INNER JOIN TEST_REQ R ON SI.TEST_REQ_SEQ = R.TEST_REQ_SEQ AND R.STOP_FLAG = 'N' -->
+<!-- 				WHERE 1=1 -->
+<!-- 				SI.TEST_DEPT_CD = #{dept_cd} -->
+<!-- 				GROUP BY SI.TEST_REQ_SEQ -->
+				
+<!-- 			) VW -->
+<!-- 			WHERE VW.MNVAL = 'C' -->
+		) AS CNT4 <!-- 결과확인대기 -->
+		,
+		(	
+			SELECT COUNT(*) 
+			FROM TEST_REQ TR
+			WHERE  TR.STATE IN ( 'F', 'G', 'H')  
+			AND TR.REPORT_FLAG = 'N'
+			AND REGEXP_LIKE(TEST_REQ_NO, (SELECT REPORT_CLASS_CODE FROM USER_INFO WHERE USER_ID=#{user_id}))
+			AND TO_CHAR(TO_DATE(TR.DEADLINE_DATE, 'YYYYmmdd'), 'YYYY-mm-dd') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-3),'YYYY-mm-dd') AND TO_CHAR(SYSDATE,'YYYY-mm-dd')
+		) AS CNT5 <!-- 성적서작성대기 -->
+		,
+		(	
+			SELECT 
+			    COUNT(DISTINCT TEST_REQ_SEQ) FROM (
+			    SELECT 
+			    TS.TEST_REQ_SEQ,
+			    CASE
+					WHEN
+					( SELECT COMMISSION_AMT_FLAG
+					         FROM ORG_COMMISSION_DEPOSIT OCD
+					         WHERE REQ_ORG_NO  = R.REQ_ORG_NO
+					                 AND OCD.TEST_REQ_SEQ = R.TEST_REQ_SEQ
+					                 AND R.COMMISSION_TYPE = 'C61001'
+					) = 'Y'
+			    THEN 'Y'
+			    WHEN R.COMMISSION_TYPE NOT IN ('C61001')  THEN 'Y'
+			    ELSE 'N'
+			    END COMMISSION_AMT_FLAG
+			FROM TEST_SAMPLE TS 
+			INNER JOIN TEST_REQ R ON R.TEST_REQ_SEQ = TS.TEST_REQ_SEQ AND R.STOP_FLAG = 'N' AND R.RETURN_FLAG = 'Y'
+			WHERE TS.TEST_SAMPLE_SEQ IN ( 
+			    SELECT DISTINCT TEST_SAMPLE_SEQ
+			    FROM TEST_SAMPLE_ITEM TSI
+			    WHERE STATE = 'B'
+		        AND (
+		            TESTER_ID = #{user_id}
+		            OR
+		            TESTER_ID IN(
+		                SELECT USER_ID FROM ABSENCE WHERE START_DATE <![CDATA[ <= ]]>
+		                TO_CHAR(SYSDATE, 'YYYYMMDD') AND END_DATE <![CDATA[ >= ]]>
+		                TO_CHAR(SYSDATE, 'YYYYMMDD') AND SUBSTITUTE_ID = #{user_id}
+		            	)
+		        	) 
+			    )
+			    AND TS.RESULT_INPUT_TYPE = 'C85001'
+			) 
+			WHERE 1=1
+			<if test="commission_flag == 'Y'.toString()">
+				<!-- 수수료 사용 FLAG (추후작업) -->
+				AND COMMISSION_AMT_FLAG = 'Y'
+			</if>			
+		) AS CNT6, <!-- 결과입력대기(시료별) : 반려 -->
+		(	
+			SELECT 
+			    COUNT(DISTINCT TEST_REQ_SEQ) FROM (
+			    SELECT 
+			    TS.TEST_REQ_SEQ,
+			    CASE
+					WHEN
+					( SELECT COMMISSION_AMT_FLAG
+					         FROM ORG_COMMISSION_DEPOSIT OCD
+					         WHERE REQ_ORG_NO  = R.REQ_ORG_NO
+					                 AND OCD.TEST_REQ_SEQ = R.TEST_REQ_SEQ
+					                 AND R.COMMISSION_TYPE = 'C61001'
+					) = 'Y'
+			    THEN 'Y'
+			    WHEN R.COMMISSION_TYPE NOT IN ('C61001')  THEN 'Y'
+			    ELSE 'N'
+			    END COMMISSION_AMT_FLAG
+			FROM TEST_SAMPLE TS 
+			INNER JOIN TEST_REQ R ON R.TEST_REQ_SEQ = TS.TEST_REQ_SEQ AND R.STOP_FLAG = 'N' AND R.RETURN_FLAG = 'Y'
+			WHERE TS.TEST_SAMPLE_SEQ IN ( 
+			    SELECT DISTINCT TEST_SAMPLE_SEQ
+			    FROM TEST_SAMPLE_ITEM TSI
+			    WHERE STATE = 'B'
+		        AND (
+		            TESTER_ID = #{user_id}
+		            OR
+		            TESTER_ID IN(
+		                SELECT USER_ID FROM ABSENCE WHERE START_DATE <![CDATA[ <= ]]>
+		                TO_CHAR(SYSDATE, 'YYYYMMDD') AND END_DATE <![CDATA[ >= ]]>
+		                TO_CHAR(SYSDATE, 'YYYYMMDD') AND SUBSTITUTE_ID = #{user_id}
+		            	)
+		        	) 
+			    )
+			    AND TS.RESULT_INPUT_TYPE = 'C85002'
+			) 
+			WHERE 1=1
+			<if test="commission_flag == 'Y'.toString()">
+				<!-- 수수료 사용 FLAG (추후작업) -->
+				AND COMMISSION_AMT_FLAG = 'Y'
+			</if>			
+		) AS CNT7 <!-- 결과입력대기(등급별) : 반려 -->
+		FROM DUAL
+	</select>
+	
+	<!-- 메인 카운터(장비) -->
+	<select id="selectMachineMainCntList" parameterType="UserInfoVO" resultType="CommonVO">
+		SELECT
+		(
+			<![CDATA[SELECT  
+			(
+			(SELECT COUNT(*) AS TOTAL FROM INSTRUMENT A
+							JOIN
+							(
+							SELECT MNG_NO, MNG_ID , INST_NO, MNG_SUB_ID
+							FROM INST_MNG_HIS M
+							WHERE MNG_NO = (SELECT MAX(MNG_NO) FROM INST_MNG_HIS I WHERE I.INST_NO = M.INST_NO) AND TO_DATE(MNG_START,'YYYY-MM-DD') <= SYSDATE AND TO_DATE(MNG_END,'YYYY-MM-DD') >=(SYSDATE-(INTERVAL '1' DAY))  AND MNG_GBN='B' AND (MNG_ID =#{user_id} OR  MNG_SUB_ID=#{user_id} )
+							) B
+							ON A.INST_NO = B.INST_NO
+							WHERE  ADD_MONTHS(SYSDATE,2) >= TO_DATE(CRT_DATE,'YYYY-MM-DD') AND (SYSDATE-(INTERVAL '1' DAY)) <=  TO_DATE(CRT_DATE,'YYYY-MM-DD')
+			       
+			)+
+			(
+			SELECT COUNT(*)  AS TOTAL FROM INSTRUMENT A
+							JOIN
+							(
+							SELECT MNG_NO, MNG_ID ,INST_NO,MNG_SUB_ID
+							FROM INST_MNG_HIS M
+							WHERE MNG_NO = (SELECT MAX(MNG_NO) FROM INST_MNG_HIS I WHERE I.INST_NO = M.INST_NO) AND TO_DATE(MNG_START,'YYYY-MM-DD') <= SYSDATE AND TO_DATE(MNG_END,'YYYY-MM-DD') >= (SYSDATE-(INTERVAL '1' DAY))  AND MNG_GBN='B' AND (MNG_ID =#{user_id} OR MNG_SUB_ID=#{user_id} )
+							) B
+							ON A.INST_NO = B.INST_NO 
+							WHERE  (SYSDATE-(INTERVAL '1' DAY)) > TO_DATE(CRT_DATE,'YYYY-MM-DD') 
+			         
+			)) FROM DUAL]]>
+		) AS CNT11,
+		(
+			<![CDATA[SELECT  
+			(
+			(SELECT COUNT(*)  AS TOTAL FROM INSTRUMENT A
+							JOIN
+							(
+							SELECT MNG_NO, MNG_ID ,INST_NO,MNG_SUB_ID
+							FROM INST_MNG_HIS M
+							WHERE  MNG_NO = (SELECT MAX(MNG_NO) FROM INST_MNG_HIS I WHERE I.INST_NO = M.INST_NO) AND TO_DATE(MNG_START,'YYYY-MM-DD') <= SYSDATE AND TO_DATE(MNG_END,'YYYY-MM-DD') >=(SYSDATE-(INTERVAL '1' DAY))  AND MNG_GBN='A' AND (MNG_ID =#{user_id} OR MNG_SUB_ID=#{user_id} )
+							) B
+							ON A.INST_NO = B.INST_NO 
+							WHERE  ADD_MONTHS(SYSDATE,2) >= TO_DATE(INTCHK_DATE,'YYYY-MM-DD') AND (SYSDATE-(INTERVAL '1' DAY)) <=  TO_DATE(INTCHK_DATE,'YYYY-MM-DD')
+			       
+			)+
+			(
+			SELECT COUNT(*)  AS TOTAL FROM INSTRUMENT A
+							JOIN
+							(
+							SELECT  MNG_NO, MNG_ID ,INST_NO,MNG_SUB_ID
+							FROM INST_MNG_HIS M
+							WHERE MNG_NO = (SELECT MAX(MNG_NO) FROM INST_MNG_HIS I WHERE I.INST_NO = M.INST_NO) AND TO_DATE(MNG_START,'YYYY-MM-DD') <= SYSDATE AND TO_DATE(MNG_END,'YYYY-MM-DD') >= (SYSDATE-(INTERVAL '1' DAY))  AND MNG_GBN='A' AND (MNG_ID =#{user_id} OR MNG_SUB_ID=#{user_id} )
+							) B
+							ON A.INST_NO = B.INST_NO
+							WHERE  (SYSDATE-(INTERVAL '1' DAY)) > TO_DATE(INTCHK_DATE,'YYYY-MM-DD') 
+			         
+			)) FROM DUAL]]>
+		) AS CNT12,
+		(
+		<![CDATA[SELECT COUNT(*) FROM INSTRUMENT A
+				JOIN
+				(
+				SELECT MNG_NO, MNG_ID ,INST_NO,MNG_SUB_ID
+				FROM INST_MNG_HIS M
+				WHERE MNG_NO = (SELECT MAX(MNG_NO) FROM INST_MNG_HIS I WHERE I.INST_NO = M.INST_NO  AND I.MNG_GBN='B') AND TO_DATE(MNG_START,'YYYY-MM-DD') <= SYSDATE AND TO_DATE(MNG_END,'YYYY-MM-DD') >=(SYSDATE-(INTERVAL '1' DAY)) AND (MNG_ID =#{user_id} OR MNG_SUB_ID=#{user_id} )
+				) B
+				ON A.INST_NO = B.INST_NO
+				WHERE  ADD_MONTHS(SYSDATE,2) >= TO_DATE(CRT_DATE,'YYYY-MM-DD') AND (SYSDATE-(INTERVAL '1' DAY)) <=  TO_DATE(CRT_DATE,'YYYY-MM-DD')]]>
+		) AS CNT13,
+		(
+		<![CDATA[SELECT COUNT(*) FROM INSTRUMENT A
+				JOIN
+				(
+				SELECT MNG_NO, MNG_ID ,INST_NO,MNG_SUB_ID
+				FROM INST_MNG_HIS M
+				WHERE MNG_NO = (SELECT MAX(MNG_NO) FROM INST_MNG_HIS I WHERE I.INST_NO = M.INST_NO AND I.MNG_GBN='A') AND TO_DATE(MNG_START,'YYYY-MM-DD') <= SYSDATE AND TO_DATE(MNG_END,'YYYY-MM-DD') >= (SYSDATE-(INTERVAL '1' DAY))   AND (MNG_ID =#{user_id} OR MNG_SUB_ID=#{user_id} )
+				) B
+				ON A.INST_NO = B.INST_NO
+				WHERE  ADD_MONTHS(SYSDATE,1) >= TO_DATE(INTCHK_DATE,'YYYY-MM-DD') AND (SYSDATE-(INTERVAL '1' DAY)) <=  TO_DATE(INTCHK_DATE,'YYYY-MM-DD')  ]]>
+		) AS CNT14,
+		(
+		<![CDATA[SELECT COUNT(*) FROM INSTRUMENT A
+				JOIN
+				(
+				SELECT MNG_NO, MNG_ID ,INST_NO,MNG_SUB_ID
+				FROM INST_MNG_HIS M
+				WHERE MNG_NO = (SELECT MAX(MNG_NO) FROM INST_MNG_HIS I WHERE I.INST_NO = M.INST_NO AND I.MNG_GBN='B') AND TO_DATE(MNG_START,'YYYY-MM-DD') <= SYSDATE AND TO_DATE(MNG_END,'YYYY-MM-DD') >= (SYSDATE-(INTERVAL '1' DAY))  AND (MNG_ID =#{user_id} OR MNG_SUB_ID=#{user_id} )
+				) B
+				ON A.INST_NO = B.INST_NO
+				WHERE  (SYSDATE-(INTERVAL '1' DAY)) > TO_DATE(CRT_DATE,'YYYY-MM-DD') ]]>
+		) AS CNT15,
+		(
+		<![CDATA[SELECT COUNT(*) FROM INSTRUMENT A
+				JOIN
+				(
+				SELECT MNG_NO, MNG_ID ,INST_NO,MNG_SUB_ID
+				FROM INST_MNG_HIS M
+				WHERE MNG_NO = (SELECT MAX(MNG_NO) FROM INST_MNG_HIS I WHERE I.INST_NO = M.INST_NO AND I.MNG_GBN='A') AND TO_DATE(MNG_START,'YYYY-MM-DD') <= SYSDATE AND TO_DATE(MNG_END,'YYYY-MM-DD') >= (SYSDATE-(INTERVAL '1' DAY)) AND (MNG_ID =#{user_id} OR MNG_SUB_ID=#{user_id} )
+				) B
+				ON A.INST_NO = B.INST_NO
+				WHERE (SYSDATE-(INTERVAL '1' DAY)) > TO_DATE(INTCHK_DATE,'YYYY-MM-DD') ]]>
+		) AS CNT16
+		
+		FROM DUAL
+	</select>
+	
+	<select id="menuAuthCheck" parameterType="UserInfoVO" resultType="UserInfoVO">
+		SELECT 
+	        NVL(AUTH_SELECT,'0') AS AUTH_SELECT
+	        ,NVL(AUTH_SAVE,'0') AS AUTH_SAVE
+        FROM ROLE_GROUP_MENU
+        WHERE ROLE_NO IN (SELECT
+                            ROLE_NO 
+                        FROM ROLE_GROUP_USER
+                        WHERE USER_ID = #{user_id}
+                        )
+        AND MENU_CD = #{menu_cd}
+        ORDER BY MENU_CD
+		
+	</select>
+	
+	<select id="selectDocFileInfo" parameterType="String" resultType="String">
+		SELECT 
+        FILE_NM
+        FROM DOC_ATTACH
+        WHERE DOC_SEQ = #{doc_seq}	
+	</select>
+
+	<select id="selectMaxDocFileInfo" parameterType="String" resultType="String">
+		SELECT 
+        	MAX(DOC_SEQ || '/' || FILE_NM) KEEP (DENSE_RANK LAST ORDER BY DOC_SEQ) AS FILE_NM
+        FROM DOC_ATTACH
+        WHERE DOC_SEQ LIKE '' || #{doc_seq} || '%'	
+	</select>
+	
+	<!--  접근 IP 사용여부 -->
+	<select id="selectAccessIpFlag" parameterType="UserInfoVO" resultType="UserInfoVO">
+		SELECT USE_FLAG AS ACCESS_IP_FLAG
+		FROM COMMON_CODE 
+		WHERE CODE = 'AIF'
+	</select>
+
+
+	<!-- 성적서 정보조회 -->
+	<select id="selectReportInfo" parameterType="ReportVO" resultType="ReportVO">
+		SELECT 
+		RD.REPORT_DOC_SEQ,
+		RD.TEST_REQ_SEQ,
+		RD.REPORT_TYPE,
+		TO_CHAR(TO_DATE(TR.REQ_DATE, 'YYYYmmdd'), 'YYYY. mm. dd') REQ_DATE,  
+		TO_CHAR(TR.ACT_DATE, 'YYYY. mm. dd') ACT_DATE,  
+		TO_CHAR(RD.CREATE_DATE,'YYYY') || ' 년 ' || TO_CHAR(RD.CREATE_DATE,'mm') || ' 월 ' ||  TO_CHAR(RD.CREATE_DATE,'dd') || ' 일' AS CREATE_DATE,
+		RD.DESTINATION_NM,
+		TR.REQ_NM,
+		TR.TEST_REQ_NO,
+		RD.REQ_ORG_ADDR,
+		GET_COMMON_CODE(TR.TEST_GOAL,'') TEST_GOAL,
+		GET_COMMON_CODE(TR.REQ_CLASS,'') REQ_CLASS,		
+        (
+            SELECT REPLACE(MIN(IH1.CREATE_DATE),'/','. ')
+            FROM TEST_SAMPLE TS
+            LEFT JOIN TEST_SAMPLE_ITEM_HISTORY IH1 ON TS.TEST_SAMPLE_SEQ = IH1.TEST_SAMPLE_SEQ
+            WHERE TS.TEST_REQ_SEQ = TR.TEST_REQ_SEQ
+        ) AS TEST_SDATE,
+		(
+		    SELECT TO_CHAR(MAX(IH1.CREATE_DATE),'YYYY. MM. DD')
+		    FROM TEST_SAMPLE TS
+		    LEFT JOIN TEST_SAMPLE_ITEM_HISTORY IH1 ON TS.TEST_SAMPLE_SEQ = IH1.TEST_SAMPLE_SEQ
+		    WHERE TS.TEST_REQ_SEQ = RD.TEST_REQ_SEQ
+		) AS TEST_PERIOD,
+		TS.SAMPLE_REG_NM,	
+		PC.KOR_NM AS PRDLST_NM,	
+		SF_METHOD_LST(RD.TEST_REQ_SEQ) AS TEST_METHOD_NM,
+		GET_VERIFY_ID(RD.VERIFY_ID) AS VERIFY_ID,
+		GET_USER_NM(TR.ACT_USER_ID) AS ACT_USER_ID,
+		(
+		    SELECT DISTINCT TO_CHAR(WM_CONCAT(DISTINCT GET_USER_NM(TSI.TESTER_ID)))
+        FROM TEST_SAMPLE_ITEM TSI
+        WHERE TSI.TEST_REQ_SEQ = RD.TEST_REQ_SEQ
+		) AS TESTER_ID,
+		(
+		    SELECT TO_CHAR(WM_CONCAT(GET_USER_NM(AL.APPR_ID)))
+        FROM APPR_LINE AL        
+		    WHERE AL.TEST_REQ_SEQ = RD.TEST_REQ_SEQ AND AL.APPR_STATE = 'F' AND AL.APPR_NOWPOS = 'N' AND AL.APPR_NO = '0'
+		) AS APPR_ID,
+		RO.PRE_TEL_NUM,
+		RO.PRE_FAX_NUM,
+		RO.BIZ_NO1 || '-' || RO.BIZ_NO2 || '-' || RO.BIZ_NO3 AS BIZ_NO,
+		TS.TOT_ITEM_COUNT AS TOT_ITEM_COUNT,
+		GET_COMMON_CODE(TS.TEST_SAMPLE_RESULT,'') AS JDG_TYPE,
+		PRODUCE_DATE || '(' || TS.PRODUCE_NO || ')' AS PRODUCE_NO,
+		TS.PRODUCER_NM,
+		TS.PRODUCE_PLACE,
+		TS.SAMPLE_ETC_NM,
+		TO_CHAR(TO_DATE(TS.EXPIRY_DATE, 'YYYYmmdd'), 'YYYY. mm. dd') EXPIRY_DATE,  
+		TS.SAMPLE_WEIGHT,
+		TS.KEEP_METHOD,
+		TS.ORDERER_NM,
+		TS.BUILDER_NM,
+		TS.JOINER_NM,
+		TS.COLLECTOR_NM,
+		TO_CHAR(TO_DATE(TS.COLLECT_DATE, 'YYYYmmdd'), 'YYYY. mm. dd') COLLECT_DATE, 
+		TS.COLLECT_PLACE,
+		RD.REPORT_NO,	
+		RO.PRE_MAN,
+		TO_CHAR(TO_DATE(TR.DEPT_APPR_DATE, 'YYYYmmdd'), 'YYYY. mm. dd') DEPT_APPR_DATE,
+		1 AS TOT_SAMPLE_COUNT,
+		(SELECT
+            WM_CONCAT(GET_COMMON_CODE (ANAL.TESTITM_MLSFC_CD, '')) 
+        FROM TEST_SAMPLE_ITEM TSI JOIN ANALYSIS ANAL ON TSI.TEST_ITEM_CD = ANAL.TESTITM_CD
+        WHERE TSI.TEST_SAMPLE_SEQ = TS.TEST_SAMPLE_SEQ
+        ) AS TEST_ITEM_NM,
+        (SELECT
+        CASE
+            WHEN
+            (SELECT COUNT(*) FROM TEST_SAMPLE_ITEM TSI WHERE TEST_SAMPLE_SEQ = TS.TEST_SAMPLE_SEQ AND REPORT_DISP_VAL = 'ND')
+            =
+            (SELECT COUNT(*) FROM TEST_SAMPLE_ITEM TSI WHERE TEST_SAMPLE_SEQ = TS.TEST_SAMPLE_SEQ) 
+            THEN '검출한계미만'
+            WHEN
+            (SELECT COUNT(*) FROM TEST_SAMPLE_ITEM TSI WHERE TEST_SAMPLE_SEQ = TS.TEST_SAMPLE_SEQ AND REPORT_DISP_VAL <![CDATA[ <> ]]> 'ND')
+            =
+            (SELECT COUNT(*) FROM TEST_SAMPLE_ITEM TSI WHERE TEST_SAMPLE_SEQ = TS.TEST_SAMPLE_SEQ) 
+            THEN (SELECT 
+                    WM_CONCAT(GET_COMMON_CODE (ANAL.TESTITM_MLSFC_CD, '')||' '||ANAL.KOR_NM||' 검출 '||'('||TSI.REPORT_DISP_VAL||' '||GET_COMMON_CODE (TSI.UNIT, '')||')') 
+                  FROM TEST_SAMPLE_ITEM TSI
+                  JOIN ANALYSIS ANAL ON TSI.TEST_ITEM_CD = ANAL.TESTITM_CD 
+                  WHERE TEST_SAMPLE_SEQ = TS.TEST_SAMPLE_SEQ)
+            ELSE
+                (SELECT 
+                    WM_CONCAT(GET_COMMON_CODE (ANAL.TESTITM_MLSFC_CD, '')||' '||ANAL.KOR_NM||' 검출 '||'('||TSI.REPORT_DISP_VAL||' '||GET_COMMON_CODE (TSI.UNIT, '')||')')||' 그 외 항목 불검출' 
+                  FROM TEST_SAMPLE_ITEM TSI
+                  JOIN ANALYSIS ANAL ON TSI.TEST_ITEM_CD = ANAL.TESTITM_CD 
+                  WHERE TEST_SAMPLE_SEQ = TS.TEST_SAMPLE_SEQ AND REPORT_DISP_VAL <![CDATA[ <> ]]> 'ND')
+        END
+        FROM DUAL) AS DETECT_JDG_TYPE
+		FROM REPORT_DOC RD
+		INNER JOIN TEST_REQ TR ON RD.TEST_REQ_SEQ = TR.TEST_REQ_SEQ 
+		INNER JOIN REQ_ORG RO ON RO.REQ_ORG_NO = TR.REQ_ORG_NO 
+		INNER JOIN REPORT_SAMPLE RS ON RS.REPORT_DOC_SEQ = RD.REPORT_DOC_SEQ
+		INNER JOIN TEST_SAMPLE TS ON TS.TEST_REQ_SEQ = TR.TEST_REQ_SEQ AND TS.TEST_SAMPLE_SEQ = RS.TEST_SAMPLE_SEQ
+		INNER JOIN PRDLST_CL PC ON TS.PRDLST_CD = PC.PRDLST_CD		
+		WHERE RD.REPORT_DOC_SEQ = #{report_doc_seq}
+	</select>
+	
+	<!-- 성적서 정보조회 항목 -->
+	<select id="selectReportInfoItem" parameterType="ReportVO" resultType="ReportVO">
+		SELECT 
+			RD.REPORT_DOC_SEQ
+			,TS.TEST_SAMPLE_SEQ
+			,TS.SAMPLE_REG_NM			
+			,TSI.TEST_ITEM_CD
+			,TSI.RESULT_VAL
+			,TSI.REPORT_DISP_VAL
+			,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = TSI.JDG_TYPE) AS JDG_TYPE
+			,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = TSI.UNIT) AS UNIT
+			,TSI.STD_VAL
+			,ANAL.TESTITM_NM AS TEST_ITEM_NM
+		FROM REPORT_DOC RD
+		INNER JOIN REPORT_SAMPLE RS ON RS.REPORT_DOC_SEQ = RD.REPORT_DOC_SEQ
+		INNER JOIN TEST_SAMPLE TS ON TS.TEST_SAMPLE_SEQ = RS.TEST_SAMPLE_SEQ
+		INNER JOIN TEST_SAMPLE_ITEM TSI ON TSI.TEST_SAMPLE_SEQ = TS.TEST_SAMPLE_SEQ AND TSI.REPORT_DISP_VAL <![CDATA[ <> ]]> 'ND'
+		INNER JOIN REPORT_SAMPLE_ITEM RSI ON RSI.REPORT_SEQ = RS.REPORT_SEQ AND RSI.TEST_ITEM_SEQ = TSI.TEST_ITEM_SEQ
+		INNER JOIN ANALYSIS ANAL ON TSI.TEST_ITEM_CD = ANAL.TESTITM_CD		
+		WHERE RD.REPORT_DOC_SEQ = #{report_doc_seq}
+		ORDER BY TS.TEST_SAMPLE_SEQ, TSI.TEST_ITEM_CD
+	</select>
+	
+	<!-- 성적서 정보조회 항목(불검출) -->
+	<select id="selectReportInfoItem2" parameterType="ReportVO" resultType="ReportVO">
+		SELECT TESTITM_MLSFC_NM,TEST_ITEM_NM,CASE WHEN TEST_ITEM_NM2 IS NULL THEN '' ELSE ','||TEST_ITEM_NM2 END TEST_ITEM_NM2 FROM (
+			SELECT
+				 GET_COMMON_CODE (ANAL.TESTITM_MLSFC_CD, '') AS TESTITM_MLSFC_NM
+				,(SELECT 
+				 	WM_CONCAT(IB.TESTITM_NM)
+				  FROM TEST_SAMPLE_ITEM IA JOIN ANALYSIS IB ON IA.TEST_ITEM_CD = IB.TESTITM_CD 
+				  WHERE IA.TEST_SAMPLE_SEQ = TS.TEST_SAMPLE_SEQ AND IB.TESTITM_MLSFC_CD = ANAL.TESTITM_MLSFC_CD 
+				  AND IA.REPORT_DISP_VAL <![CDATA[ = ]]> 'ND' 
+				  AND IA.TEST_ITEM_SEQ BETWEEN 1 AND 200
+				 ) AS TEST_ITEM_NM
+				,(SELECT 
+				 	WM_CONCAT(IB.TESTITM_NM)
+				  FROM TEST_SAMPLE_ITEM IA JOIN ANALYSIS IB ON IA.TEST_ITEM_CD = IB.TESTITM_CD 
+				  WHERE IA.TEST_SAMPLE_SEQ = TS.TEST_SAMPLE_SEQ AND IB.TESTITM_MLSFC_CD = ANAL.TESTITM_MLSFC_CD 
+				  AND IA.REPORT_DISP_VAL <![CDATA[ = ]]> 'ND' 
+				  AND IA.TEST_ITEM_SEQ BETWEEN 201 AND 400
+				 ) AS TEST_ITEM_NM2
+			FROM REPORT_DOC RD
+			INNER JOIN REPORT_SAMPLE RS ON RS.REPORT_DOC_SEQ = RD.REPORT_DOC_SEQ
+			INNER JOIN TEST_SAMPLE TS ON TS.TEST_SAMPLE_SEQ = RS.TEST_SAMPLE_SEQ
+			INNER JOIN TEST_SAMPLE_ITEM TSI ON TSI.TEST_SAMPLE_SEQ = TS.TEST_SAMPLE_SEQ 
+			AND TSI.REPORT_DISP_VAL <![CDATA[ = ]]> 'ND'
+			INNER JOIN REPORT_SAMPLE_ITEM RSI ON RSI.REPORT_SEQ = RS.REPORT_SEQ AND RSI.TEST_ITEM_SEQ = TSI.TEST_ITEM_SEQ
+			INNER JOIN ANALYSIS ANAL ON TSI.TEST_ITEM_CD = ANAL.TESTITM_CD		
+			WHERE RD.REPORT_DOC_SEQ = #{report_doc_seq}
+			GROUP BY TS.TEST_SAMPLE_SEQ, ANAL.TESTITM_MLSFC_CD
+			ORDER BY TS.TEST_SAMPLE_SEQ, ANAL.TESTITM_MLSFC_CD
+		)
+	</select>
+
+	<select id="selectReportVerify" parameterType="ReportVO" resultType="ReportVO">
+		SELECT RD.REPORT_DOC_SEQ
+		FROM REPORT_DOC RD
+		WHERE RD.VERIFY_ID = #{verify_id}
+	</select>
+	
+	<select id="selectRequestInfo" parameterType="ReportVO" resultType="ReportVO">
+		SELECT 
+		TO_CHAR(TO_DATE(TR.REQ_DATE, 'YYYYmmdd'), 'YYYY. mm. dd') REQ_DATE,  
+		TO_CHAR(TR.ACT_DATE, 'YYYY. mm. dd') ACT_DATE,  
+		TR.REQ_NM,
+		TR.TEST_REQ_NO,
+		RO.ORG_NM AS DESTINATION_NM,
+		RO.ADDR1 AS REQ_ORG_ADDR,
+		GET_COMMON_CODE(TR.TEST_GOAL,'') TEST_GOAL,
+		GET_COMMON_CODE(TR.REQ_CLASS,'') REQ_CLASS,		
+        (
+            SELECT REPLACE(MIN(IH1.CREATE_DATE),'/','. ')
+            FROM TEST_SAMPLE TS
+            LEFT JOIN TEST_SAMPLE_ITEM_HISTORY IH1 ON TS.TEST_SAMPLE_SEQ = IH1.TEST_SAMPLE_SEQ
+            WHERE TS.TEST_REQ_SEQ = TR.TEST_REQ_SEQ
+        ) AS TEST_SDATE,
+		(
+		    SELECT REPLACE(MAX(IH1.CREATE_DATE),'/','. ')
+		    FROM TEST_SAMPLE TS
+		    LEFT JOIN TEST_SAMPLE_ITEM_HISTORY IH1 ON TS.TEST_SAMPLE_SEQ = IH1.TEST_SAMPLE_SEQ
+		    WHERE TS.TEST_REQ_SEQ = TR.TEST_REQ_SEQ
+		) AS TEST_PERIOD,
+		SF_SAMPLE_LST(TR.TEST_REQ_SEQ) AS SAMPLE_REG_NM,
+		SF_PRDLST_LST(TR.TEST_REQ_SEQ) AS PRDLST_NM,
+		GET_USER_NM(TR.ACT_USER_ID) AS ACT_USER_ID,
+		(
+		    SELECT GET_USER_NM(MAX(TESTER_ID))
+		    FROM TEST_SAMPLE_ITEM TSI
+		    WHERE TSI.TEST_REQ_SEQ = TR.TEST_REQ_SEQ
+		) AS TESTER_ID,
+		(
+		    SELECT A.APPR_ID
+			FROM (
+	            SELECT GET_USER_NM (APPR_ID) AS APPR_ID, AL.TEST_REQ_SEQ
+	              FROM APPR_LINE AL
+	            WHERE 1=1
+                AND AL.APPR_STATE = 'F'
+                AND AL.APPR_NOWPOS = 'N'
+                AND AL.APPR_NO = '0'
+                ORDER BY APPR_SEQ DESC
+	         ) A
+	         WHERE A.TEST_REQ_SEQ = TR.TEST_REQ_SEQ
+	         AND ROWNUM = 1
+		) AS APPR_ID,
+		RO.PRE_TEL_NUM,
+		RO.PRE_FAX_NUM,
+		RO.BIZ_NO1 || '-' || RO.BIZ_NO2 || '-' || RO.BIZ_NO3 AS BIZ_NO,
+		CASE WHEN RETURN_FLAG = 'Y' THEN '반납' ELSE '폐기' END AS RETURN_FLAG
+		FROM TEST_REQ TR
+		INNER JOIN REQ_ORG RO ON RO.REQ_ORG_NO = TR.REQ_ORG_NO 
+		WHERE TR.TEST_REQ_SEQ = #{test_req_seq}
+	</select>
+
+	<select id="selectRequestInfoItem" parameterType="ReportVO" resultType="ReportVO">
+		SELECT 
+			TS.TEST_SAMPLE_SEQ
+			,TS.SAMPLE_REG_NM
+			,TSI.TEST_ITEM_CD
+			,TSI.RESULT_VAL
+			,TSI.REPORT_DISP_VAL
+			,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = TSI.JDG_TYPE) AS JDG_TYPE
+			,(SELECT CODE_NAME FROM COMMON_CODE_DETAIL WHERE CODE = TSI.UNIT) AS UNIT
+			,ANAL.TESTITM_NM AS TEST_ITEM_NM
+		FROM TEST_SAMPLE TS, TEST_SAMPLE_ITEM TSI, ANALYSIS ANAL
+		WHERE TS.TEST_SAMPLE_SEQ = TSI.TEST_SAMPLE_SEQ 
+		AND TSI.TEST_ITEM_CD = ANAL.TESTITM_CD
+		AND TS.TEST_REQ_SEQ = #{test_req_seq}
+		ORDER BY TEST_SAMPLE_SEQ, TEST_ITEM_CD
+	</select>	
+	
+
+	<select id="selectOrgInfo" resultType="ReqOrgVO" parameterType="ReqOrgVO">
+		SELECT 
+			REQ_ORG_NO,
+			ORG_NM,
+			ORG_TYPE,
+			PRE_TEL_NUM,
+			PRE_FAX_NUM,
+			CHARGER,
+			CHARGER_TEL,
+			BIZ_NO1,
+			BIZ_NO2,
+			BIZ_NO3,
+			BIZ_FILE,
+			EMAIL,
+			ORG_DESC,
+			ZIP_CODE,
+			ADDR1,
+			ADDR2,
+			DEPT_CD,
+			DISCOUNT_RATE,
+			DISCOUNT_FLAG,
+			TO_CHAR(SYSDATE, 'YYYY-MM-DD') AS TEMP_DATE1,
+			TO_CHAR(SYSDATE, 'YYYY. MM. DD.') AS TEMP_DATE2
+			<if test='test_req_seq_list != null'>
+			,(
+				SELECT LTRIM(TO_CHAR( NVL(SUM(XA.FEE_TOT), 0) , '999,999,999,999,999'))
+				FROM TEST_REQ XA
+				WHERE XA.TEST_REQ_SEQ IN 
+			    <foreach item="item" index="index" collection="test_req_seq_list" separator="," open="(" close=")">
+			    #{item}
+			    </foreach>
+			) AS FEE_TOT			    
+			</if>			
+		FROM REQ_ORG
+		WHERE REQ_ORG_NO = #{req_org_no}
+	</select>
+	
+	<select id="selectTransactionDetails" resultType="AcceptVO" parameterType="AcceptVO">
+			SELECT
+        	ROW_NUMBER () OVER (ORDER BY A.TEST_REQ_SEQ DESC, S1.TEST_SAMPLE_SEQ ASC) AS RECEIPT_NO,
+	        A.TEST_REQ_NO,
+	        A.REQ_ORG_NO,
+	        DECODE(A.EXPRESS_FLAG,'Y','특급','일반') AS EXPRESS_FLAG,
+	        TO_CHAR(TO_DATE(A.REQ_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS REQ_DATE,
+	        NVL(TO_CHAR(A.ACT_DATE,'YYYY-MM-DD'), '') AS ACT_DATE,
+	        DECODE(OCD.TAX_INVOICE_FLAG,'Y','발행','미발행') AS TAX_INVOICE_FLAG,
+	        TO_CHAR(TO_DATE(OCD.TAX_INVOICE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') AS TAX_INVOICE_DATE,
+	        S1.SAMPLE_REG_NM,
+			S1.PRODUCER_NM,
+	        S1.SAMPLE_REG_NM,
+	        S1.ITEM_CNT,
+	        ROUND(S1.COMMISSION_AMT_DET * 1.1/10, 0) * 10 AS COMMISSION_AMT_DET,
+	        ROUND(S1.COMMISSION_AMT_DET * 0.1/10, 0) * 10 AS COMMISSION_AMT_DET_TAX
+	        FROM TEST_REQ A
+	        INNER JOIN REQ_ORG RO ON RO.REQ_ORG_NO = A.REQ_ORG_NO
+	        INNER JOIN ORG_COMMISSION_DEPOSIT OCD ON OCD.REQ_ORG_NO = A.REQ_ORG_NO AND OCD.TEST_REQ_SEQ = A.TEST_REQ_SEQ
+	        INNER JOIN (
+	            SELECT A.TEST_REQ_SEQ, S.TEST_SAMPLE_SEQ, S.SAMPLE_REG_NM, S.PRODUCER_NM,
+	            SUM(1) AS ITEM_CNT,
+	            SUM(
+	                NVL(
+	                	NVL2(
+	                		A.DISCOUNT_RATE, 
+	                		I.FEE - (
+	                			CASE WHEN A.DISCOUNT_FLAG = 'Y' THEN I.FEE * (A.DISCOUNT_RATE * 0.01) ELSE 0 END
+	                		), 
+	                	I.FEE),0
+	            	)
+	            ) AS COMMISSION_AMT_DET
+	            FROM TEST_REQ A
+	            INNER JOIN TEST_SAMPLE S ON A.TEST_REQ_SEQ = S.TEST_REQ_SEQ
+	            INNER JOIN TEST_SAMPLE_ITEM I ON S.TEST_REQ_SEQ = I.TEST_REQ_SEQ AND S.TEST_SAMPLE_SEQ = I.TEST_SAMPLE_SEQ
+	            WHERE A.REQ_ORG_NO = #{req_org_no}
+				<if test='test_req_seq_list != null'>
+				    AND A.TEST_REQ_SEQ IN 
+				    <foreach item="item" index="index" collection="test_req_seq_list" separator="," open="(" close=")">
+				    #{item}
+				    </foreach>
+				</if>
+	            GROUP BY A.TEST_REQ_SEQ, S.TEST_SAMPLE_SEQ, S.SAMPLE_REG_NM, S.PRODUCER_NM
+	    	) S1 ON A.TEST_REQ_SEQ = S1.TEST_REQ_SEQ
+	    	ORDER BY A.TEST_REQ_SEQ DESC, S1.TEST_SAMPLE_SEQ ASC
+
+	</select>
+	
+	
+	<select id="selectTransactionStatement" resultType="AcceptVO" parameterType="AcceptVO">
+		SELECT 
+        A.TEST_REQ_SEQ,
+        MAX(A.TITLE) AS TITLE,
+        SUM(1) AS ITEM_CNT,
+	        SUM(
+	            NVL(
+	            	NVL2(
+	            		A.DISCOUNT_RATE, 
+	            		I.FEE - (
+	            			CASE WHEN A.DISCOUNT_FLAG = 'Y' THEN I.FEE * (A.DISCOUNT_RATE * 0.01) ELSE 0 END
+	            		), 
+	            	I.FEE),0
+	        	)
+	        ) AS COMMISSION_AMT_DET,
+        ROUND(
+	        SUM(
+	            NVL(
+	            	NVL2(
+	            		A.DISCOUNT_RATE, 
+	            		I.FEE - (
+	            			CASE WHEN A.DISCOUNT_FLAG = 'Y' THEN I.FEE * (A.DISCOUNT_RATE * 0.01) ELSE 0 END
+	            		), 
+	            	I.FEE),0
+	        	)
+	        ) * 0.1/10
+	    , 0) * 10 AS COMMISSION_AMT_DET_TAX,
+        SUM(NVL(I.PRDLST_FEE,0)) AS PRDLST_AMT_DET
+        FROM TEST_REQ A
+        INNER JOIN TEST_SAMPLE S ON A.TEST_REQ_SEQ = S.TEST_REQ_SEQ
+        INNER JOIN TEST_SAMPLE_ITEM I ON S.TEST_REQ_SEQ = I.TEST_REQ_SEQ AND S.TEST_SAMPLE_SEQ = I.TEST_SAMPLE_SEQ
+		WHERE 1 = 1
+		<choose>
+			<when test="org_cls == 'TAX'">
+				AND A.REQ_ORG_NO3 = #{req_org_no}
+			</when>
+			<otherwise>
+				AND  A.REQ_ORG_NO = #{req_org_no}
+			</otherwise>
+		</choose>
+<if test='test_req_seq_list != null'>
+    AND A.TEST_REQ_SEQ IN 
+    <foreach item="item" index="index" collection="test_req_seq_list" separator="," open="(" close=")">
+    #{item}
+    </foreach>
+</if>
+		GROUP BY A.TEST_REQ_SEQ
+		ORDER BY A.TEST_REQ_SEQ DESC
+	</select>
+</mapper>
